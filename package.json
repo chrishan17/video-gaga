@@ -14,5 +14,23 @@
   },
   "dependencies": {
     "playwright": "^1.63.0"
-  }
+  },
+  "scripts": {
+    "doctor": "node scripts/cv.mjs doctor",
+    "render": "node scripts/cv.mjs render",
+    "still": "node scripts/cv.mjs still",
+    "examples": "for p in launch-keynote clear-explainer neon-circuit paper-sketch; do node scripts/cv.mjs render presets/$p --subs burn || exit 1; done && node scripts/cv.mjs render presets/swiss-kinetic --motion-blur 5",
+    "test": "node --test test/*.test.mjs"
+  },
+  "keywords": [
+    "agent-skill",
+    "claude",
+    "video",
+    "motion-graphics",
+    "canvas",
+    "tts",
+    "edge-tts",
+    "subtitles",
+    "ffmpeg"
+  ]
 }

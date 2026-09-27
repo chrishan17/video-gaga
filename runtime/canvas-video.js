@@ -400,7 +400,7 @@
     if (!grainTiles.length) {
       for (let k = 0; k < 8; k++) {
         const c = makeCanvas(size, size);
-        const g = c.getContext('2d');
+        const g = c.getContext('2d', { willReadFrequently: RENDER });
         const img = g.createImageData(size, size);
         const r = rand(1000 + k);
         for (let i = 0; i < img.data.length; i += 4) {
@@ -922,10 +922,14 @@
     canvas.height = Math.round(H * scale);
     canvas.__cvW = W;
     canvas.__cvH = H;
-    const ctx = canvas.getContext('2d', { alpha: false });
+    // willReadFrequently keeps every canvas on the CPU rasterizer from frame 0.
+    // Without it Chromium migrates a canvas GPU→CPU after repeated readbacks,
+    // which subtly changes anti-aliasing mid-render (non-deterministic pixels).
+    const ctxOpts = { alpha: false, willReadFrequently: RENDER };
+    const ctx = canvas.getContext('2d', ctxOpts);
     const bufs = [makeCanvas(canvas.width, canvas.height), makeCanvas(canvas.width, canvas.height)];
     bufs.forEach((b) => { b.__cvW = W; b.__cvH = H; });
-    const bctx = bufs.map((b) => b.getContext('2d', { alpha: false }));
+    const bctx = bufs.map((b) => b.getContext('2d', ctxOpts));
 
     function sceneInfo(s, T, frame) {
       const t = T - s.start;
@@ -998,6 +1002,10 @@
         paintScene(bctx[1], b, T, frame);
         const p = (tr.ease || ease.inOutCubic)(clamp((T - b.start) / tr.duration));
         const fn = typeof tr.type === 'function' ? tr.type : transitions[tr.type] || transitions.fade;
+        // start from a known state: transitions that composite with alpha must
+        // never blend over whatever the previous drawFrame() left behind
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
         fn(ctx, bufs[0], bufs[1], p, tr);
       }
       ctx.restore();
