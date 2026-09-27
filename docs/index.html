@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>canvas-video — describe a video, get a motion-designed MP4</title>
+<meta name="description" content="An agent skill that designs motion-graphics videos in HTML Canvas and renders them to MP4, with Edge TTS narration and subtitles.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;900&family=DM+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#0d0d0f; --ink:#f2f0eb; --dim:#8d8a84; --red:#e62e2d; --line:rgba(242,240,235,.12); }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:400 17px/1.55 "Archivo", system-ui, sans-serif; }
+  a { color:inherit; }
+  header { max-width:1180px; margin:0 auto; padding:88px 28px 40px; }
+  .kicker { font:400 13px "DM Mono", monospace; letter-spacing:.18em; text-transform:uppercase; color:var(--dim); }
+  h1 { font-weight:900; font-size:clamp(44px,7vw,96px); line-height:.95; letter-spacing:-.03em; margin:18px 0 22px; }
+  h1 span { color:var(--red); }
+  .lede { max-width:720px; font-size:20px; color:#d6d3cc; }
+  .cta { margin-top:28px; display:flex; gap:14px; flex-wrap:wrap; }
+  .cta a { text-decoration:none; padding:12px 18px; border:1px solid var(--line); border-radius:999px; font-weight:600; }
+  .cta a.primary { background:var(--ink); color:var(--bg); border-color:var(--ink); }
+  main { max-width:1180px; margin:0 auto; padding:0 28px 80px; }
+  .grid { display:grid; grid-template-columns:repeat(12,1fr); gap:28px; }
+  .card { grid-column:span 6; border-top:1px solid var(--line); padding-top:18px; }
+  .card.tall { grid-column:span 3; }
+  .card.sq { grid-column:span 3; }
+  video { width:100%; display:block; background:#000; border-radius:6px; }
+  .card h3 { margin:14px 0 4px; font-size:22px; letter-spacing:-.01em; }
+  .meta { font:400 12.5px "DM Mono", monospace; color:var(--dim); letter-spacing:.04em; }
+  .card p { margin:8px 0 0; color:#c9c6bf; font-size:15.5px; }
+  .card .links { margin-top:10px; font:400 13px "DM Mono", monospace; }
+  .card .links a { color:var(--dim); margin-right:14px; }
+  section.how { margin-top:72px; border-top:1px solid var(--line); padding-top:28px; display:grid; grid-template-columns:repeat(5,1fr); gap:22px; }
+  .step b { display:block; font:400 12px "DM Mono", monospace; color:var(--red); letter-spacing:.12em; margin-bottom:6px; }
+  .step { color:#cfcbc4; font-size:15px; }
+  footer { max-width:1180px; margin:0 auto; padding:28px; border-top:1px solid var(--line); color:var(--dim); font-size:14px; }
+  @media (max-width: 900px) { .card, .card.tall, .card.sq { grid-column:span 12; } section.how { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="kicker">Agent skill · Canvas → MP4 · Edge TTS · Subtitles</div>
+  <h1>Describe a video.<br>Get a <span>motion-designed</span> MP4.</h1>
+  <p class="lede">canvas-video asks a few sharp questions and shows you style frames. It writes the storyboard, then draws every frame in HTML Canvas, renders frame-exactly, and adds free narration and subtitles that sync to the word.</p>
+  <div class="cta"><a class="primary" href="https://github.com/">View on GitHub</a><a href="../README.md">Read the docs</a><a href="../README.zh-CN.md">中文说明</a></div>
+</header>
+<main>
+  <div class="grid">
+    <article class="card">
+      <video src="media/launch-keynote.mp4" poster="media/launch-keynote.jpg" controls playsinline preload="none"></video>
+      <h3>Launch Keynote</h3>
+      <div class="meta">16:9 · 16 s · EN narration · captions</div>
+      <p>A dark stage and one hero object lit by a radial wave. Specular sweeps cross the name, and numbers count on the spoken word.</p>
+      <div class="links"><a href="../presets/launch-keynote/video.html">source</a></div>
+    </article>
+    <article class="card">
+      <video src="media/clear-explainer.mp4" poster="media/clear-explainer.jpg" controls playsinline preload="none"></video>
+      <h3>Clear Explainer</h3>
+      <div class="meta">16:9 · 20 s · ZH narration · captions</div>
+      <p>Warm paper and ink type. An equation assembles on the words and the compound-interest curve is drawn in time order.</p>
+      <div class="links"><a href="../presets/clear-explainer/video.html">source</a></div>
+    </article>
+    <article class="card">
+      <video src="media/paper-sketch.mp4" poster="media/paper-sketch.jpg" controls playsinline preload="none"></video>
+      <h3>Paper Sketch</h3>
+      <div class="meta">16:9 · 16 s · ZH narration · captions</div>
+      <p>Hand-drawn strokes that boil on threes, watercolour washes, a marker swipe and page-slide transitions.</p>
+      <div class="links"><a href="../presets/paper-sketch/video.html">source</a></div>
+    </article>
+    <article class="card sq">
+      <video src="media/swiss-kinetic.mp4" poster="media/swiss-kinetic.jpg" controls playsinline preload="none"></video>
+      <h3>Swiss Kinetic</h3>
+      <div class="meta">1:1 · 14 s · silent · motion blur</div>
+      <p>A grid, one red and snaps on the beat. The square becomes the full stop.</p>
+      <div class="links"><a href="../presets/swiss-kinetic/video.html">source</a></div>
+    </article>
+    <article class="card tall">
+      <video src="media/neon-circuit.mp4" poster="media/neon-circuit.jpg" controls playsinline preload="none"></video>
+      <h3>Neon Circuit</h3>
+      <div class="meta">9:16 · 16 s · ZH narration · karaoke</div>
+      <p>Night city and a HUD. RGB split fires only on hits, and a neon sign flickers on.</p>
+      <div class="links"><a href="../presets/neon-circuit/video.html">source</a></div>
+    </article>
+  </div>
+  <section class="how">
+    <div class="step"><b>01 ASK</b>4–7 questions, each with three concrete options. One is recommended, with the reason.</div>
+    <div class="step"><b>02 SHOW</b>Three style frames rendered with your real title. You pick one.</div>
+    <div class="step"><b>03 PLAN</b>A storyboard with voice lines, focal points and the word each hit syncs to.</div>
+    <div class="step"><b>04 BUILD</b>Canvas scenes plus Edge TTS word timings. The agent reviews its own probe frames.</div>
+    <div class="step"><b>05 VERIFY</b>Parallel render and a mix normalised to −16 LUFS. <code>cv check</code> reports A/V sync, captions and duration.</div>
+  </section>
+</main>
+<footer>MIT · Built on Playwright, FFmpeg and edge-tts · Structure inspired by frontend-slides</footer>
+</body>
+</html>
