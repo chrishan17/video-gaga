@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>复利：让时间替你工作（canvas-video · Clear Explainer）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&family=DM+Mono:wght@400;500&display=block" rel="stylesheet">
+</head>
+<body>
+<script src="build/narration.js"></script>
+<script src="../../runtime/canvas-video.js"></script>
+<script>
+/* =============================================================================
+   CLEAR EXPLAINER — knowledge / infographic.
+   Warm paper, ink type, two functional accents (coral = the point, teal = the
+   evidence). Every visual appears on the word that introduces it. Charts draw
+   in the direction you read them. One idea per scene, a chapter bar on top.
+   ============================================================================= */
+const { ease, clamp, lerp, fx, draw, color } = CV;
+
+// === THEME ===================================================================
+const T = {
+  paper: '#F3EFE6',
+  ink: '#1D2433',
+  muted: '#6B7180',
+  rule: 'rgba(29,36,51,0.12)',
+  coral: '#E4572E',     // the point
+  teal: '#1B998B',      // the evidence
+  sans: '"Noto Sans SC", "PingFang SC", sans-serif',
+  mono: '"DM Mono", ui-monospace, monospace',
+};
+const F = (w, px, fam = T.sans) => `${w} ${px}px ${fam}`;
+const L = 160; // left margin (grid column 1)
+
+// Highlighter pill that grows behind a word (drawn before the text).
+function pill(ctx, x, y, w, h, p, fill) {
+  if (p <= 0) return;
+  ctx.fillStyle = fill;
+  draw.roundRect(ctx, x - 12, y - h * 0.82, (w + 24) * p, h * 1.08, 14);
+  ctx.fill();
+}
+
+function kicker(ctx, s, label, index) {
+  ctx.textAlign = 'left';
+  ctx.font = F(500, 26, T.mono);
+  ctx.fillStyle = T.muted;
+  ctx.globalAlpha = s.at(0.1, 0.5);
+  ctx.letterSpacing = '4px';
+  ctx.fillText(`${index} / 04   ${label}`, L, 150);
+  ctx.letterSpacing = '0px';
+  ctx.globalAlpha = 1;
+}
+
+// === VIDEO ===================================================================
+CV.create({
+  width: 1920, height: 1080, fps: 30,
+  background: T.paper,
+  lang: 'zh-CN',
+  transition: { type: 'push', direction: 'left', duration: 0.6, ease: ease.swift },
+  subtitles: {
+    style: { font: F(500, 42), color: T.paper, box: 'rgba(29,36,51,0.9)', y: 0.92, radius: 8 },
+  },
+  scenes: [
+    // --- 1. Hook question -------------------------------------------------------
+    {
+      id: 'hook', voiceDelay: 0.15,
+      draw(ctx, s) {
+        const { t } = s;
+        kicker(ctx, s, 'COMPOUND INTEREST · 复利', '01');
+        ctx.font = F(900, 118);
+        ctx.textAlign = 'left';
+        const y1 = 450, y2 = 610;
+        // measure "8%" inside line 1 to place the pill exactly behind it
+        const pre = '每年 ', hi = '8%', post = '，';
+        const xHi = L + ctx.measureText(pre).width, wHi = ctx.measureText(hi).width;
+        pill(ctx, xHi, y1, wHi, 118, ease.enter(clamp((t - s.when('8', 0.6)) / 0.5)), color.rgba(T.coral, 0.9));
+        ctx.fillStyle = T.ink;
+        fx.lineReveal(ctx, [pre + hi + post], L, y1, t - 0.2, { dur: 0.7 });
+        const t2 = s.when('三十', 1.6) - 0.1;
+        fx.lineReveal(ctx, ['30 年后会怎样？'], L, y2, t - t2, { dur: 0.7 });
+        // teal underline draws under "30 年"
+        ctx.strokeStyle = T.teal;
+        ctx.lineWidth = 10;
+        ctx.lineCap = 'round';
+        const w30 = ctx.measureText('30 年').width;
+        draw.drawOn(ctx, [[L, y2 + 34], [L + w30, y2 + 34]], ease.inOutCubic(clamp((t - t2 - 0.5) / 0.6)));
+        // quiet hint of what's coming: a sparkline on the right
+        ctx.strokeStyle = color.rgba(T.ink, 0.18);
+        ctx.lineWidth = 4;
+        const pts = [];
+        for (let i = 0; i <= 30; i++) pts.push([1180 + i * 18, 700 - (Math.pow(1.08, i) - 1) * 40]);
+        draw.drawOn(ctx, pts, s.at(1.2, 2.2, ease.inOutCubic));
+      },
+    },
+    // --- 2. Rule of 72: the equation assembles on the words -----------------
+    {
+      id: 'rule',
+      draw(ctx, s) {
+        const { W, t } = s;
+        kicker(ctx, s, 'RULE OF 72 · 七十二法则', '02');
+        const parts = [
+          { txt: '72', at: s.when('七十二', 0.8), col: T.ink },
+          { txt: '÷', at: s.when('除以', 2.4), col: T.muted },
+          { txt: '8%', at: s.when('收益率', 3.0), col: T.coral },
+          { txt: '=', at: s.when('就是', 3.8), col: T.muted },
+          { txt: '9', at: s.when('翻倍', 4.4), col: T.teal },
+        ];
+        ctx.font = F(900, 220);
+        const gap = 60;
+        const widths = parts.map((p) => ctx.measureText(p.txt).width);
+        const total = widths.reduce((a, b) => a + b, 0) + gap * (parts.length - 1);
+        let x = W / 2 - total / 2;
+        const y = 600;
+        parts.forEach((p, i) => {
+          const q = ease.enter(clamp((t - p.at + 0.1) / 0.55));
+          ctx.globalAlpha = q;
+          ctx.fillStyle = p.col;
+          ctx.textAlign = 'left';
+          ctx.fillText(p.txt, x, y + (1 - q) * 60);
+          if (i === 4) {
+            // annotation under the answer
+            ctx.font = F(700, 44);
+            ctx.fillStyle = T.teal;
+            ctx.globalAlpha = ease.enter(clamp((t - p.at - 0.3) / 0.5));
+            ctx.textAlign = 'center';
+            ctx.fillText('年翻一倍', x + widths[i] / 2, y + 100);
+            ctx.font = F(900, 220);
+          }
+          x += widths[i] + gap;
+        });
+        ctx.globalAlpha = 1;
+        ctx.textAlign = 'left';
+        ctx.font = F(400, 30, T.mono);
+        ctx.fillStyle = T.muted;
+        ctx.globalAlpha = s.at(s.voiceEnd - 0.4, 0.6);
+        ctx.fillText('72 ÷ 年化收益率(%) ≈ 本金翻倍所需年数', L, 900);
+        ctx.globalAlpha = 1;
+      },
+    },
+    // --- 3. The curve: draws in step with the sentence ------------------------
+    {
+      id: 'curve', tail: 1.0,
+      draw(ctx, s) {
+        const { t } = s;
+        kicker(ctx, s, '10,000 × 1.08ⁿ', '03');
+        const X0 = L + 90, X1 = 1500, Y0 = 880, Y1 = 250, maxV = 11;
+        const px = (yr) => lerp(X0, X1, yr / 30);
+        const py = (v) => lerp(Y0, Y1, v / maxV);
+        // axes + grid draw on first
+        const ax = s.at(0.1, 0.7, ease.inOutCubic);
+        ctx.strokeStyle = T.rule;
+        ctx.lineWidth = 2;
+        for (let v = 2; v <= 10; v += 2) draw.drawOn(ctx, [[X0, py(v)], [X1, py(v)]], ax);
+        ctx.strokeStyle = T.ink;
+        ctx.lineWidth = 3;
+        draw.drawOn(ctx, [[X0, Y0], [X1, Y0]], ax);
+        ctx.font = F(400, 26, T.mono);
+        ctx.fillStyle = T.muted;
+        ctx.globalAlpha = ax;
+        ctx.textAlign = 'right';
+        for (let v = 2; v <= 10; v += 2) ctx.fillText(`${v}万`, X0 - 24, py(v) + 9);
+        ctx.textAlign = 'center';
+        for (let yr = 0; yr <= 30; yr += 10) ctx.fillText(`${yr}年`, px(yr), Y0 + 48);
+        ctx.globalAlpha = 1;
+        // the line: starts on "一万元", reaches year 30 on "十万元"
+        const a = s.when('一万', 0.6), b = s.when('十万', 5.0);
+        const prog = ease.inOutQuad(clamp((t - a) / Math.max(0.5, b - a)));
+        const years = prog * 30;
+        const pts = [];
+        for (let yr = 0; yr <= years + 1e-6; yr += 0.25) pts.push([px(yr), py(Math.pow(1.08, yr))]);
+        pts.push([px(years), py(Math.pow(1.08, years))]);
+        // area under curve
+        if (pts.length > 1) {
+          ctx.beginPath();
+          ctx.moveTo(px(0), Y0);
+          pts.forEach(([x, y]) => ctx.lineTo(x, y));
+          ctx.lineTo(px(years), Y0);
+          ctx.closePath();
+          const g = ctx.createLinearGradient(0, Y1, 0, Y0);
+          g.addColorStop(0, color.rgba(T.teal, 0.22));
+          g.addColorStop(1, color.rgba(T.teal, 0.02));
+          ctx.fillStyle = g;
+          ctx.fill();
+          ctx.strokeStyle = T.teal;
+          ctx.lineWidth = 7;
+          ctx.lineJoin = 'round';
+          ctx.lineCap = 'round';
+          draw.drawOn(ctx, pts, 1);
+        }
+        // doubling markers pop as the line passes them
+        [[9, '2万'], [18, '4万'], [27, '8万']].forEach(([yr, lab]) => {
+          const q = ease.outBack(clamp((years - yr) / 1.6));
+          if (q <= 0) return;
+          const x = px(yr), y = py(Math.pow(1.08, yr));
+          ctx.fillStyle = T.paper;
+          ctx.strokeStyle = T.teal;
+          ctx.lineWidth = 5;
+          ctx.beginPath();
+          ctx.arc(x, y, 13 * q, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+          ctx.font = F(700, 34);
+          ctx.fillStyle = T.ink;
+          ctx.textAlign = 'right';
+          ctx.globalAlpha = clamp(q);
+          ctx.fillText(lab, x - 26, y - 22);
+          ctx.globalAlpha = 1;
+        });
+        // live value at the head of the line
+        if (years > 0.05) {
+          const v = Math.pow(1.08, years);
+          const hx = px(years), hy = py(v);
+          ctx.fillStyle = T.coral;
+          ctx.beginPath();
+          ctx.arc(hx, hy, 11, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.font = F(900, years >= 29.9 ? 76 : 48);
+          ctx.textAlign = 'left';
+          ctx.fillStyle = years >= 29.9 ? T.coral : T.ink;
+          ctx.fillText(`${v.toFixed(2)} 万`, hx + 28, hy + 16);
+        }
+        ctx.font = F(400, 24, T.mono);
+        ctx.fillStyle = T.muted;
+        ctx.textAlign = 'right';
+        ctx.globalAlpha = s.at(0.3, 0.5);
+        ctx.fillText('示意计算：本金 1 万元，年化 8%，按年复利，不含税费', 1920 - L, 150);
+        ctx.globalAlpha = 1;
+      },
+    },
+    // --- 4. Takeaway -----------------------------------------------------------
+    {
+      id: 'takeaway', tail: 0.5,
+      draw(ctx, s) {
+        const { t } = s;
+        kicker(ctx, s, 'TAKEAWAY · 结论', '04');
+        ctx.font = F(900, 150);
+        ctx.textAlign = 'left';
+        ctx.fillStyle = T.ink;
+        const t1 = s.when('越早', 0.5) - 0.1;
+        fx.lineReveal(ctx, ['越早开始，'], L, 470, t - t1, { dur: 0.7 });
+        const t2 = s.when('时间', 1.4) - 0.1;
+        const w = (ctx.measureText('时间').width);
+        pill(ctx, L, 660, w, 150, ease.enter(clamp((t - t2 - 0.35) / 0.5)), color.rgba(T.teal, 0.28));
+        ctx.fillStyle = T.ink;
+        fx.lineReveal(ctx, ['时间越站在你这边。'], L, 660, t - t2, { dur: 0.7 });
+      },
+    },
+  ],
+  // Chapter progress bar: a quiet orientation device
+  overlay(ctx, g) {
+    const segs = g.scenes.length;
+    const w = (g.W - L * 2 - (segs - 1) * 12) / segs;
+    g.scenes.forEach((sc, i) => {
+      const x = L + i * (w + 12);
+      ctx.fillStyle = T.rule;
+      ctx.fillRect(x, 72, w, 6);
+      const p = clamp((g.T - sc.start) / sc.dur);
+      ctx.fillStyle = T.coral;
+      ctx.fillRect(x, 72, w * p, 6);
+    });
+    draw.grain(ctx, g.frame, 0.05, { blend: 'multiply' });
+  },
+});
+</script>
+</body>
+</html>

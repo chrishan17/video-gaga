@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Less, but better — kinetic typography (canvas-video · Swiss Kinetic)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;700;900&display=block" rel="stylesheet">
+</head>
+<body>
+<script src="../../runtime/canvas-video.js"></script>
+<script>
+/* =============================================================================
+   SWISS KINETIC — International Typographic Style in motion.
+   Grid first. One red. Type is the image. Moves are hard, fast and exact:
+   quick-out easing, hard cuts on the beat, no fades, no glow, no bounce.
+   Everything snaps to a 12-column grid and a 100 BPM beat (0.6 s).
+   ============================================================================= */
+const { ease, clamp, lerp, fx, draw, color, text } = CV;
+
+// === THEME ===================================================================
+const T = {
+  paper: '#F2F0EB',
+  ink: '#111111',
+  red: '#E62E2D',
+  font: '"Archivo", "Helvetica Neue", Arial, sans-serif',
+};
+const F = (w, px) => `${w} ${px}px ${T.font}`;
+const BPM = 100, B = 60 / BPM;          // one beat = 0.6 s
+const beat = (n) => n * B;
+const M = 72;                            // outer margin
+const COLS = 12;
+
+// Snap-in: fast start, dead stop — the Swiss move.
+const snap = ease.bezier(0.7, 0, 0.1, 1);
+
+function grid(ctx, W, H, p, col) {
+  ctx.strokeStyle = col;
+  ctx.lineWidth = 1;
+  const cw = (W - M * 2) / COLS;
+  for (let i = 0; i <= COLS; i++) {
+    const q = snap(clamp(p * 1.6 - i * 0.05));
+    const x = M + i * cw;
+    ctx.beginPath();
+    ctx.moveTo(x, M);
+    ctx.lineTo(x, M + (H - M * 2) * q);
+    ctx.stroke();
+  }
+  for (const y of [M, H / 3, (H / 3) * 2, H - M]) {
+    ctx.beginPath();
+    ctx.moveTo(M, y);
+    ctx.lineTo(M + (W - M * 2) * snap(clamp(p * 1.4)), y);
+    ctx.stroke();
+  }
+}
+
+function label(ctx, str, x, y, col = T.ink, align = 'left') {
+  ctx.font = F(500, 22);
+  ctx.letterSpacing = '3px';
+  ctx.textAlign = align;
+  ctx.fillStyle = col;
+  ctx.fillText(str.toUpperCase(), x, y);
+  ctx.letterSpacing = '0px';
+}
+
+// === VIDEO ===================================================================
+CV.create({
+  width: 1080, height: 1080, fps: 30,
+  background: T.paper,
+  lang: 'en',
+  scenes: [
+    // --- 1. "Less," ------------------------------------------------------------
+    {
+      id: 'less', duration: beat(6),
+      draw(ctx, s) {
+        const { W, H, t } = s;
+        grid(ctx, W, H, t / beat(1.5), color.rgba(T.ink, 0.1));
+        label(ctx, 'Principle 10', M, M - 26);
+        label(ctx, 'Dieter Rams', W - M, M - 26, T.ink, 'right');
+        // red square: slides in on beat 1, then shrinks to a marker on beat 4
+        const inP = snap(clamp((t - beat(1)) / 0.35));
+        const outP = snap(clamp((t - beat(4)) / 0.4));
+        const size = lerp(390, 54, outP);
+        const x = lerp(lerp(-400, M, inP), W - M - 54, outP);
+        const y = lerp(M + 60, M + 60, outP);
+        ctx.fillStyle = T.red;
+        ctx.fillRect(x, y, size, size);
+        // "Less," slams up out of a mask on beat 2
+        ctx.font = F(900, 330);
+        ctx.letterSpacing = '-14px';
+        ctx.fillStyle = T.ink;
+        ctx.textAlign = 'left';
+        const base = H - M - 40;
+        fx.mask(ctx, 0, base - 300, W, 380, () => {
+          const p = snap(clamp((t - beat(2)) / 0.4));
+          ctx.fillText('Less,', M - 12, base + (1 - p) * 330);
+        });
+        ctx.letterSpacing = '0px';
+      },
+    },
+    // --- 2. "but" — inverted field, hard cut ---------------------------------------
+    {
+      id: 'but', duration: beat(3), background: T.ink,
+      draw(ctx, s) {
+        const { W, H, t } = s;
+        grid(ctx, W, H, 1, color.rgba(T.paper, 0.08));
+        ctx.font = F(700, 150);
+        ctx.textAlign = 'center';
+        ctx.fillStyle = T.paper;
+        // three stacked echoes that collapse into one word on the downbeat
+        const p = snap(clamp(t / 0.5));
+        for (let k = 2; k >= 0; k--) {
+          ctx.globalAlpha = k === 0 ? 1 : 0.18 * (1 - p);
+          ctx.fillText('but', W / 2, H / 2 + 50 + (k - 0) * 170 * (1 - p));
+        }
+        ctx.globalAlpha = 1;
+        // red marker drops to underline the word on beat 1
+        const q = snap(clamp((t - beat(1)) / 0.35));
+        ctx.fillStyle = T.red;
+        const w = ctx.measureText('but').width;
+        // continuity: it starts exactly where scene 1 parked it (top-right)
+        ctx.fillRect(lerp(W - M - 54, W / 2 - w / 2, q), lerp(M + 60, H / 2 + 90, q), lerp(54, w, q), lerp(54, 16, q));
+      },
+    },
+    // --- 3. "better." — tracking closes in, the red square becomes the full stop ---
+    {
+      id: 'better', duration: beat(6),
+      transition: { type: 'push', direction: 'up', duration: 0.35, ease: snap },
+      draw(ctx, s) {
+        const { W, H, t } = s;
+        grid(ctx, W, H, 1, color.rgba(T.ink, 0.1));
+        label(ctx, 'Weniger, aber besser', M, M - 26);
+        const track = lerp(80, -16, ease.enter(clamp(t / beat(2.5))));
+        ctx.letterSpacing = `${track.toFixed(1)}px`;
+        const size = text.fitSize(ctx, 'better', `900 {size}px ${T.font}`, W - M * 2 - 90, 400);
+        ctx.fillStyle = T.ink;
+        ctx.textAlign = 'left';
+        const y = H / 2 + size * 0.36;
+        const w = ctx.measureText('better').width;
+        ctx.fillText('better', M - 6, y);
+        ctx.letterSpacing = '0px';
+        // full stop: the red square falls into place on beat 3
+        const q = snap(clamp((t - beat(3)) / 0.4));
+        const dot = size * 0.17;
+        ctx.fillStyle = T.red;
+        ctx.fillRect(lerp(W - M - 54, M - 6 + w + 10, q), lerp(M + 60, y - dot, q), lerp(54, dot, q), lerp(54, dot, q));
+        // line under, drawn on the last beat
+        ctx.fillStyle = T.ink;
+        ctx.fillRect(M, y + 60, (W - M * 2) * snap(clamp((t - beat(4)) / 0.5)), 6);
+      },
+    },
+    // --- 4. The ten principles, set as a ledger ------------------------------------
+    {
+      id: 'principles', duration: beat(9),
+      draw(ctx, s) {
+        const { W, H, t } = s;
+        grid(ctx, W, H, 1, color.rgba(T.ink, 0.1));
+        label(ctx, 'Ten principles for good design', M, M - 26);
+        const items = ['Innovative', 'Useful', 'Aesthetic', 'Understandable', 'Unobtrusive', 'Honest', 'Long-lasting', 'Thorough', 'Environmentally friendly', 'As little design as possible'];
+        const top = M + 70, lh = 78;
+        items.forEach((it, i) => {
+          const p = snap(clamp((t - 0.15 - i * 0.14) / 0.35));
+          if (p <= 0) return;
+          const last = i === items.length - 1;
+          const hi = last ? snap(clamp((t - beat(4)) / 0.4)) : 0;
+          const y = top + i * lh;
+          // rule
+          ctx.fillStyle = color.rgba(T.ink, 0.9);
+          ctx.fillRect(M, y + 18, (W - M * 2) * p, 2);
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(M, y - 60, W - M * 2, 78);
+          ctx.clip();
+          const dy = (1 - p) * 70;
+          ctx.font = F(500, 26);
+          ctx.textAlign = 'left';
+          ctx.fillStyle = last ? color.mix(T.ink, T.red, hi) : T.ink;
+          ctx.fillText(String(i + 1).padStart(2, '0'), M, y + dy);
+          const cw = (W - M * 2) / COLS;
+          ctx.font = F(last ? 900 : 700, 46);
+          ctx.letterSpacing = '-1px';
+          ctx.fillText(it, M + cw * 2, y + dy);
+          ctx.letterSpacing = '0px';
+          ctx.restore();
+        });
+        // everything but the last principle recedes: hierarchy by subtraction
+        const fade = snap(clamp((t - beat(4)) / 0.5));
+        ctx.fillStyle = color.rgba(T.paper, 0.72 * fade);
+        ctx.fillRect(M, top - 60, W - M * 2, lh * 9 - 4);
+        label(ctx, 'Weniger, aber besser — Dieter Rams', W - M, H - M + 44, T.ink, 'right');
+      },
+    },
+  ],
+});
+</script>
+</body>
+</html>
