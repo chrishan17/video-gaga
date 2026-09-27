@@ -160,7 +160,7 @@ CV.create({
   scenes: [
     // --- 1. Title ------------------------------------------------------------------
     {
-      id: 'title', minDuration: 3.6,
+      id: 'title', minDuration: 3.6, tail: 1.15,
       draw(ctx, s) {
         const { W, H, t } = s;
         paper(ctx, W, H);
@@ -182,7 +182,7 @@ CV.create({
     },
     // --- 2. 25 minutes of focus -----------------------------------------------------
     {
-      id: 'focus',
+      id: 'focus', tail: 1.1,
       draw(ctx, s) {
         const { W, H, t } = s;
         paper(ctx, W, H);
@@ -225,7 +225,7 @@ CV.create({
     },
     // --- 3. 5-minute break --------------------------------------------------------
     {
-      id: 'rest',
+      id: 'rest', tail: 1.1,
       draw(ctx, s) {
         const { W, H, t } = s;
         paper(ctx, W, H);
@@ -271,7 +271,7 @@ CV.create({
     },
     // --- 4. The cycle ----------------------------------------------------------------
     {
-      id: 'cycle', tail: 1.2,
+      id: 'cycle', tail: 1.75,
       draw(ctx, s) {
         const { W, H, t } = s;
         paper(ctx, W, H);

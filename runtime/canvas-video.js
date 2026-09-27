@@ -725,6 +725,40 @@
     });
   }
 
+  // When the last word ends (s). TTS clips carry trailing silence, so the clip
+  // duration overstates how long the voice actually speaks.
+  function speechEnd(seg) {
+    const w = seg?.words;
+    if (!w || !w.length) return seg?.duration ?? 0;
+    return Math.min(seg.duration ?? Infinity, w[w.length - 1].end);
+  }
+
+  // Start time (s, relative to the clip) of a spoken phrase, or null.
+  // Exact word / run of words first, so a short phrase ("S", "in") can't match
+  // inside an earlier word; then a substring match as a fallback.
+  function findPhrase(words, phrase) {
+    if (!words || !words.length) return null;
+    const n = (x) => String(x).replace(/[\s\p{P}]/gu, '').toLowerCase();
+    const want = n(phrase);
+    if (!want) return null;
+    const scan = (loose) => {
+      for (let i = 0; i < words.length; i++) {
+        const wi = n(words[i].text);
+        if (!wi) continue;
+        if (loose ? wi.includes(want) : wi === want) return words[i].start;
+        // phrase spans several words starting at word i
+        let acc = '';
+        for (let j = i; j < words.length; j++) {
+          acc += n(words[j].text);
+          if (loose ? acc.startsWith(want) : acc === want) return words[i].start;
+          if (!want.startsWith(acc)) break;
+        }
+      }
+      return null;
+    };
+    return scan(false) ?? scan(true);
+  }
+
   // Build subtitle cues for one narration segment.
   // opts: { maxChars, minChars, lang, punctuation: 'strip'|'keep', offset }
   function buildCues(textStr, wordList, opts = {}) {
@@ -763,7 +797,8 @@
       group.push(w);
       const t = w.trail.trim();
       if (t && SENT_END.test(t)) { phrases.push(group); group = []; }
-      else if (t && CLAUSE_END.test(t) && len(spanText(group)) >= minChars) { phrases.push(group); group = []; }
+      // minChars counts spoken characters: "中文、日文、" is 4, not 6
+      else if (t && CLAUSE_END.test(t) && len(spanText(group).replace(STRIP_PUNCT, '')) >= minChars) { phrases.push(group); group = []; }
     });
     if (group.length) phrases.push(group);
     // 2) long phrases: split into k balanced chunks at word boundaries (no orphans)
@@ -897,8 +932,11 @@
       else if (segId && config.script?.[segId]) seg = { text: config.script[segId], ...estimateSpeech(config.script[segId], lang) };
       s.voice = seg;
       s.voiceDelay = s.voiceDelay ?? config.voiceDelay ?? overlap * 0.5 + 0.25;
+      // Size from the last spoken word, not the clip: Edge TTS clips end with
+      // 0.4–1.1 s of silence, which would otherwise pad every voiced scene.
+      s.speech = seg ? speechEnd(seg) : 0;
       const tail = s.tail ?? config.tail ?? 0.55;
-      const need = seg ? s.voiceDelay + seg.duration + tail : 0;
+      const need = seg ? s.voiceDelay + s.speech + tail : 0;
       s.dur = s.duration ?? Math.max(s.minDuration ?? (seg ? 0 : 3), need);
       if (s.maxDuration) s.dur = Math.min(s.dur, s.maxDuration);
       s.end = s.start + s.dur;
@@ -911,10 +949,14 @@
     let cues = [];
     const subOpts = Object.assign({ lang }, config.subtitles || {});
     if (H > W && subOpts.maxChars == null) subOpts.maxChars = /^(zh|ja|ko)/.test(lang) ? 12 : 28;
+    // scene.captions: true (default) | 'file' (in .srt/.vtt, not burned) | false (no cue)
     for (const s of scenes) {
-      if (!s.voice || !s.voice.words) continue;
-      cues = cues.concat(buildCues(s.voice.text, s.voice.words, { ...subOpts, offset: s.start + s.voiceDelay }));
+      if (!s.voice || !s.voice.words || s.captions === false) continue;
+      const sc = buildCues(s.voice.text, s.voice.words, { ...subOpts, offset: s.start + s.voiceDelay });
+      if (s.captions === 'file') sc.forEach((c) => { c.burn = false; });
+      cues = cues.concat(sc);
     }
+    const burnCues = cues.filter((c) => c.burn !== false);
 
     // ---- canvas ---------------------------------------------------------------
     const canvas = config.canvas || document.createElement('canvas');
@@ -945,31 +987,15 @@
         isRender: RENDER, lang,
         voice: s.voice,
         voiceStart: s.voice ? s.voiceDelay : 0,
-        voiceEnd: s.voice ? s.voiceDelay + s.voice.duration : 0,
+        voiceEnd: s.voice ? s.voiceDelay + s.speech : 0, // last spoken word, not the clip's trailing silence
         scene: s,
       };
       // eased local progress helper: s.at(start, dur, ease)
       info.at = (start, dur, e) => progress(t, start, dur, e);
       // local time when a phrase is spoken (falls back if not found)
       info.when = (phrase, fallback = 0) => {
-        if (!s.voice || !s.voice.words) return fallback;
-        const ws = s.voice.words;
-        const n = (x) => String(x).replace(/[\s\p{P}]/gu, '').toLowerCase();
-        const want = n(phrase);
-        if (!want) return fallback;
-        for (let i = 0; i < ws.length; i++) {
-          const wi = n(ws[i].text);
-          if (!wi) continue;
-          if (wi.includes(want)) return s.voiceDelay + ws[i].start;
-          // phrase spans several words starting at word i
-          let acc = '';
-          for (let j = i; j < ws.length; j++) {
-            acc += n(ws[j].text);
-            if (acc.startsWith(want)) return s.voiceDelay + ws[i].start;
-            if (!want.startsWith(acc)) break;
-          }
-        }
-        return fallback;
+        const at = findPhrase(s.voice?.words, phrase);
+        return at == null ? fallback : s.voiceDelay + at;
       };
       return info;
     }
@@ -1012,7 +1038,7 @@
       ctx.save();
       ctx.setTransform(scale, 0, 0, scale, 0, 0);
       if (config.overlay) config.overlay(ctx, { T, frame, fps, W, H, u: Math.min(W, H) / 1080, duration, p: T / duration, scenes, isRender: RENDER });
-      if (burnSubs && cues.length) drawSubtitles(ctx, cues, T, config.subtitles?.style);
+      if (burnSubs && burnCues.length) drawSubtitles(ctx, burnCues, T, config.subtitles?.style);
       ctx.restore();
     }
 
@@ -1174,6 +1200,7 @@
     create, ease, spring, progress, tween, springTrack, stagger, clamp, lerp, invLerp, remap,
     rand, noise, color, text, draw, fx, transitions, image, drawCover,
     subtitles: { build: buildCues, draw: drawSubtitles, estimate: estimateSpeech, align: alignWords },
+    speech: { end: speechEnd, find: findPhrase },
     RENDER, version: '0.1.0',
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = CV;
