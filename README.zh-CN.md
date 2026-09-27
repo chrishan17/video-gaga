@@ -19,7 +19,7 @@
 
 ## 风格画廊
 
-下面每个示例都由本 skill 的 CLI 从 [`presets/`](presets/) 里的文件渲染而成。GIF 只截取片段，点"视频"可以看带声音的完整版（压缩后的 720p）。1080p 原画可以用一条命令重新渲染，也可以从 Release 附件下载。
+下面每个示例都由本 skill 的 CLI 从 [`presets/`](presets/) 里的文件渲染而成。GIF 只截取片段，点"视频"可以看带声音的完整版（压缩后的 720p）。1080p 原画可以用一条命令重新渲染，也可以从 [Release 附件](https://github.com/chrishan17/canvas-video/releases/tag/v0.1.0) 下载。
 
 | 风格 | 说明 |
 |---|---|
@@ -44,7 +44,7 @@
 依赖：**Node ≥ 18**、**ffmpeg**（需带 libx264）、**uv**（推荐；或 `pip install edge-tts`）。字体和 TTS 需要联网。
 
 ```bash
-git clone https://github.com/<you>/canvas-video.git ~/.claude/skills/canvas-video
+git clone https://github.com/chrishan17/canvas-video.git ~/.claude/skills/canvas-video
 cd ~/.claude/skills/canvas-video && npm install
 npx playwright install chromium      # 本机已有浏览器可跳过
 node scripts/cv.mjs doctor           # 环境自检

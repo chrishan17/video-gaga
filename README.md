@@ -19,7 +19,7 @@
 
 ## Style gallery
 
-Every example below was rendered by the skill's own CLI from the files in [`presets/`](presets/). The GIFs are short excerpts; click through for the full video with sound (compressed 720p). Full-quality 1080p renders can be reproduced with one command, or downloaded from the release assets.
+Every example below was rendered by the skill's own CLI from the files in [`presets/`](presets/). The GIFs are short excerpts; click through for the full video with sound (compressed 720p). Full-quality 1080p renders can be reproduced with one command, or downloaded from the [release assets](https://github.com/chrishan17/canvas-video/releases/tag/v0.1.0).
 
 | | |
 |---|---|
@@ -50,7 +50,7 @@ Requirements: **Node ≥ 18**, **ffmpeg** (with libx264) and **uv** (recommended
 ### Claude Code
 
 ```bash
-git clone https://github.com/<you>/canvas-video.git ~/.claude/skills/canvas-video
+git clone https://github.com/chrishan17/canvas-video.git ~/.claude/skills/canvas-video
 cd ~/.claude/skills/canvas-video && npm install
 npx playwright install chromium        # only if you don't already have it
 node scripts/cv.mjs doctor             # checks everything
