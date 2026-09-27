@@ -457,7 +457,36 @@ async function voices(opts) {
   log(lines.slice(2).filter((l) => !lang || l.startsWith(lang)).join('\n'));
 }
 
+async function doctor() {
+  let ok = true;
+  const row = (good, name, detail) => { log(`  ${good ? '✔' : '✖'} ${name.padEnd(18)} ${detail}`); if (!good) ok = false; };
+  const major = Number(process.versions.node.split('.')[0]);
+  row(major >= 18, 'node', `v${process.versions.node}${major >= 18 ? '' : ' (need ≥ 18)'}`);
+  const ff = spawnSync('ffmpeg', ['-hide_banner', '-encoders'], { encoding: 'utf8' });
+  row(ff.status === 0 && /libx264/.test(ff.stdout), 'ffmpeg + libx264', ff.status === 0 ? (/libx264/.test(ff.stdout) ? 'ok' : 'ffmpeg found but libx264 missing') : 'not found — brew install ffmpeg / apt install ffmpeg');
+  row(has('ffprobe'), 'ffprobe', has('ffprobe') ? 'ok' : 'not found (ships with ffmpeg)');
+  let pw = null;
+  try { pw = await import('playwright'); row(true, 'playwright', 'ok'); } catch { row(false, 'playwright', `not installed — cd ${ROOT} && npm install`); }
+  if (pw) {
+    try {
+      const b = await pw.chromium.launch({ args: ['--allow-file-access-from-files'] });
+      const v = b.version();
+      await b.close();
+      row(true, 'chromium', `headless ${v}`);
+    } catch (e) {
+      row(false, 'chromium', `cannot launch (${e.message.split('\n')[0].slice(0, 80)}) — npx playwright install chromium; in sandboxed agents run with browser permission`);
+    }
+  }
+  const uv = has('uv');
+  const py = spawnSync('python3', ['-c', 'import edge_tts;print(edge_tts.__version__)'], { encoding: 'utf8' });
+  row(uv || py.status === 0, 'edge-tts', uv ? 'via uv (fetched on first use)' : py.status === 0 ? `python edge-tts ${py.stdout.trim()}` : 'install uv (recommended) or pip install edge-tts');
+  log(ok ? '\nReady to render.' : '\nFix the ✖ items above, then re-run doctor.');
+  process.exitCode = ok ? 0 : 1;
+}
+
 const HELP = `canvas-video — Canvas motion graphics → MP4
+
+doctor                        check node, ffmpeg, Playwright/Chromium and Edge TTS
 
 render <project|video.html>   render to MP4 (runs Edge TTS first if narration.json exists)
     --out <file.mp4>          default <project>/out/<name>.mp4
@@ -484,6 +513,6 @@ voices [--lang zh-CN]         list Edge TTS voices
 
 const opts = parseArgs(process.argv.slice(2));
 const cmd = opts._[0];
-const main = { render, still, tts: (o) => tts(resolveProject(o._[1]).dir), check: (o) => { const issues = report(path.resolve(o._[1] || die('missing file')), o.srt ? path.resolve(o.srt) : null); process.exitCode = issues.length ? 2 : 0; }, gif, init, voices }[cmd];
+const main = { doctor, render, still, tts: (o) => tts(resolveProject(o._[1]).dir), check: (o) => { const issues = report(path.resolve(o._[1] || die('missing file')), o.srt ? path.resolve(o.srt) : null); process.exitCode = issues.length ? 2 : 0; }, gif, init, voices }[cmd];
 if (!main) { log(HELP); process.exit(cmd && cmd !== 'help' ? 1 : 0); }
 Promise.resolve(main(opts)).catch((e) => die(e.stack || e.message));
