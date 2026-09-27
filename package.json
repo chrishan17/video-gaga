@@ -1,0 +1,18 @@
+{
+  "name": "canvas-video",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Agent skill: design motion-graphics videos in HTML Canvas and render them to MP4, with optional Edge TTS narration and subtitles.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Chris Han <chris.han@castlery.org>",
+  "bin": {
+    "canvas-video": "scripts/cv.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "playwright": "^1.63.0"
+  }
+}

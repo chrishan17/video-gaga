@@ -1,0 +1,72 @@
+# Tech selection
+
+> Status: decided · Last verified: 2026-09-27 · Owner: canvas-video
+
+**Decision: build on plain Canvas 2D and a small zero-dependency runtime. Headless Chromium (Playwright) renders frames in parallel, ffmpeg (libx264) encodes them, and Edge TTS provides narration. WebGL is optional inside a composition, and GSAP and anime.js are optional there too. None of them is required.**
+
+## What we need
+
+A coding agent writes one HTML file. We turn that file into a correct MP4 with:
+
+1. **Determinism and frame accuracy.** Frame *N* must be a pure function of `t = N / fps`. That lets us seek to any frame, render out of order, and split the timeline across workers.
+2. **Agent ergonomics.** It should be plain web tech the model already knows well, with no build step. A mistake should throw a readable error, not produce a silently wrong frame.
+3. **Free and open source,** usable by companies of any size.
+4. **Audio.** Narration has to drive the timeline, and we need to mix voice and music and mux them.
+5. **Light dependencies.** Node, Chromium and ffmpeg. Nothing else.
+
+## Candidates
+
+| Option | Determinism / frame accuracy | Speed (1080p) | Dependency weight | Agent ergonomics | License | Audio |
+|---|---|---|---|---|---|---|
+| **Canvas 2D + own runtime + Playwright → ffmpeg** (chosen) | ✅ Exact. We call `drawFrame(n)` and nothing runs between frames | ≈50 ms/frame PNG, ≈14 ms JPEG per page. Scales linearly with parallel pages (see benchmark) | Playwright (Apache-2.0) and ffmpeg | ✅ The model already writes Canvas code. One HTML file, no build | MIT (ours) + Apache-2.0 + LGPL/GPL ffmpeg binary | ffmpeg filtergraph: adelay, amix, sidechain ducking, loudnorm |
+| DOM/CSS + page screenshots (timecut/timesnap, puppeteer-screen-recorder) | ⚠️ timecut virtualises time, but CSS animations and transitions are hard to seek exactly. Screen recorders are real-time and drop frames | `page.screenshot` JPEG ≈21 ms, PNG ≈200 ms | Puppeteer | Good, but DOM layout and fonts can shift between frames | BSD-3 / MIT. timecut was last published in 2022 | none built in |
+| **WebCodecs VideoEncoder + Mediabunny** (in-page encoding) | ✅ You encode exactly the frames you draw | Fast (hardware encoder) | Mediabunny (MPL-2.0). `mp4-muxer` is deprecated in favour of it | Medium: async encoder queue, codec strings, backpressure | MPL-2.0 | Needs AudioEncoder, or muxing afterwards |
+| **Remotion** | ✅ Frame-based React (`useCurrentFrame`) | Good, with parallel rendering | React + bundler, heavy | Good, and it has official agent skills | ❌ **Not free for companies with 4 or more people.** Company License from remotion.pro | Excellent |
+| **HyperFrames** (HeyGen) | ✅ Seekable HTML/GSAP compositions | Good | Node ≥ 22, a large CLI plus 21 skills | Built for agents | Apache-2.0 | Yes |
+| **Motion Canvas** | ✅ Generator-based timeline | Good | Vite project and editor | Medium: its own scene/generator DSL | MIT | Yes, in the editor. Last npm publish was Feb 2025 |
+| **Revideo** (Motion Canvas fork) | ✅ | Good, headless | Vite + renderer packages | Medium | MIT | Yes |
+| **GSAP** (animation library only) | ✅ when paused and seeked with `tl.seek(t)` | n/a | 1 file | The model knows it well | "Standard no-charge" license: free, including commercial use | n/a |
+| **anime.js v4** (animation library only) | ✅ with `seek()` | n/a | 1 package | Good | MIT | n/a |
+| Theatre.js / Lottie | Theatre: seekable, needs a studio UI to author. Lottie: seekable, needs AE/JSON authoring | n/a | medium | Poor for text-first agents | Apache-2.0 / MIT | n/a |
+
+### Verified facts (with sources)
+
+- **Remotion.** Free for individuals, non-profits and for-profit companies with up to 3 people. Once 4 or more people work on the Remotion code for a project, you need a paid Company License (Creators seats; Automators ≥ $100/mo for prompt-to-video products; Enterprise ≥ $500/mo). [remotion.dev/docs/license/faq](https://www.remotion.dev/docs/license/faq) · [remotion.pro/license](https://www.remotion.pro/license) · npm license field: `SEE LICENSE IN LICENSE.md` (v4.0.529).
+- **GSAP.** Since 2025-04-30, all of GSAP, including the former Club plugins (SplitText, MorphSVG, …), is free under Webflow's "Standard 'No Charge' License", commercial use included. The only notable restriction: you may not use it in a visual, no-code animation builder that competes with Webflow. [gsap.com/community/standard-license](https://gsap.com/community/standard-license/) · [webflow.com/updates/gsap-becomes-free](https://webflow.com/updates/gsap-becomes-free) · npm `gsap@3.15.0`. Because canvas-video is itself an animation-authoring tool, **we do not bundle GSAP**. A user can still use it inside their own composition.
+- **anime.js.** v4.5.0, MIT (npm).
+- **mp4-muxer.** v5.2.2 (MIT) is deprecated by its author in favour of **Mediabunny** (v1.60.0, MPL-2.0). [vanilagy.github.io/mp4-muxer](https://vanilagy.github.io/mp4-muxer/) · npm.
+- **Motion Canvas.** `@motion-canvas/core@3.17.2`, MIT, last published 2025-02-16. **Revideo.** `@revideo/core@0.11.0`, MIT. The team now focuses on its commercial Midrender product. [github.com/midrender/revideo](https://github.com/midrender/revideo) · [midrender.com/revideo](https://midrender.com/revideo).
+- **HyperFrames.** `hyperframes@0.8.80`, Apache-2.0, Node ≥ 22, HTML + seekable animations → MP4, and ships agent skills. [github.com/heygen-com/hyperframes](https://github.com/heygen-com/hyperframes). This is the closest alternative. See the section "Why not HyperFrames" below.
+- **Playwright** `1.63.0` and **Puppeteer** `25.12.0` are both Apache-2.0.
+- **edge-tts** `7.2.8` is LGPLv3; `srt_composer.py` is MIT. We call it as an external tool and do not vendor it. [github.com/rany2/edge-tts](https://github.com/rany2/edge-tts)
+- **ffmpeg** is LGPL/GPL. Builds with libx264 are GPL. We invoke the user's installed binary and do not redistribute it.
+
+### Local benchmark (Apple Silicon, 12 cores, Chromium 153 headless shell, 1920×1080 busy frame)
+
+| Capture method | ms / frame | bytes / frame |
+|---|---|---|
+| `canvas.toDataURL('image/jpeg', .95)` | **13.5** | 240 KB |
+| `canvas.toDataURL('image/png')` | 49.7 | 2.0 MB |
+| `page.screenshot({type:'jpeg'})` | 20.7 | 169 KB |
+| `page.screenshot({type:'png'})` | 199.7 | 756 KB |
+| CDP `Page.captureScreenshot` png `optimizeForSpeed` | 66.9 | 1.7 MB |
+| `getImageData` → base64 raw RGBA | 96.6 | 8.1 MB |
+
+Capturing from the canvas beats page screenshots, and it also guarantees the output is exactly the canvas: no DOM chrome and no device-pixel scaling. Six parallel pages give roughly 6× throughput. A 12 s 1080p video renders in about 10–20 s with lossless PNG transfer.
+
+WebCodecs check in the same headless shell: `avc1.640028` (H.264 High) is supported on macOS, `avc1.42001f` (Baseline) is not, and VP9/AV1 are supported. `VideoEncoder` exists only in a secure context, and `about:blank` is not one. Encoder availability depends on platform and build. **That platform variance is the main reason we keep libx264 in ffmpeg as the single encoding path.**
+
+## Decision details
+
+1. **Rendering: Canvas 2D first.** Text, shapes, gradients, clipping, filters (`ctx.filter`), `letterSpacing` and `OffscreenCanvas` all run in headless Chromium. A composition may create its own WebGL/WebGL2 context for shaders and `drawImage()` it onto the 2D canvas. SwiftShader is enabled as a headless fallback.
+2. **Runtime: `runtime/canvas-video.js`,** one file, MIT, about 900 lines. It provides the scene timeline, transitions between offscreen buffers, easing (`cubic-bezier` and closed-form springs), keyframes, a seeded PRNG and noise, CJK-aware text layout, captions, and a preview player. We chose a small in-house runtime over GSAP or anime.js because the model then needs only one mental model: *draw(ctx, t) is pure*. It also avoids GSAP's competing-tool clause and keeps the skill at zero dependencies.
+3. **Capture and encode.** N Playwright pages each take a contiguous frame range. They call `drawFrame(n)` and `toDataURL('image/png')`, and pipe the images into their own `ffmpeg -f image2pipe … libx264` segment. The segments are then joined with the concat demuxer (`-c copy`). Colour is converted explicitly with `scale=out_color_matrix=bt709` and tagged BT.709. Optional motion blur renders sub-frames and blends them with `tmix`.
+4. **Audio.** Edge TTS runs once per scene segment with `boundary="WordBoundary"`. edge-tts ≥ 7 defaults to `SentenceBoundary`, and the CLI has no flag to change it, so we use the Python API. The runtime reads the real durations and places each scene so that `scene.duration = voiceDelay + speech + tail`. The renderer asks the runtime for the resolved timeline, then mixes the voice clips (`adelay` + `amix`), an optional music bed with sidechain ducking, and `loudnorm` to −16 LUFS. Everything is muxed as AAC 48 kHz.
+5. **Subtitles.** Cues are built inside the runtime from word timings aligned to the original script text, so the burned-in captions and the exported SRT/VTT come from the same data. We burn in by drawing on the canvas, not with ffmpeg's `subtitles` filter. That filter needs libass, and the Homebrew ffmpeg 8.1 on the dev machine has neither `subtitles` nor `drawtext`. Drawing on the canvas also lets captions follow the preset's typography. A soft `mov_text` track is optional.
+
+## Why not …
+
+- **Remotion.** Excellent, but the company license conflicts with the goal of free and open source for everyone, and it adds a React build toolchain.
+- **HyperFrames.** Open and agent-oriented, but it centres on DOM/CSS with GSAP, needs Node ≥ 22, and is a large framework. canvas-video instead aims to be a *single-file, zero-build skill*, in the spirit of frontend-slides. Frames are drawn directly on Canvas, so the pixels are identical on every machine, and the skill ships free narration and CJK subtitles in the box.
+- **WebCodecs + Mediabunny.** Attractive (no ffmpeg for video), but the codec support differs by platform and headless build, it adds an MPL dependency, and we still need ffmpeg for audio mixing and loudness normalisation. We may add it later as an optional `--encoder webcodecs` fast path.
+- **Motion Canvas / Revideo.** Good engines, but they bring their own DSL and a Vite project, and upstream maintenance has slowed.
