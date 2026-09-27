@@ -457,6 +457,94 @@
   const draw = { roundRect, drawOn, sketchLine, sketchCircle, grain, vignette, camera };
 
   // ===========================================================================
+  // Motion primitives (fx) — the reusable "moves" of motion design
+  // ===========================================================================
+  // Masked line reveal: each line rises out of its own clip box, staggered.
+  // opts: { lineHeight, stagger=0.08, dur=0.7, ease, align, rise=1 (in line heights), exit: 0..1 }
+  function lineReveal(ctx, lines, x, y, t, opts = {}) {
+    const size = parseFloat(ctx.font.match(/(\d+(?:\.\d+)?)px/)?.[1] || 40);
+    const lh = opts.lineHeight ?? size * 1.1;
+    const e = opts.ease || ease.enter, dur = opts.dur ?? 0.7, st = opts.stagger ?? 0.08;
+    const exit = opts.exit ?? 0;
+    ctx.save();
+    ctx.textAlign = opts.align || ctx.textAlign;
+    lines.forEach((ln, i) => {
+      const p = e(clamp((t - i * st) / dur));
+      const q = ease.exit(clamp(exit * (1 + st * lines.length) - i * st));
+      if (p <= 0) return;
+      const w = ctx.measureText(ln).width;
+      const align = ctx.textAlign;
+      const lx = align === 'center' ? x - w / 2 : align === 'right' || align === 'end' ? x - w : x;
+      const ly = y + i * lh;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(lx - size, ly - size * 1.05, w + size * 2, size * 1.35);
+      ctx.clip();
+      ctx.fillText(ln, x, ly + (1 - p) * lh * (opts.rise ?? 1) - q * lh);
+      ctx.restore();
+    });
+    ctx.restore();
+  }
+
+  // Per-character reveal (fade + rise + optional blur), staggered.
+  function charReveal(ctx, str, x, y, t, opts = {}) {
+    const g = glyphs(ctx, str, x, y, opts);
+    const e = opts.ease || ease.enter, dur = opts.dur ?? 0.5, st = opts.stagger ?? 0.035;
+    const rise = opts.rise ?? 0.35;
+    const size = parseFloat(ctx.font.match(/(\d+(?:\.\d+)?)px/)?.[1] || 40);
+    ctx.save();
+    const align = ctx.textAlign;
+    ctx.textAlign = 'left';
+    for (const c of g) {
+      const p = e(clamp((t - c.i * st) / dur));
+      if (p <= 0) continue;
+      ctx.globalAlpha = p * (opts.alpha ?? 1);
+      if (opts.blur) ctx.filter = `blur(${((1 - p) * opts.blur).toFixed(2)}px)`;
+      ctx.fillText(c.ch, c.x, c.y + (1 - p) * size * rise);
+    }
+    ctx.filter = 'none';
+    ctx.textAlign = align;
+    ctx.restore();
+    return g;
+  }
+
+  // Formatted number count-up. countUp(p, 0, 12500, { decimals: 0, sep: ',' })
+  function countUp(p, from, to, opts = {}) {
+    const v = lerp(from, to, clamp(p));
+    const d = opts.decimals ?? 0;
+    let s = v.toFixed(d);
+    if (opts.sep !== false) {
+      const [i, f] = s.split('.');
+      s = i.replace(/\B(?=(\d{3})+(?!\d))/g, opts.sep ?? ',') + (f ? '.' + f : '');
+    }
+    return (opts.prefix ?? '') + s + (opts.suffix ?? '');
+  }
+
+  // Typewriter: substring by grapheme, with optional blinking caret.
+  function typewriter(str, p, opts = {}) {
+    const chars = Array.from(str);
+    const n = Math.floor(clamp(p) * chars.length + 1e-6);
+    let s = chars.slice(0, n).join('');
+    if (opts.caret && (p < 1 || Math.floor((opts.t ?? 0) * 2) % 2 === 0)) s += opts.caret;
+    return s;
+  }
+
+  // Clip drawing to a rect (mask).
+  function mask(ctx, x, y, w, h, fn) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x, y, w, h);
+    ctx.clip();
+    fn();
+    ctx.restore();
+  }
+
+  // "On twos/threes": quantize time to animate at a lower rate (hand-made feel).
+  const onTwos = (t, fps = 30, n = 2) => Math.floor((t * fps) / n) * (n / fps);
+
+  const fx = { lineReveal, charReveal, countUp, typewriter, mask, onTwos };
+
+  // ===========================================================================
   // Images (preloaded; the renderer waits for them)
   // ===========================================================================
   const imagePromises = [];
@@ -649,38 +737,54 @@
     const aligned = alignWords(textStr, wordList);
     const len = (s) => (zh ? Array.from(s.replace(/\s/g, '')).length : s.length);
     const cues = [];
-    let group = [];
-    const trailOf = (k) => {
-      // punctuation between this word and the next word (or end)
+    aligned.forEach((w, k) => {
+      // punctuation/space between this word and the next word (or end of text)
       const end = k + 1 < aligned.length ? aligned[k + 1].i0 : textStr.length;
-      return textStr.slice(aligned[k].i1, end);
-    };
-    const close = () => {
+      w.trail = textStr.slice(w.i1, end);
+    });
+    const spanText = (g) => textStr.slice(g[0].i0, g[g.length - 1].i1 + g[g.length - 1].trail.replace(/\s+$/, '').length);
+    const emit = (group) => {
       if (!group.length) return;
       const first = group[0], last = group[group.length - 1];
-      let raw = textStr.slice(first.i0, last.i1 + last.trail.replace(/\s+$/, '').length);
-      raw = raw.replace(/\s+/g, ' ').trim();
+      const raw = spanText(group).replace(/\s+/g, ' ').trim();
       let display = raw;
       if (strip) {
         display = raw.replace(/[，、；：,;:]/g, ' ').replace(/[。！？!?….;“”"'‘’]/g, (m) => (/[？?！!]/.test(m) ? m : ' '))
           .replace(/\s+/g, ' ').trim();
       }
       cues.push({ start: first.start + off, end: last.end + off, text: display, words: group.map((w) => ({ text: w.text, start: w.start + off, end: w.end + off })) });
-      group = [];
     };
+    // 1) phrases: break at sentence ends, at clause marks once long enough, and at pauses
+    const phrases = [];
+    let group = [];
     aligned.forEach((w, k) => {
-      w.trail = trailOf(k);
-      const curText = group.length ? textStr.slice(group[0].i0, w.i1) : w.text;
-      if (group.length && len(curText) > maxChars) close();
       const prev = group[group.length - 1];
-      if (prev && w.start - prev.end > 0.55) close();
+      if (prev && w.start - prev.end > 0.55) { phrases.push(group); group = []; }
       group.push(w);
       const t = w.trail.trim();
-      const sofar = len(textStr.slice(group[0].i0, w.i1));
-      if (t && SENT_END.test(t)) close();
-      else if (t && CLAUSE_END.test(t) && sofar >= minChars) close();
+      if (t && SENT_END.test(t)) { phrases.push(group); group = []; }
+      else if (t && CLAUSE_END.test(t) && len(spanText(group)) >= minChars) { phrases.push(group); group = []; }
     });
-    close();
+    if (group.length) phrases.push(group);
+    // 2) long phrases: split into k balanced chunks at word boundaries (no orphans)
+    for (const ph of phrases) {
+      const total = len(spanText(ph));
+      const k = Math.ceil(total / maxChars);
+      if (k <= 1) { emit(ph); continue; }
+      const target = total / k;
+      let cur = [];
+      for (let i = 0; i < ph.length; i++) {
+        cur.push(ph[i]);
+        const here = len(spanText(cur));
+        const nextLen = i + 1 < ph.length ? len(spanText([...cur, ph[i + 1]])) : Infinity;
+        // cut when adding the next word would move us further from the target
+        if (i + 1 < ph.length && Math.abs(here - target) <= Math.abs(nextLen - target) && here >= target * 0.6) {
+          emit(cur);
+          cur = [];
+        }
+      }
+      emit(cur);
+    }
     // timing polish: small lead-out, min duration, no overlaps
     for (let i = 0; i < cues.length; i++) {
       const c = cues[i], next = cues[i + 1];
@@ -846,12 +950,19 @@
       info.when = (phrase, fallback = 0) => {
         if (!s.voice || !s.voice.words) return fallback;
         const ws = s.voice.words;
-        let acc = '';
+        const n = (x) => String(x).replace(/[\s\p{P}]/gu, '').toLowerCase();
+        const want = n(phrase);
+        if (!want) return fallback;
         for (let i = 0; i < ws.length; i++) {
-          acc = '';
-          for (let j = i; j < ws.length && acc.length < phrase.length + 8; j++) {
-            acc += ws[j].text + (lang.startsWith('zh') ? '' : ' ');
-            if (acc.replace(/\s/g, '').includes(phrase.replace(/\s/g, ''))) return s.voiceDelay + ws[i].start;
+          const wi = n(ws[i].text);
+          if (!wi) continue;
+          if (wi.includes(want)) return s.voiceDelay + ws[i].start;
+          // phrase spans several words starting at word i
+          let acc = '';
+          for (let j = i; j < ws.length; j++) {
+            acc += n(ws[j].text);
+            if (acc.startsWith(want)) return s.voiceDelay + ws[i].start;
+            if (!want.startsWith(acc)) break;
           }
         }
         return fallback;
@@ -1053,7 +1164,7 @@
 
   const CV = {
     create, ease, spring, progress, tween, springTrack, stagger, clamp, lerp, invLerp, remap,
-    rand, noise, color, text, draw, transitions, image, drawCover,
+    rand, noise, color, text, draw, fx, transitions, image, drawCover,
     subtitles: { build: buildCues, draw: drawSubtitles, estimate: estimateSpeech, align: alignWords },
     RENDER, version: '0.1.0',
   };

@@ -169,7 +169,8 @@ async function render(opts) {
   let done = 0;
   const tick = () => {
     done++;
-    if (done % 10 === 0 || done === frames) {
+    const every = process.stdout.isTTY ? 10 : Math.max(1, Math.round(frames / 4));
+    if (done % every === 0 || done === frames) {
       const pct = ((done / frames) * 100).toFixed(0);
       const el = (Date.now() - t0) / 1000;
       process.stdout.write(`\r  ${done}/${frames} frames (${pct}%)  ${el.toFixed(1)}s   `);
@@ -333,6 +334,29 @@ function report(file, srt) {
     log(`  srt: ${times.length} cues, first ${times.length ? toS(times[0], 1).toFixed(2) : '-'}s, last ends ${prevEnd.toFixed(2)}s`);
     if (prevEnd > dur + 0.05) issues.push(`last subtitle ends after video (${prevEnd.toFixed(2)}s > ${dur.toFixed(2)}s)`);
     if (overlaps) issues.push(`${overlaps} overlapping subtitle cues`);
+    // A/V sync: every cue that follows a pause should start where speech starts.
+    if (a && times.length) {
+      const sd = spawnSync('ffmpeg', ['-hide_banner', '-i', file, '-map', '0:a', '-af', 'silencedetect=noise=-38dB:d=0.18', '-f', 'null', '-'], { encoding: 'utf8' });
+      const onsets = [0, ...[...sd.stderr.matchAll(/silence_end: ([\d.]+)/g)].map((m) => Number(m[1]))];
+      const firstSilence = sd.stderr.match(/silence_start: ([\d.]+)/);
+      if (firstSilence && Number(firstSilence[1]) > 0.05) onsets.shift(); // audio did not start silent
+      const offs = [];
+      let lastEnd = -1;
+      for (const m of times) {
+        const st = toS(m, 1);
+        if (st - lastEnd > 0.3) {
+          const near = onsets.reduce((b, o) => (Math.abs(o - st) < Math.abs(b - st) ? o : b), Infinity);
+          if (Number.isFinite(near)) offs.push(st - near);
+        }
+        lastEnd = toS(m, 5);
+      }
+      if (offs.length) {
+        const abs = offs.map(Math.abs).sort((x, y) => x - y);
+        const med = abs[Math.floor(abs.length / 2)], worst = abs[abs.length - 1];
+        log(`  a/v sync: ${offs.length} cue onsets vs speech onsets — median ${(med * 1000).toFixed(0)} ms, worst ${(worst * 1000).toFixed(0)} ms`);
+        if (worst > 0.3) issues.push(`subtitle/speech onset mismatch up to ${(worst * 1000).toFixed(0)} ms`);
+      }
+    }
   }
   if (issues.length) log(`  ⚠ ${issues.join('\n  ⚠ ')}`);
   else log('  checks: ok');
@@ -347,6 +371,7 @@ async function still(opts) {
   if (!opts.noTts && opts.tts) await tts(dir);
   const outDir = path.resolve(opts.out || path.join(dir, 'build', 'stills'));
   fs.mkdirSync(outDir, { recursive: true });
+  for (const f of fs.readdirSync(outDir)) if (/^t[\d.]+\.png$|^contact-sheet\.png$/.test(f)) fs.rmSync(path.join(outDir, f));
   const browser = await launch();
   const { page, info, errors } = await openComposition(browser, html, { render: '1', scale: String(opts.scale || 0.5), subs: opts.subs ? '1' : '0' });
   if (errors.length) log(`⚠ page errors:\n  ${errors.join('\n  ')}`);
@@ -356,7 +381,11 @@ async function still(opts) {
   else {
     // default: 3 probes per scene (entering, middle, just before exit)
     times = [];
-    for (const s of info.scenes) times.push(s.start + Math.min(0.5, s.dur * 0.2), s.start + s.dur * 0.55, s.start + s.dur - 0.12);
+    info.scenes.forEach((s, i) => {
+      const next = info.scenes[i + 1];
+      const settled = (next && next.start < s.start + s.dur ? next.start : s.start + s.dur) - 0.1;
+      times.push(s.start + Math.min(0.5, s.dur * 0.2), s.start + s.dur * 0.5, settled);
+    });
   }
   const files = [];
   for (const t of times) {
@@ -399,8 +428,8 @@ async function gif(opts) {
 function init(opts) {
   const dir = path.resolve(opts._[1] || die('missing <dir>'));
   const slug = opts.preset || 'swiss-kinetic';
-  const tpl = path.join(ROOT, 'presets', slug, 'template.html');
-  if (!fs.existsSync(tpl)) die(`unknown preset "${slug}". Available: ${fs.readdirSync(path.join(ROOT, 'presets')).filter((d) => fs.existsSync(path.join(ROOT, 'presets', d, 'template.html'))).join(', ')}`);
+  const tpl = path.join(ROOT, 'presets', slug, 'video.html');
+  if (!fs.existsSync(tpl)) die(`unknown preset "${slug}". Available: ${fs.readdirSync(path.join(ROOT, 'presets')).filter((d) => fs.existsSync(path.join(ROOT, 'presets', d, 'video.html'))).join(', ')}`);
   if (fs.existsSync(path.join(dir, 'video.html')) && !opts.force) die(`${dir}/video.html exists (use --force)`);
   fs.mkdirSync(dir, { recursive: true });
   fs.copyFileSync(path.join(ROOT, 'runtime', 'canvas-video.js'), path.join(dir, 'canvas-video.js'));
