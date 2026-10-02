@@ -27,7 +27,8 @@ const hero = new THREE.Mesh(new THREE.TorusKnotGeometry(1, 0.32, 240, 32), new T
 world.add(hero, new THREE.HemisphereLight('#fff', '#667', 1.2));
 
 CV.create({
-  width: W, height: H, music: { style: 'keynote', bpm: 92 },
+  width: W, height: H,
+  music: { bpm: 92, key: 'A', mode: 'minor', progression: [0, 5], layers: [{ inst: 'pad', pattern: 'X---', vel: 0.08 }] },
   scenes: [{
     id: 'hero',
     draw(ctx, s) {

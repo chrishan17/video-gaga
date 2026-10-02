@@ -35,6 +35,7 @@ const T = {
 const F = (w, px, fam = T.sans) => `${w} ${px}px ${fam}`;
 const L = 160; // left margin (grid column 1)
 
+// === KIT: highlighter and chapter kicker =====================================
 // Highlighter pill that grows behind a word (drawn before the text).
 function pill(ctx, x, y, w, h, p, fill) {
   fx.highlight(ctx, x - 12, y - h * 0.82, w + 24, h * 1.08, p, { color: fill, radius: 14 });
@@ -54,6 +55,7 @@ function kicker(ctx, s, label, index) {
   ctx.globalAlpha = 1;
 }
 
+// === EXAMPLE: compound-interest chart ========================================
 // Chart geometry (shared by the curve and the breath that zooms out of it)
 const X0 = L + 90, X1 = 1500, Y0 = 880, Y1 = 250, MAXV = 11;
 const px = (yr) => lerp(X0, X1, yr / 30);
@@ -76,7 +78,20 @@ CV.create({
   width: 1920, height: 1080, fps: 30,
   background: T.paper,
   lang: 'zh-CN',
-  music: { style: 'explainer', bpm: 100, seed: 3 },
+  // the score designed for this video: bright and curious: major sevenths, syncopated key stabs, a light shaker groove
+  music: {
+    bpm: 100, seed: 3, key: 'D', mode: 'major', progression: [0, 5, 3, 4], sevenths: true,
+    layers: [
+      { name: 'pad', inst: 'pad', notes: 'chord', pattern: 'X---', vel: 0.06, cutoff: [900, 1500], attack: 0.4 },
+      { name: 'stabs', inst: 'keys', notes: 'chord', pattern: 'X..X..X.', gate: 2.2, vel: [0.07, 0.1], bright: 0.8, from: 0.25 },
+      { name: 'bass', inst: 'bass', notes: ['root', 'fifth', 'root'], octave: -1, pattern: 'X--.X-.x', vel: 0.3, from: 0.35 },
+      { name: 'shaker', inst: 'shaker', pattern: 'xXxXxXxX', vel: 0.08, from: 0.4 },
+      { name: 'kick', inst: 'kick', pattern: 'X... ..x. X... ....', vel: 0.5, from: 0.5 },
+      { name: 'rim', inst: 'rim', pattern: '.X.X', vel: 0.12, from: 0.5 },
+      { name: 'clap', inst: 'clap', pattern: '.X.X', vel: 0.16, from: 0.75 },
+    ],
+    lead: { inst: 'bell', kind: 'glock', range: [74, 88], rhythm: 'melodic', vel: 0.1, echo: 0.15 },
+  },
   transition: { type: 'push', direction: 'left', duration: 0.6, ease: ease.swift },
   subtitles: {
     style: { font: F(500, 42), color: T.paper, box: 'rgba(29,36,51,0.9)', y: 0.92, radius: 8 },
@@ -345,13 +360,15 @@ CV.create({
   ],
   // Chapter progress bar: a quiet orientation device (hidden in the breath)
   overlay(ctx, g) {
-    const chapters = 4;
+    const chapters = Math.max(0, ...g.scenes.map((sc) => (sc.chapter ?? -1) + 1)); // scenes carry `chapter: 0…n`
+    if (!chapters) { draw.grain(ctx, g.frame, 0.05, { blend: 'multiply' }); return; }
     const w = (g.W - L * 2 - (chapters - 1) * 12) / chapters;
     const dark = g.scenes.find((sc) => sc.id === 'breath');
     const inDark = dark ? clamp(Math.min((g.T - dark.start) / 0.5, (dark.end - g.T) / 0.4)) : 0;
     const intro = ease.enter(clamp(g.T / 0.6));
     for (let i = 0; i < chapters; i++) {
       const own = g.scenes.filter((sc) => sc.chapter === i);
+      if (!own.length) continue;
       const a = own[0].start, b = own[own.length - 1].end;
       const x = L + i * (w + 12);
       ctx.globalAlpha = 1 - inDark;

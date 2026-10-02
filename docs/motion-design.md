@@ -67,7 +67,7 @@ At 30 fps, one frame is 33 ms. Durations scale with distance and size:
 
 ## 4. Rhythm & pacing
 
-- **Build on a beat grid.** Set `music: { style, bpm }` and the runtime puts every cut and every voice onset on the grid. Inside a scene, the words are the fine grid (`s.when('word')`) and the beats are the coarse one (`s.onBeat(i)`, `s.nextBeat(t)`): voiced hits follow the words, music-only moves follow the beats.
+- **Build on a beat grid.** Set `music: { bpm, … }` and the runtime puts every cut and every voice onset on the grid. Inside a scene, the words are the fine grid (`s.when('word')`) and the beats are the coarse one (`s.onBeat(i)`, `s.nextBeat(t)`): voiced hits follow the words, music-only moves follow the beats.
 - **Vary density.** Alternate fast clusters (a burst of 3 hits) with rests (a hold, a slow push). Constant intensity feels flat. Raise the scene `energy` where the story climbs and drop it before the payoff.
 - **Leave room.** Plan music-only moments: a pre-roll before the first word, a held beat after the big number, an end card that rings out. See [music-and-sound.md](music-and-sound.md) §5.
 - **Cut on action.** Start a transition while something is moving, not after everything has stopped dead.
@@ -166,7 +166,7 @@ Use **one or two** transition types per video, plus at most one special for the 
 - **Narration drives the timeline.** Scene duration comes from the voice (`voiceDelay + speech + tail`). Never cut a voice line mid-word.
 - **Sync visual hits to words** with `s.when('phrase')`: the number counts up *as it is said*, the term appears *as it is named*. A visual may lead the word by 0–150 ms (the eye is faster than the ear). It should never trail by more than 200 ms.
 - Leave 150–300 ms of air before the first word of a scene, and 400–800 ms after the last one.
-- **Music is on by default.** `music: { style, bpm }` generates a score from the timeline: it dips 12 dB under speech, plays its melody only in the gaps, crashes into rising sections and resolves on the last downbeat. Choose the style from the content's emotion. See [music-and-sound.md](music-and-sound.md).
+- **Music is on by default.** You design a score for each video (`music: { bpm, key, mode, progression, layers, lead }`) and it is arranged from the timeline: it dips 12 dB under speech, plays its melody only in the gaps, crashes into rising sections and resolves on the last downbeat. Design it from the content's emotion, not from the visual preset. See [music-and-sound.md](music-and-sound.md) §2.
 - **Sound effects mark what matters**: transitions whoosh, counted items tick, the one big reveal gets a `hit` (the music breathes for half a beat before it). Never put a sound on every element.
 - Balance: the bed sits 10–18 dB under the voice while it speaks. `cv render` measures it.
 

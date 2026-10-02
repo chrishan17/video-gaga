@@ -102,7 +102,8 @@ async function synthMusic(dir, score, { quiet } = {}) {
   writeWav(bed, { left: mix.bed.left, right: mix.bed.right, sampleRate: mix.sampleRate });
   mix.report.voiceDb = voiceDb;
   fs.writeFileSync(meta, JSON.stringify({ key, report: mix.report }, null, 1));
-  if (!quiet) log(`▸ music: ${mix.report.style} · ${mix.report.key} · ${mix.report.bpm} BPM · ${score.sfx.length} sfx (${Date.now() - t0} ms)`);
+  if (!quiet) log(`▸ music: ${mix.report.key} · ${mix.report.bpm} BPM · ${mix.report.layers} layers · ${score.sfx.length} sfx (${Date.now() - t0} ms)`);
+  if (!quiet) for (const w of mix.report.warnings || []) log(`  ⚠ music: ${w}`);
   return { file, bed, report: mix.report };
 }
 
@@ -553,9 +554,9 @@ async function gif(opts) {
 }
 
 // ---------------------------------------------------------------------------
-// init — scaffold a project from a preset
+// init — scaffold a project from a preset's style (not its example video)
 // ---------------------------------------------------------------------------
-function init(opts) {
+async function init(opts) {
   const dir = path.resolve(opts._[1] || die('missing <dir>'));
   const slug = opts.preset || 'swiss-kinetic';
   const tpl = path.join(ROOT, 'presets', slug, 'video.html');
@@ -564,17 +565,21 @@ function init(opts) {
   fs.mkdirSync(dir, { recursive: true });
   fs.copyFileSync(path.join(ROOT, 'runtime', 'video-gaga.js'), path.join(dir, 'video-gaga.js'));
   // (older compositions loaded canvas-video.js)
-  let htmlSrc = fs.readFileSync(tpl, 'utf8').replace(/src="[^"]*(?:video-gaga|canvas-video)\.js"/, 'src="video-gaga.js"');
+  const { scaffoldFromPreset } = await import('./scaffold.mjs');
+  const { html, kept, dropped } = scaffoldFromPreset(fs.readFileSync(tpl, 'utf8'), { slug });
+  let htmlSrc = html.replace(/src="[^"]*(?:video-gaga|canvas-video)\.js"/, 'src="video-gaga.js"');
+  htmlSrc = htmlSrc.replace(/<title>[^<]*<\/title>/, `<title>${path.basename(dir)}</title>`);
   if (opts.ratio) {
     const [w, h] = { '16:9': [1920, 1080], '9:16': [1080, 1920], '1:1': [1080, 1080], '4:5': [1080, 1350] }[opts.ratio] || die('ratio must be 16:9, 9:16, 1:1 or 4:5');
     htmlSrc = htmlSrc.replace(/width:\s*\d+/, `width: ${w}`).replace(/height:\s*\d+/, `height: ${h}`);
   }
   fs.writeFileSync(path.join(dir, 'video.html'), htmlSrc);
-  const narr = path.join(ROOT, 'presets', slug, 'narration.json');
-  // --no-narration: style previews and silent pieces don't want the preset's script
-  if (!opts.noNarration && fs.existsSync(narr) && !fs.existsSync(path.join(dir, 'narration.json'))) fs.copyFileSync(narr, path.join(dir, 'narration.json'));
+  // the example's narration.json is not copied: the words are written for this brief
   fs.writeFileSync(path.join(dir, '.gitignore'), 'build/\nout/\n');
-  log(`✔ scaffolded ${path.relative(process.cwd(), dir) || '.'} from preset "${slug}"`);
+  log(`✔ scaffolded ${path.relative(process.cwd(), dir) || '.'} from the "${slug}" style`);
+  log(`  kept:     ${kept.join(' · ')} · CV.create look (size, fonts, transition, captions, overlay)`);
+  log(`  left out: the example's scenes, score and narration${dropped.length ? ` · ${dropped.join(' · ')}` : ''}`);
+  log(`  next:     write the scenes, narration.json and the score (music: { … }) for this brief`);
   log(`  preview:  open ${path.join(dir, 'video.html')}`);
   log(`  render:   node ${path.relative(process.cwd(), path.join(ROOT, 'scripts', 'cv.mjs'))} render ${path.relative(process.cwd(), dir) || '.'}`);
 }
@@ -587,10 +592,10 @@ async function musicCmd(opts) {
   if (errors.length) log(`⚠ page errors:\n  ${errors.join('\n  ')}`);
   await page.close();
   await browser.close();
-  if (!info.score) die('this composition has no generated music (add music: { style, bpm } to CV.create)');
+  if (!info.score) die('this composition has no generated music (design one: music: { bpm, key, mode, progression, layers, lead } in CV.create, see docs/music-and-sound.md)');
   const { file, report } = await synthMusic(dir, info.score);
   log(`✔ ${path.relative(process.cwd(), file)}  ${info.duration.toFixed(2)}s`);
-  log(`  ${report.style} · ${report.key} · ${report.bpm} BPM · bar energy ${report.bars.join(' ')}`);
+  log(`  ${report.key} · ${report.bpm} BPM · chords ${report.progression} · ${report.layers} layers${report.lead ? ` + ${report.lead} lead` : ''} · bar energy ${report.bars.join(' ')}`);
   log(`  peak ${report.peakDb} dBFS · gaps ${report.gapDb ?? '—'} dB vs the voice (${report.voiceDb ?? '—'} dBFS speech), dips ${report.voiceDuckDb} dB while it speaks · final chord ${report.endChordAt != null ? `at ${report.endChordAt}s` : 'none'}`);
   log(`  sfx: ${info.score.sfx.map((e) => `${e.type}@${e.t.toFixed(2)}`).join(' ') || 'none'}`);
   log(`  cuts on the grid: ${info.scenes.slice(1).map((s) => s.start.toFixed(2)).join(' ')}`);
@@ -663,7 +668,8 @@ music <project>               render the generated score to build/music.wav (the
 check <video.mp4> [--srt f]   ffprobe summary + A/V + subtitle sanity checks
                               (render runs it too, adding per-clip voice sync)
 gif <video.mp4>               palette GIF preview  [--out --width 480 --fps 12 --from --dur]
-init <dir> --preset <slug>    scaffold a project from a style preset [--ratio 9:16] [--no-narration]
+init <dir> --preset <slug>    scaffold a project in a preset's style: its THEME and KIT helpers,
+                              without the example's scenes, score or narration [--ratio 9:16]
 voices [--lang zh-CN]         list Edge TTS voices
 `;
 

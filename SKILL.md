@@ -15,7 +15,8 @@ Turn "I want a video about X" into a finished, professionally animated MP4. Ever
 4. **The voice is the clock, the music is the pulse.** Scene lengths come from the speech; visual hits are pinned to spoken words (`s.when('word')`, `fx.wordReveal({ sync: s })`). The music's beat grid places the cuts and the first syllable of every line, and carries the moments without voice.
 5. **Leave room.** Narration is not wall-to-wall: a music-only pre-roll, a held beat before the payoff, an end card that rings out. Silence is a design decision. Read [docs/music-and-sound.md](docs/music-and-sound.md) §5.
 6. **Verify before you deliver.** Probe frames, look at them yourself, render, run `cv check`, and look at frames from the actual MP4. Report the numbers honestly.
-7. **Zero build.** A video is one `video.html` + `video-gaga.js` + an optional `narration.json`. There is no bundler, framework or login. three.js, when used, comes from a pinned CDN import map.
+7. **Presets set the look, never the content.** A preset contributes its palette, type, motion helpers, transitions and caption style. The script, the scene structure, the choreography and the music are designed for each brief. `cv init` copies only the style, and there are no music presets: you compose the score (§ Phase 1 and [docs/music-and-sound.md](docs/music-and-sound.md) §2).
+8. **Zero build.** A video is one `video.html` + `video-gaga.js` + an optional `narration.json`. There is no bundler, framework or login. three.js, when used, comes from a pinned CDN import map.
 
 ## Use your full capability
 
@@ -79,7 +80,7 @@ Ask **all questions in one round**. If a native structured-question UI exists, u
 | Product launch / teaser | length · format · voice · captions · brand colour/logo · ending/CTA |
 | Knowledge explainer / tutorial | length · content readiness · voice · captions · format · pace |
 | Data story / infographic | data source & accuracy · length · voice · captions · brand |
-| Kinetic typography / quote / title | format · pace (tempo) · length · music style |
+| Kinetic typography / quote / title | format · pace (tempo) · length · music (score design) |
 | Social short (Reels/TikTok/Shorts/视频号) | hook · length · voice · caption style · format (default 9:16) |
 | Event / promo | date & place text · format · voice · ending/CTA · vibe |
 | Brand / culture / internal | audience · length · voice · captions · brand |
@@ -98,7 +99,7 @@ Ask **all questions in one round**. If a native structured-question UI exists, u
 | Brand | use my colours/logo (send hex or file) | use the style's palette | one accent you pick for me: {hex} | if they have a brand, A |
 | Content | I have a script (paste it) | I have bullet points | topic only, write it for me | whichever matches what they sent |
 | Language | 中文 | English | bilingual captions (voice in {X}) | the language of the request |
-| Music | generated score: {style} at {bpm} BPM — {why} | generated score: {contrasting style} | my own licensed track (send it + its BPM) / none | the generated score by default (a voice alone is dry). Pick the style from the content's emotion: see [docs/music-and-sound.md](docs/music-and-sound.md) §2 |
+| Music | a score designed for this brief: {feel in 3 words} · {bpm} BPM {key} {mode} · {2–3 instruments} — {why} | a contrasting design: {feel} · {bpm} BPM {mode} · {instruments} | my own licensed track (send it + its BPM) / none | a generated score by default (a voice alone is dry). Design it from the content's emotion, not the visual preset: see [docs/music-and-sound.md](docs/music-and-sound.md) §2.1 |
 | Ending | logo + tagline | CTA text (URL, date, handle) | no end card | promos → CTA, explainers → takeaway line |
 
 **Example (Chinese request "做个视频讲讲复利")**
@@ -118,8 +119,8 @@ Ask **all questions in one round**. If a native structured-question UI exists, u
 
 1. Read [STYLE_PRESETS.md](STYLE_PRESETS.md) (the index only).
 2. Choose **3 directions**: the **best-fit preset** for the mood, a **contrasting preset**, and one **wildcard**, which is a custom system designed for this brief (see "Custom / wildcard styles"). Recommend whichever of the three fits best. When the brand already has a documented visual language (a brand board, a design system, a live site), the wildcard built from it is often the right pick.
-3. For each direction, build a *real first scene*: the user's actual title or hook, in the user's format and language, already in the brand colours if they are known. Run `cv init .cv-previews/style-a --preset <slug> --ratio <chosen> --no-narration`. Read only that preset's `THEME` object and first scene, replace the scenes with your one scene, then run `cv still .cv-previews/style-a --at 0.6,1.5,2.8 --sheet`.
-4. **Look at the sheets yourself** and fix anything off before showing them. If the user wants to *hear* a direction, `cv music .cv-previews/style-a` renders its score to `build/music.wav`. Then show all three to the user. In a text-only question UI, stack them into one comparison image (top to bottom = A, B, C, with no labels drawn on it) and include the image and the file paths in the question:
+3. For each direction, build a *real first scene*: the user's actual title or hook, in the user's format and language, already in the brand colours if they are known. Run `cv init .cv-previews/style-a --preset <slug> --ratio <chosen>`: it copies the style (THEME, KIT helpers, transition, captions, overlay) with no scenes. Read the preset's first example scene for its motion grammar, write your own one scene into the empty `scenes` array, then run `cv still .cv-previews/style-a --at 0.6,1.5,2.8 --sheet`.
+4. **Look at the sheets yourself** and fix anything off before showing them. If the user wants to *hear* a direction, write a draft score for this brief into it and run `cv music .cv-previews/style-a` (renders `build/music.wav`). Then show all three to the user. In a text-only question UI, stack them into one comparison image (top to bottom = A, B, C, with no labels drawn on it) and include the image and the file paths in the question:
    `ffmpeg -i .cv-previews/style-a/build/stills/contact-sheet.png -i …/style-b/… -i …/style-c/… -filter_complex vstack=inputs=3 .cv-previews/styles.png`
 5. Ask one question (3 options, one recommended): *"Which direction?"* → A: {name} (Recommended: {reason}) · B: {name} · C: {name}. The user can also say "mix: A's colours with C's motion".
 
@@ -136,6 +137,10 @@ Write `<project>/BRIEF.md` using the director's-brief template in [docs/prompt-t
 | # | scene id | voice line (exact words, or — for music only) | visual — the one focal point | motion & sync (which word / beat) | exit | transition in | music energy · sfx | ≈ s |
 |---|---|---|---|---|---|---|---|---|
 
+Under the table, one line for the **score design**: feel in three words · BPM · key and mode · progression · the layers and at which energy each enters · the lead (or none). Example: *curious, bright, trustworthy · 100 BPM D major · I–vi–IV–V with sevenths · pad from 0, key stabs 0.25, bass 0.35, shaker 0.4, kick 0.5 · glockenspiel lead in the gaps.*
+
+- **The structure comes from the content.** Choose the number of scenes, their order and the signature moves from what this message needs, never from the preset's example video.
+
 - One idea per scene, one sentence of narration per scene, and the payoff word at the end of the line.
 - **Plan the silence.** Include at least one music-only moment (pre-roll, a `beats: 4–8` breath before the payoff, or the end card). Aim for speech on roughly 65–80% of the runtime in explainers and 40–60% in teasers.
 - Give each scene an `energy` (0..1) so the score builds and resolves with the story, and choose sfx with restraint (one per transition, ticks for counted items, at most one `hit`).
@@ -148,10 +153,11 @@ Write `<project>/BRIEF.md` using the director's-brief template in [docs/prompt-t
 
 ## Phase 4 — Build
 
-1. **Scaffold** in the user's working directory: `cv init <slug>-video --preset <chosen> [--ratio 9:16]`. This copies the runtime and the preset composition. For a custom wildcard, scaffold from the nearest preset and rewrite it.
-2. **Read the chosen preset's `video.html` fully** and keep its design grammar. Replace the content, not the craft.
-3. **Write `narration.json`** (segments = scene ids) with the chosen voice and rate. See [docs/narration-and-subtitles.md](docs/narration-and-subtitles.md). Set `music: { style, bpm, seed }` in `CV.create` and an `energy` per scene ([docs/music-and-sound.md](docs/music-and-sound.md)).
-4. **Write the scenes.** API reference: [docs/runtime-api.md](docs/runtime-api.md). Patterns to use:
+1. **Scaffold** in the user's working directory: `cv init <slug>-video --preset <chosen> [--ratio 9:16]`. This copies the runtime and only the preset's *style*: the `THEME` (palette, fonts), its `KIT` helpers (the style's reusable motion and drawing functions) and the look of `CV.create` (size, transition, captions, overlay). The example's scenes, score and narration are left out on purpose. For a custom wildcard, scaffold from the nearest preset and rewrite the THEME and KIT.
+2. **Read the chosen preset's `video.html`** (in the skill's `presets/`) to learn its design grammar: how its KIT helpers are used, its easing, holds, exits and transitions. Apply that grammar to *this* storyboard. Don't copy the example's scenes, structure, layouts or data.
+3. **Write `narration.json`** (segments = scene ids) with the chosen voice and rate. See [docs/narration-and-subtitles.md](docs/narration-and-subtitles.md).
+4. **Write the score** in `CV.create({ music: { … } })` from the score-design line: `bpm`, `key`, `mode`, `progression`, `layers` (each with its `from` energy), `lead`, `seed`, and give every scene an `energy` that follows the story ([docs/music-and-sound.md](docs/music-and-sound.md) §2). `cv music` refuses a spec that breaks a limit and lists what to fix; fix its warnings too.
+5. **Write the scenes.** API reference: [docs/runtime-api.md](docs/runtime-api.md). Patterns to use:
    - `s.at(start, dur, ease)` for every local move. `s.when('spoken words')` to land hits on the voice; `s.onBeat(i)` / `s.nextBeat(t)` for moves in music-only moments.
    - `fx.wordReveal({ sync: s })` / `fx.lineReveal` / `fx.charReveal` for type, `fx.countUp` / `fx.roll` for numbers, `draw.drawOn` / `draw.arrow` for lines and charts, `fx.highlight` for the key term.
    - Exits: `s.out(0.4, ease.exit, overlap)` and the `exit:` option on reveals.
@@ -160,9 +166,9 @@ Write `<project>/BRIEF.md` using the director's-brief template in [docs/prompt-t
    - 3D: only when depth carries meaning. Follow [docs/three-d.md](docs/three-d.md) (`CV.three`, build once, set everything from `s.t`).
    - Scale with `s.u` if the ratio differs from the preset's.
    - Key symbols (⌘ ⌥ ⇧ ⌃) are missing from most display fonts and fall back silently: draw them as paths or use a font that has them.
-5. **TTS + music:** `cv tts <project>`, then `cv music <project>`, which prints the key, BPM, energy per bar, every cut time and every sfx (the preview player then plays the score). Check `build/voice/<id>.json` to see how the words were tokenised.
-6. **Probe:** `cv still <project> --sheet --subs`, which renders 3 probes per scene (entering, middle, settled). **Open the contact sheet and review it** against the checklist in [docs/motion-design.md](docs/motion-design.md) §14. Fix, then re-probe. Use `--at 1.2,3.4` to inspect exact moments, such as a hit or the middle of a transition. With more than ~6 scenes the sheet gets small, so open the individual stills at the hits.
-7. For long pieces, render a draft first: `render --scale 0.5 --format jpeg`.
+6. **TTS + music:** `cv tts <project>`, then `cv music <project>`, which prints the key, BPM, energy per bar, every cut time and every sfx (the preview player then plays the score). Check `build/voice/<id>.json` to see how the words were tokenised.
+7. **Probe:** `cv still <project> --sheet --subs`, which renders 3 probes per scene (entering, middle, settled). **Open the contact sheet and review it** against the checklist in [docs/motion-design.md](docs/motion-design.md) §14. Fix, then re-probe. Use `--at 1.2,3.4` to inspect exact moments, such as a hit or the middle of a transition. With more than ~6 scenes the sheet gets small, so open the individual stills at the hits.
+8. For long pieces, render a draft first: `render --scale 0.5 --format jpeg`.
 
 ---
 
@@ -189,7 +195,7 @@ Then **extract 3–5 frames from the final MP4** (`ffmpeg -ss <t> -i out.mp4 -fr
 
 Tell the user:
 - the MP4 path (and the `.srt`/`.vtt` paths), duration, format, voice and style
-- the check results in one line each (duration, audio, sync, captions, music balance), the music style, BPM and key
+- the check results in one line each (duration, audio, sync, captions, music balance), and the score in one line (feel, BPM, key and mode, instruments)
 - how to preview and tweak: open `video.html` in a browser (Space to play, ←/→ to step frames). Colours and fonts live in the `T` object at the top, and the words live in `narration.json`.
 - offer the natural next steps: *revise one note at a time* ("slower", "bigger numbers", "swap the voice"), another aspect ratio, a GIF preview (`cv gif`), a 4K render (`--scale 2`), or a captions-only file.
 
@@ -201,17 +207,17 @@ Clean up `.cv-previews/` after the user has picked a style.
 
 | File | Purpose | When to read |
 |---|---|---|
-| [STYLE_PRESETS.md](STYLE_PRESETS.md) | Index of the 10 presets: mood, palette, type, motion signature, music | Phase 2 |
-| `presets/<slug>/video.html` | The full design recipe for one preset (a working composition) | Phase 4, after the pick (for Phase 2 previews, only its `THEME` and first scene) |
-| `presets/<slug>/narration.json` | Example narration spec for that preset | Phase 4 |
+| [STYLE_PRESETS.md](STYLE_PRESETS.md) | Index of the 10 presets: mood, palette, type, motion signature | Phase 2 |
+| `presets/<slug>/video.html` | One preset: its THEME and KIT (the style), plus an example video that shows its grammar (EXAMPLE sections, scenes, score) | Phase 4, after the pick (for Phase 2 previews, its first scene) |
+| `presets/<slug>/narration.json` | The example video's narration (a format reference, never reused) | Phase 4, for the format |
 | [docs/motion-design.md](docs/motion-design.md) | Motion principles, timing tables, transitions, anti-patterns, QA checklist | Before building, and when reviewing probes |
 | [docs/runtime-api.md](docs/runtime-api.md) | `CV.create`, scenes, `s.at` / `s.when`, fx, text, transitions, captions | Phase 4 |
 | [docs/narration-and-subtitles.md](docs/narration-and-subtitles.md) | Edge TTS voices, writing for the ear, caption rules, troubleshooting | Phases 1, 3 and 4 |
-| [docs/music-and-sound.md](docs/music-and-sound.md) | Generated score styles, the beat grid, energy, sfx, pacing & silence, mix checks | Phases 1, 3 and 4 |
+| [docs/music-and-sound.md](docs/music-and-sound.md) | Designing the score from the brief (spec, rules, limits), the beat grid, energy, sfx, pacing & silence, mix checks | Phases 1, 3 and 4 |
 | [docs/three-d.md](docs/three-d.md) | three.js in a composition: when 3D earns it, the pattern, the rules | Phase 4, when a scene needs depth |
 | [docs/prompt-templates.md](docs/prompt-templates.md) | Proven prompt patterns (with sources) and the director's-brief template | Phases 1 and 3 |
 | [docs/tech-selection.md](docs/tech-selection.md) | Why Canvas + Playwright + ffmpeg + Edge TTS | When asked about the stack |
 | `runtime/video-gaga.js` | The runtime (copied into each project by `cv init`) | When debugging |
 | `scripts/cv.mjs` | CLI: `doctor · init · tts · music · still · render · check · gif · voices` | Always via the commands above |
-| `scripts/music.mjs` | The deterministic score synthesizer (called by the CLI) | When tuning a style |
+| `scripts/music.mjs` | The score spec validator (`LIMITS`) and deterministic synthesizer (called by the CLI) | When a spec is refused or sounds wrong |
 | `scripts/tts.py` | Edge TTS with WordBoundary timings (called by the CLI) | Rarely |

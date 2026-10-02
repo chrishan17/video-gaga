@@ -117,10 +117,13 @@ function stubCreate(config) {
   return sb.CV.create({ canvas: new Off(1920, 1080), ...config });
 }
 
+// a minimal score spec (the agent designs one per video; there are no preset styles)
+const SCORE = { key: 'C', mode: 'major', progression: [0, 5, 3, 4], layers: [{ inst: 'pad', pattern: 'X---', vel: 0.06 }] };
+
 test('cuts land on the beat grid and the video ends on a beat', () => {
   const beat = 60 / 100;
   const api = stubCreate({
-    music: { style: 'explainer', bpm: 100 },
+    music: { ...SCORE, bpm: 100 },
     transition: { type: 'push', duration: 0.6 },
     scenes: [{ id: 'a', duration: 2.3, draw() {} }, { id: 'b', duration: 3.1, draw() {} }, { id: 'c', narration: false, beats: 6, draw() {} }],
   });
@@ -137,7 +140,7 @@ test('cuts land on the beat grid and the video ends on a beat', () => {
 test('voice starts on an eighth note; sfx resolve phrases, functions and transitions', () => {
   const words = [{ text: 'Hello', start: 0.1, end: 0.4 }, { text: 'world', start: 0.5, end: 0.9 }];
   const api = stubCreate({
-    music: { style: 'pop', bpm: 120 },
+    music: { ...SCORE, bpm: 120 },
     narration: { lang: 'en', segments: { a: { text: 'Hello world', duration: 1, words }, b: { text: 'Hello world', duration: 1, words } } },
     scenes: [
       { id: 'a', sfx: [{ at: 'world', type: 'tick' }, { at: (s) => s.onBeat(2), type: 'pop' }], draw() {} },
@@ -155,7 +158,9 @@ test('voice starts on an eighth note; sfx resolve phrases, functions and transit
   assert.ok(Math.abs(pop.t - 1.0) < 1e-6, 'function sfx at beat 2');
   assert.ok(api.sfx.some((e) => e.type === 'whoosh' && e.transition), 'whip makes a whoosh');
   const info = api.info();
-  assert.equal(info.score.style, 'pop');
+  assert.equal(info.score.key, 'C');
+  assert.deepEqual(info.score.progression, [0, 5, 3, 4]);
+  assert.equal(info.score.layers.length, 1);
   assert.equal(info.score.voice.length, 2);
 });
 
@@ -167,26 +172,108 @@ test('without music nothing snaps (old compositions keep their timing)', () => {
 });
 
 // --- music synth -----------------------------------------------------------------
+// every instrument, note token and pattern feature in one spec
+const FULL = {
+  bpm: 104, key: 'E', mode: 'dorian', progression: [0, 0, 5, 6], sevenths: true, chordBars: 1, seed: 2,
+  layers: [
+    { inst: 'pad', notes: 'chord', pattern: 'X---', vel: 0.06, cutoff: [700, 1500] },
+    { inst: 'sinepad', notes: 'chord', bars: 2, pattern: 'X-------', vel: 0.05, attack: 1 },
+    { inst: 'keys', notes: [0, 1, 2], octave: 1, pattern: '....XXX.', gate: 3, vel: [0.04, 0.08], from: 0.3 },
+    { inst: 'pluck', notes: ['root_', 2, 'fifth_', '0^'], pattern: 'XxXx', vel: 0.12, from: 0.2 },
+    { inst: 'bell', kind: 'marimba', notes: ['third', 'seventh'], pattern: 'x.x.', vel: 0.08, from: 0.4 },
+    { inst: 'bass', synth: true, octave: -1, notes: ['root', 'root^'], pattern: '9898 9898', vel: 0.2, from: 0.3 },
+    { inst: 'lead', notes: 'root', octave: 1, pattern: 'X...', vel: 0.05, saw: 0.5, from: 0.6 },
+    { inst: 'kick', pattern: 'X...x...X...x...', vel: 0.5, from: 0.5 },
+  ],
+  lead: { inst: 'bell', kind: 'glock', range: [74, 88], rhythm: 'melodic', vel: 0.1 },
+};
+const DRUMS = ['snare', 'clap', 'snap', 'rim', 'hat', 'openhat', 'shaker', 'tom'].map((inst) => ({ inst, pattern: '.X.X', vel: 0.08, from: 0.5 }));
+const planOf = (spec) => ({ ...spec, duration: 8, sections: [{ start: 0, end: 4, voiced: true, energy: 0.35 }, { start: 4, end: 8, voiced: false, energy: 0.9 }], voice: [{ start: 0.5, end: 3.2 }], sfx: [{ type: 'whoosh', t: 4, dur: 0.6 }, { type: 'hit', t: 6 }] });
+
 test('generated score is deterministic, sized to the video and not clipping', async () => {
-  const { renderScore, styles } = await import('../scripts/music.mjs');
-  const plan = (style) => ({ style, bpm: styles[style].bpm, seed: 2, duration: 8, sections: [{ start: 0, end: 4, voiced: true }, { start: 4, end: 8, voiced: false }], voice: [{ start: 0.5, end: 3.2 }], sfx: [{ type: 'whoosh', t: 4, dur: 0.6 }, { type: 'hit', t: 6 }] });
-  for (const style of Object.keys(styles)) {
-    const a = renderScore(plan(style)), b = renderScore(plan(style));
-    assert.equal(a.left.length, Math.ceil(8.05 * 48000), style);
+  const { renderScore } = await import('../scripts/music.mjs');
+  const specs = { full: FULL, drums1: { ...FULL, layers: [FULL.layers[0], ...DRUMS.slice(0, 4)] }, drums2: { ...FULL, layers: [FULL.layers[0], ...DRUMS.slice(4)] }, minimal: { ...SCORE, bpm: 90 }, sfxOnly: { bpm: 100, layers: [] } };
+  for (const [name, spec] of Object.entries(specs)) {
+    const a = renderScore(planOf(spec)), b = renderScore(planOf(spec));
+    assert.equal(a.left.length, Math.ceil(8.05 * 48000), name);
     let same = true, peak = 0;
     for (let i = 0; i < a.left.length; i += 97) { if (a.left[i] !== b.left[i] || a.right[i] !== b.right[i]) same = false; peak = Math.max(peak, Math.abs(a.left[i]), Math.abs(a.right[i])); }
-    assert.ok(same, `${style} not deterministic`);
-    assert.ok(peak > 0.01 && peak <= 1, `${style} peak ${peak}`);
+    assert.ok(same, `${name} not deterministic`);
+    assert.ok(peak > 0.01 && peak <= 1, `${name} peak ${peak}`);
   }
 });
 
+test('the score follows the spec: harmony, layers by energy, seed', async () => {
+  const { renderScore } = await import('../scripts/music.mjs');
+  // 120 BPM (2 s bars), energy 0.35 for 0–8 s and 0.9 for 8–16 s; a kick `from: 0.6`
+  // only plays in the second half (the final chord rings from 14 s)
+  const pad = { inst: 'pad', notes: 'chord', pattern: 'X---', vel: 0.06 };
+  const two = (layers) => renderScore({ ...FULL, bpm: 120, layers, lead: null, duration: 16, sections: [{ start: 0, end: 8, energy: 0.35 }, { start: 8, end: 16, energy: 0.9 }], voice: [], sfx: [] });
+  const lift = (x) => {
+    let a = 0, b = 0;
+    for (let i = 2 * 48000; i < 13.5 * 48000; i += 7) (i < 8 * 48000 ? (a += x.bed.left[i] ** 2) : (b += x.bed.left[i] ** 2));
+    return b / a;
+  };
+  const padOnly = two([pad]);
+  const withKick = two([pad, { inst: 'kick', pattern: 'X.X.', vel: 0.6, from: 0.6 }]);
+  assert.ok(lift(withKick) > lift(padOnly) * 2, `the kick enters with the energy (${lift(withKick).toFixed(2)} vs ${lift(padOnly).toFixed(2)})`);
+  const unplayed = two([pad, { inst: 'kick', pattern: 'X.X.', vel: 0.6, from: 0.95 }]);
+  assert.ok(Math.abs(lift(unplayed) - lift(padOnly)) < 0.05 * lift(padOnly), 'a layer above every scene\'s energy never plays');
+  const a = renderScore(planOf({ ...FULL, seed: 1 })), b = renderScore(planOf({ ...FULL, seed: 2 }));
+  let diff = 0;
+  for (let i = 0; i < a.left.length; i += 97) diff += Math.abs(a.left[i] - b.left[i]);
+  assert.ok(diff > 0, 'the seed changes the melody');
+  assert.equal(a.report.key, 'E dorian');
+  assert.equal(a.report.layers, FULL.layers.length);
+});
+
+test('score specs are validated against the limits', async () => {
+  const { validateScore, renderScore, LIMITS } = await import('../scripts/music.mjs');
+  assert.deepEqual(validateScore({ ...FULL, layers: [...FULL.layers] }).errors, []);
+  const errs = (spec) => validateScore(spec).errors.join('\n');
+  assert.match(errs({ ...FULL, style: 'explainer' }), /no preset styles/);
+  assert.match(errs({ ...FULL, bpm: 200 }), /music\.bpm/);
+  assert.match(errs({ ...FULL, key: 'H' }), /music\.key/);
+  assert.match(errs({ ...FULL, mode: 'blues' }), /music\.mode/);
+  assert.match(errs({ ...FULL, progression: [0, 9] }), /progression\[1\]/);
+  assert.match(errs({ ...FULL, progression: [] }), /progression/);
+  assert.match(errs({ ...FULL, layers: Array(LIMITS.layers + 1).fill(FULL.layers[0]) }), /at most/);
+  assert.match(errs({ ...FULL, layers: [{ inst: 'kazoo', pattern: 'X' }] }), /inst must be/);
+  assert.match(errs({ ...FULL, layers: [{ inst: 'kick', pattern: 'X..?', vel: 0.5 }] }), /pattern has '\?'/);
+  assert.match(errs({ ...FULL, layers: [{ inst: 'kick', pattern: '-X..', vel: 0.5 }] }), /starts with a hold/);
+  assert.match(errs({ ...FULL, layers: [{ inst: 'kick', pattern: 'X'.repeat(33), vel: 0.5 }] }), /steps per bar/);
+  assert.match(errs({ ...FULL, layers: [{ inst: 'kick', pattern: 'X...', vel: 0.9 }] }), /vel must be in \(0, 0\.7\]/);
+  assert.match(errs({ ...FULL, layers: [{ inst: 'kick', pattern: 'X...', vel: 0.5, notes: 'root' }] }), /drum and has no notes/);
+  assert.match(errs({ ...FULL, layers: [{ inst: 'pad', pattern: 'X---', vel: 0.05, notes: ['ninth'] }] }), /not a note/);
+  assert.match(errs({ ...FULL, layers: [{ inst: 'pad', pattern: 'X---', vel: 0.05, bright: 0.5 }] }), /not an option for pad/);
+  assert.match(errs({ ...FULL, layers: [{ inst: 'pad', pattern: 'X---', vel: 0.05, cutoff: [100, 99999] }] }), /cutoff/);
+  assert.match(errs({ ...FULL, layers: Array(3).fill({ inst: 'hat', pattern: 'X'.repeat(16), vel: 0.05 }) }), /drum hits per bar/);
+  assert.match(errs({ ...FULL, lead: { inst: 'pad', range: [60, 80], rhythm: 'sparse', vel: 0.1 } }), /lead\.inst/);
+  assert.match(errs({ ...FULL, lead: { inst: 'keys', range: [60, 64], rhythm: 'sparse', vel: 0.1 } }), /lead\.range/);
+  assert.match(errs({ ...FULL, tempo: 100 }), /music\.tempo is not a score option/);
+  // musical advice is a warning, not an error
+  const w = validateScore({ ...FULL, layers: [{ inst: 'kick', pattern: 'X...', vel: 0.5 }, { inst: 'bass', pattern: 'X---', vel: 0.2 }] });
+  assert.deepEqual(w.errors, []);
+  assert.ok(w.warnings.some((x) => /no harmony/.test(x)) && w.warnings.some((x) => /drums play/.test(x)));
+  assert.throws(() => renderScore(planOf({ ...FULL, bpm: 10 })), /music\.bpm/);
+});
+
+test('music.style is rejected: the score is designed per video', () => {
+  assert.throws(() => stubCreate({ music: { style: 'explainer', bpm: 100 }, scenes: [{ id: 'a', duration: 2, draw() {} }] }), /no preset music styles/);
+  assert.throws(() => stubCreate({ music: { ...SCORE }, scenes: [{ id: 'a', duration: 2, draw() {} }] }), /music\.bpm is required/);
+  assert.throws(() => stubCreate({ scenes: [] }), /no scenes yet/);
+});
+
 test('music options reach the score plan', () => {
-  const api = stubCreate({ music: { style: 'ambient', bpm: 80, duck: -15, gap: 5, volume: 1.2, seed: 9 }, scenes: [{ id: 'a', duration: 3, draw() {} }] });
+  const api = stubCreate({ music: { ...SCORE, bpm: 80, duck: -15, gap: 5, volume: 1.2, seed: 9, chordBars: 2, fills: false }, scenes: [{ id: 'a', duration: 3, draw() {} }] });
   const sc = api.info().score;
   assert.equal(sc.duck, -15);
   assert.equal(sc.gap, 5);
   assert.equal(sc.volume, 1.2);
   assert.equal(sc.seed, 9);
+  assert.equal(sc.chordBars, 2);
+  assert.equal(sc.fills, false);
+  assert.equal(sc.mode, 'major');
 });
 
 test('scene timing ends at the last spoken word, not the clip end', () => {

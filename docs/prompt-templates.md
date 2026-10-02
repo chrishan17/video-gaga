@@ -125,7 +125,7 @@ After the discovery questions, write a brief like this into `<project>/BRIEF.md`
 - Style: {preset or custom}; accent {hex}; fonts {display + label}
 - Voice: {voice id}, rate {±%}; captions: {burn/soft/file}, style {box/outline/karaoke}
 - Pace: {calm | medium | punchy}; transitions: {1–2 types} + at most one special; signature move: {…}
-- Music: {style} at {bpm} BPM, seed {n} (or: licensed file + its BPM); music-only moments: {pre-roll, breath before …, end card}
+- Music: {feel in 3 words} · {bpm} BPM {key} {mode} · progression {…} · layers {instrument @ from-energy, …} · lead {instrument or none} (or: licensed file + its BPM); music-only moments: {pre-roll, breath before …, end card}
 - Assets: {logo.svg, screenshots/…}
 - Banned: {…}
 

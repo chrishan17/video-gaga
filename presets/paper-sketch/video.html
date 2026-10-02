@@ -37,6 +37,7 @@ const T = {
 };
 const F = (w, px, fam) => `${w} ${px}px ${fam}`;
 
+// === KIT: pencil, boil, wash =================================================
 // Boil: the jitter seed changes every 3 frames (12 fps at 30 fps output).
 const boil = (s, base) => base * 131 + Math.floor(s.frame / 3);
 
@@ -70,6 +71,7 @@ function wash(ctx, pts, col, p) {
   ctx.restore();
 }
 
+// === EXAMPLE: the tomato =====================================================
 function tomato(ctx, s, cx, cy, r, t0, seed = 1) {
   const lt = s.t - t0;
   const body = circle(s, seed, cx, cy, r, Math.min(3.5, r * 0.018));
@@ -83,6 +85,7 @@ function tomato(ctx, s, cx, cy, r, t0, seed = 1) {
   pencil(ctx, line(s, seed + 4, cx, cy - r * 0.95, cx + r * 0.05, cy - r * 1.35, 1.5), lp, T.green, lw);
 }
 
+// === KIT: marker, arrows, paper, hand lettering ==============================
 function highlight(ctx, x, y, w, h, p) {
   if (p <= 0) return;
   ctx.save();
@@ -154,6 +157,7 @@ function sketchCurve(s, seed, x1, y1, cx, cy, x2, y2, n = 40, rough = 2) {
   return pts;
 }
 
+// === EXAMPLE: the cycle board ================================================
 // The cycle board (four tomatoes → long break). `tm` holds the local times at
 // which each part is drawn, so the music-only scene can redraw it complete.
 function cycleBoard(ctx, s, tm) {
@@ -184,6 +188,7 @@ function cycleBoard(ctx, s, tm) {
   fx.charReveal(ctx, '4 个番茄 = 1 轮', 780, 800, t - tm.eq, { stagger: 0.06, dur: 0.3, align: 'center' });
 }
 
+// === KIT: page-slide transition ==============================================
 // Page-slide transition: the new sheet slides over with a soft shadow.
 function pageSlide(ctx, A, B, p) {
   const W = ctx.canvas.width, H = ctx.canvas.height;
@@ -210,7 +215,20 @@ CV.create({
   width: 1920, height: 1080, fps: 30,
   background: T.paper,
   lang: 'zh-CN',
-  music: { style: 'acoustic', bpm: 96, seed: 7 },
+  // the score designed for this video: handmade and warm: fingerpicked major chords, snaps and a shaker, a glockenspiel in the gaps
+  music: {
+    bpm: 96, seed: 7, key: 'G', mode: 'major', progression: [0, 4, 5, 3],
+    layers: [
+      { name: 'pad', inst: 'pad', notes: 'chord', pattern: 'X---', vel: 0.035, cutoff: 700, attack: 0.8 },
+      { name: 'picking (bass notes)', inst: 'pluck', notes: ['root_', 'fifth_'], pattern: 'X.X.X.X.', gate: 3.2, vel: 0.16, bright: 0.35, decay: 0.997, from: 0.15, to: 0.45 },
+      { name: 'picking', inst: 'pluck', notes: ['root_', 2, 'fifth_', 1, 'root_', 2, 'fifth_', '0^'], pattern: 'XxXxXxXx', gate: 3.2, vel: 0.16, bright: 0.35, decay: 0.997, from: 0.45 },
+      { name: 'snaps', inst: 'snap', pattern: '.X.X', vel: 0.16, from: 0.5 },
+      { name: 'shaker', inst: 'shaker', pattern: 'xXxXxXxX', vel: 0.045, from: 0.5 },
+      { name: 'kick', inst: 'kick', pattern: 'X... .... ..x. ....', vel: 0.35, from: 0.7 },
+      { name: 'bass', inst: 'bass', octave: -1, notes: ['root', 'fifth_'], pattern: 'X--.X--.', vel: 0.2, from: 0.7 },
+    ],
+    lead: { inst: 'bell', kind: 'glock', range: [74, 88], rhythm: 'melodic', vel: 0.1, echo: 0.1 },
+  },
   transition: slide,
   voiceDelay: 0.3, tail: 0.4, // the voice starts as the page settles
   subtitles: {

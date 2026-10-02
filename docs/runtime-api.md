@@ -44,7 +44,7 @@ Open the file in a browser to get a **preview player**: Space plays or pauses, �
 | `tail` | `0.55` | Seconds held after the voice ends. |
 | `subtitles` | — | `{ burn, maxChars, minChars, punctuation: 'strip'\|'keep', style: {...} }` |
 | `overlay(ctx, g)` | — | Drawn on top of every frame (chrome, grain, progress bar). `g = {T, frame, W, H, u, duration, p, scenes}` |
-| `music` | — | The soundtrack and the **beat grid**: `{ style, bpm, beatsPerBar: 4, offset: 0, snap: 'beat', voiceOnBeat: true, seed, volume: 1, duck: -12, sfx: true, ending: 'resolve' }`. `style` picks a generated score (see [music-and-sound.md](music-and-sound.md)); `style: 'none'` keeps only sound effects; `file: 'bed.mp3'` (or the old `music: 'bed.mp3'` string) uses a licensed track instead. |
+| `music` | — | The soundtrack and the **beat grid**: `{ bpm, beatsPerBar: 4, offset: 0, snap: 'beat', voiceOnBeat: true, volume: 1, duck: -12, sfx: true, ending: 'resolve' }` plus the score designed for this video: `key, mode, progression, sevenths, chordBars, layers, lead, seed, fills` (see [music-and-sound.md](music-and-sound.md) §2; there are no preset styles, and `style` is an error). `layers: []` keeps only sound effects; `file: 'bed.mp3'` (or the old `music: 'bed.mp3'` string) uses a licensed track instead. |
 | `setup(api)` | — | Async hook awaited before the warm-up pass (load data, build three.js scenes, pre-render textures). Declared `fonts` are already loaded. |
 | `pixelRatio` | 1 | Supersampling factor (`--scale` on the CLI overrides it). |
 
@@ -99,7 +99,7 @@ Timeline resolution: `scene.duration = duration ?? beats/bars ?? max(minDuration
 | `s.pulse(decay = 0.16, unit)` | 1 on every beat, decaying exponentially — for *subtle* beat accents (a dot, a glow), never whole layouts |
 | `s.isRender` | true inside the renderer |
 
-The `overlay(ctx, g)` object also has `g.beat`, `g.bar` and `g.pulse(decay)`.
+The `overlay(ctx, g)` object also has `g.beat`, `g.beatLen` (seconds; NaN without music), `g.bar` and `g.pulse(decay)`.
 
 ## Transitions
 

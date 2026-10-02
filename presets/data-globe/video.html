@@ -41,7 +41,7 @@ const F = (w, px, fam = T.sans) => `${w} ${px}px ${fam}`;
 const W = 1920, H = 1080, L = 140;
 const RAD = Math.PI / 180;
 
-// === DATA (ACI World, 2023 passenger traffic, preliminary) ====================
+// === EXAMPLE: data (ACI World, 2023 passenger traffic, preliminary) ==========
 // Passengers in 万人次 (10,000s). ATL 104.65M · DXB 86.99M · DFW 81.76M · LHR 79.18M · HND 78.72M
 const TOP5 = [
   { code: 'ATL', name: '亚特兰大', v: 10465 },
@@ -59,7 +59,8 @@ const CITY = {
 const DAILY = 10465 / 365; // ≈ 28.7 万人次 / 天
 const SOURCE = '数据：ACI World 2023 年全球机场旅客吞吐量（初步）';
 
-// === LAND MASK: coarse continent outlines [lon, lat] (stylised, not survey-grade)
+// === KIT: land mask ==========================================================
+// coarse continent outlines [lon, lat] (stylised, not survey-grade)
 const LAND = [
   // North America
   [[-166,68],[-156,71],[-141,70],[-128,70],[-110,68],[-95,68],[-94,60],[-88,56],[-80,52],[-79,56],[-77,60],[-78,63],[-70,62],[-64,60],[-60,55],[-56,52],[-60,47],[-66,44],[-70,42],[-74,40],[-76,35],[-81,31],[-80,25],[-82,27],[-84,30],[-89,30],[-94,29],[-97,26],[-97,21],[-94,18],[-90,21],[-87,21],[-88,16],[-84,15],[-83,10],[-79,9],[-77,8],[-80,7],[-85,10],[-87,13],[-92,14],[-96,16],[-105,20],[-106,23],[-110,23],[-112,29],[-114,31],[-117,32],[-121,35],[-124,40],[-124,46],[-125,49],[-131,54],[-136,58],[-146,61],[-152,59],[-158,57],[-165,54],[-162,59],[-166,62]],
@@ -109,7 +110,7 @@ function vec(lon, lat, r = 1) {
   return new THREE.Vector3(Math.cos(b) * Math.sin(a) * r, Math.sin(b) * r, Math.cos(b) * Math.cos(a) * r);
 }
 
-// === THE WORLD (built once) ====================================================
+// === KIT: the globe (built once) =============================================
 const gl = CV.three(THREE, { width: W, height: H, toneMapping: false });
 const pxScale = gl.canvas.height / H;
 const world = new THREE.Scene();
@@ -175,6 +176,7 @@ const grat = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(gra
 grat.renderOrder = 2;
 globe.add(grat);
 
+// === EXAMPLE: city markers and arcs ==========================================
 // city markers: an amber dot + an expanding ring, flat on the surface
 const amber = new THREE.Color(T.amber);
 const markers = {};
@@ -204,9 +206,9 @@ const arcs = ['LHR', 'DXB', 'HND'].map((to) => {
   return { to, curve, tube, head };
 });
 
-// --- one function sets EVERY animated property (scenes share the world) -------
+// === KIT: globe pose and projection ==========================================
 // view: { lon, lat, dist, x, y } — the place facing the camera, camera distance, globe offset
-function setWorld(v, st = {}) {
+function setGlobe(v, st = {}) {
   globe.position.set(v.x ?? 0.85, v.y ?? 0.08, 0);
   globe.rotation.set((v.lat - 8) * RAD, -v.lon * RAD, 0, 'XYZ'); // the place sits a little above centre
   cam.position.set(0, 0, v.dist);
@@ -217,6 +219,15 @@ function setWorld(v, st = {}) {
   ocean.material.opacity = a;
   atmo.material.uniforms.uAlpha.value = a * (st.atmo ?? 1);
   gratMat.opacity = 0.4 * a * (st.reveal ?? 1);
+  globe.updateMatrixWorld(true);
+  cam.updateMatrixWorld();
+}
+
+// === EXAMPLE: the world of this video ========================================
+// one function sets EVERY animated property (scenes share the world)
+function setWorld(v, st = {}) {
+  setGlobe(v, st);
+  const a = st.alpha ?? 1;
   for (const [code, m] of Object.entries(markers)) {
     const c = st.cities?.[code] ?? { on: 0, ring: -1 };
     m.dot.material.opacity = clamp(c.on) * a;
@@ -241,6 +252,7 @@ function setWorld(v, st = {}) {
   cam.updateMatrixWorld();
 }
 
+// === KIT: globe camera moves =================================================
 // screen position of a place (and whether it faces us)
 const tmp = new THREE.Vector3();
 function project(lon, lat, r = 1.0) {
@@ -261,9 +273,10 @@ function track(t, start, moves) {
   for (const m of moves) v = viewLerp(v, m.to, (m.ease || ease.standard)(clamp((t - m.at) / m.dur)));
   return v;
 }
+// === EXAMPLE: places =========================================================
 const at = (code, dist = 4.6) => ({ lon: CITY[code].lon, lat: CITY[code].lat, dist });
 
-// === 2D HELPERS ================================================================
+// === KIT: 2D panel ===========================================================
 function backdrop(ctx, s, glow = 1) {
   const g = ctx.createRadialGradient(W * 0.72, H * 0.47, 0, W * 0.72, H * 0.47, H * 0.75);
   g.addColorStop(0, color.rgba(T.field2, glow));
@@ -284,6 +297,7 @@ function kicker(ctx, s, label) {
   ctx.letterSpacing = '0px';
   ctx.globalAlpha = 1;
 }
+// === EXAMPLE: city labels, footnote, views ===================================
 // city label anchored to the globe: a short leader line and the name
 function label(ctx, code, p, opts = {}) {
   if (p <= 0) return;
@@ -337,7 +351,18 @@ CV.create({
   background: T.field,
   lang: 'zh-CN',
   fonts: [F(900, 88, T.serif), F(700, 28), F(500, 24, T.mono)],
-  music: { style: 'ambient', bpm: 80, seed: 7 },
+  // the score designed for this video: space and light: lydian sevenths that change every two bars, a few piano notes, no drums
+  music: {
+    bpm: 80, seed: 7, key: 'C', mode: 'lydian', progression: [0, 3, 5, 4], sevenths: true, chordBars: 2,
+    layers: [
+      { name: 'pad', inst: 'sinepad', notes: 'chord', bars: 2, pattern: 'X-------', vel: 0.07, attack: 1.4, release: 2.6 },
+      { name: 'piano (two notes)', inst: 'keys', octave: 1, notes: [0, 1], pattern: 'X..X....', gate: 4, vel: 0.05, bright: 0.3, decay: 2, echo: 0.3, from: 0.3, to: 0.55 },
+      { name: 'piano', inst: 'keys', octave: 1, notes: [0, 1, 2, 1], pattern: 'X..X.X.X', gate: 4, vel: 0.05, bright: 0.3, decay: 2, echo: 0.3, from: 0.55 },
+      { name: 'sub', inst: 'bass', octave: -2, bars: 2, pattern: 'X-', vel: 0.14, decay: 6, from: 0.4 },
+      { name: 'celesta', inst: 'bell', kind: 'celesta', notes: [2], octave: 2, pattern: '..X.', vel: 0.035, verb: 0.7, from: 0.7 },
+    ],
+    lead: { inst: 'keys', range: [72, 86], rhythm: 'sparse', vel: 0.09, bright: 0.35, decay: 2.2, echo: 0.35 },
+  },
   transition: 'cut',
   subtitles: {
     style: { font: F(500, 40), color: T.ink, box: 'rgba(6,16,29,0.78)', y: 0.92, radius: 6 },

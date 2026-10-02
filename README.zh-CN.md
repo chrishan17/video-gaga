@@ -11,7 +11,7 @@
 
 - **Canvas 逐帧确定性渲染**：每一帧都是 `draw(ctx, t)` 这个纯函数的结果。多个无头 Chromium 页面并行渲染，再由 ffmpeg 编码为 H.264（BT.709），帧与帧之间不会有偏差。
 - **配音决定时间轴**：用微软 Edge 神经语音，免费、不需要 API Key，300 多种音色，中文效果很好，而且带**词级时间戳**。场景时长由语音长度决定，画面在说到某个词时准确出现（`s.when('三十')`；标题也可以跟着读音逐词出现：`fx.wordReveal({ sync: s })`）。
-- **音乐踩在同一个节拍上**：每支视频都会按自己的时间轴生成配乐（8 种风格，从 `explainer` 到 `synthwave`）。剪辑点落在拍子上，每句旁白都从八分音符起拍。说话时音乐自动让位，旋律只在停顿里出现，重音前留半拍呼吸，最后一个和弦跟着末帧收尾。转场带风声，计数带滴答声。全部本地合成、可复现，不用采样，也没有版权问题。
+- **音乐踩在同一个节拍上**：每支视频都有自己的配乐：Agent 根据需求现场设计（速度、调式、和弦、乐器以及它们如何随情绪叠加，均在强制限制之内，没有预设风格），再按这支视频的时间轴编排。剪辑点落在拍子上，每句旁白都从八分音符起拍。说话时音乐自动让位，旋律只在停顿里出现，重音前留半拍呼吸，最后一个和弦跟着末帧收尾。转场带风声，计数带滴答声。全部本地合成、可复现，不用采样，也没有版权问题。
 - **节奏有张有弛**：旁白不必从头念到尾。纯音乐的开场、揭晓前的停顿、余韵充足的片尾（`beats: 6`、`narration: false`）都是设计的一部分。
 - **真正的转场和退场**：22 种转场（甩镜、色带扫屏、开门、光圈、墨晕、立方体、漏光……），每种都有对应音效。元素会按编排退场，剪辑点落在动作上。另有 three.js 桥接（`CV.three`），可以做产品旋转、爆炸图、地球仪，WebGL 渲染同样逐帧确定。
 - **字幕认真做**：字幕用同一份词级时间生成。中文断行遵守避头尾规则，长句按意群均衡切分，中文字幕去掉逗号和句号、保留问号和感叹号。字幕可以按视频自己的字体样式烧进画面，也可以做卡拉 OK 高亮，同时导出 `.srt`、`.vtt` 或 MP4 软字幕轨。
@@ -37,7 +37,7 @@
 | <img src="docs/media/neon-circuit.gif" width="180"> | **Neon Circuit 赛博霓虹** · 9:16 竖屏 · 18 秒 · 中文旁白（云健）· `synthwave` 配乐。夜城与 HUD，RGB 分离只在命中点触发，终端光标随拍闪烁，一个纯音乐的"倒计时就绪"节拍，故障转场配故障音。[▶ 视频](docs/media/neon-circuit.mp4) · [源码](presets/neon-circuit/video.html) |
 | <img src="docs/media/pop-collage.gif" width="180"> | **Pop Collage 波普拼贴** · 9:16 竖屏 · 20 秒 · 中文旁白（晓伊）· `pop` 配乐。剪纸贴纸踩着拍子弹入，品牌色带转场，卡拉 OK 字幕，纯音乐回顾里三条要点一拍一条落下。[▶ 视频](docs/media/pop-collage.mp4) · [源码](presets/pop-collage/video.html) |
 
-选风格时，Agent 每次都会额外给一个"野卡"方案：专门为你的需求设计一套新风格，并用你的真实标题出样帧。详见 [STYLE_PRESETS.md](STYLE_PRESETS.md)。
+选风格时，Agent 每次都会额外给一个"野卡"方案：专门为你的需求设计一套新风格，并用你的真实标题出样帧。预设只决定视觉风格和动效语法（配色、字体、动效函数、转场、字幕样式）；文案、场景结构、具体动画和配乐都按每支视频的需求重新设计，`cv init` 也只复制风格，不复制示例内容。详见 [STYLE_PRESETS.md](STYLE_PRESETS.md)。
 
 ## 工作流程
 
@@ -79,7 +79,7 @@ node scripts/cv.mjs voices --lang zh-CN             # 列出中文音色
 - [SKILL.md](SKILL.md)：Agent 工作流（提问 → 风格 → 分镜 → 制作 → 验收 → 交付）
 - [docs/motion-design.md](docs/motion-design.md)：动效设计规范（该做 / 不该做、时长表、自检清单）
 - [docs/narration-and-subtitles.md](docs/narration-and-subtitles.md)：Edge TTS 音色推荐、为耳朵写稿、字幕规则
-- [docs/music-and-sound.md](docs/music-and-sound.md)：配乐风格、节拍网格、音效、节奏与留白
+- [docs/music-and-sound.md](docs/music-and-sound.md)：如何设计配乐（规格、规则、限制）、节拍网格、音效、节奏与留白
 - [docs/three-d.md](docs/three-d.md)：在作品里用 three.js：什么时候值得用 3D、写法和规则
 - [docs/prompt-templates.md](docs/prompt-templates.md)：从 X / GitHub 收集的提示词模式（附出处）与现成模板
 - [docs/tech-selection.md](docs/tech-selection.md)：技术选型（对比 Remotion、HyperFrames、Motion Canvas、WebCodecs 等）

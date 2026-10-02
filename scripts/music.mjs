@@ -1,10 +1,12 @@
 // video-gaga music — a deterministic, procedurally arranged score.
 //
-// The composition declares `music: { style, bpm, seed, … }`. The runtime
+// The composition declares its own score: `music: { bpm, key, mode,
+// progression, layers, lead, seed, … }`, designed by the agent for this video
+// (there are no preset styles; see "the score spec" below). The runtime
 // resolves the timeline (scenes snapped to the beat grid, voice spans, sound
 // effects) and hands this module a plan via `__CV.info().score`. We arrange
 // the music *from that plan*:
-//   • harmony and groove come from the style; the tempo is the video's grid
+//   • harmony and groove come from the spec; the tempo is the video's grid
 //   • each scene's `energy` decides which layers play in its bars
 //   • the bed dips under narration and a lead melody fills the gaps
 //   • hits get a breath of silence before them, scenes get fills and crashes
@@ -51,6 +53,8 @@ const MODES = {
   minor: [0, 2, 3, 5, 7, 8, 10],
   dorian: [0, 2, 3, 5, 7, 9, 10],
   lydian: [0, 2, 4, 6, 7, 9, 11],
+  mixolydian: [0, 2, 4, 5, 7, 9, 10],
+  phrygian: [0, 1, 3, 5, 7, 8, 10],
 };
 const NOTE = { C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F: 5, 'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10, B: 11 };
 
@@ -433,116 +437,219 @@ const FX = {
 };
 
 // ---------------------------------------------------------------------------
-// styles — harmony, groove, orchestration
+// the score spec — designed by the agent for each video, validated here
 // ---------------------------------------------------------------------------
-// Each style: key, mode, progression (scale degrees, one chord per `every`
-// bars), registers, and a bar(…) arranger that schedules notes given the
-// bar's chord and energy (0..1). `lead` describes the melody that plays in
-// the gaps between spoken lines.
-const STYLES = {
-  // Dark stage, pulse and light: launch reveals, product teasers.
-  keynote: {
-    bpm: 92, key: 'A', mode: 'minor', prog: [0, 5, 2, 6], every: 1,
-    lead: { inst: 'keys', range: [69, 84], rhythm: 'sparse', vel: 0.11, opts: { bright: 0.6, echo: 0.3 } },
-    bar(a, c, e) {
-      a.pad(c.voicing, 0, a.barLen, { cutoff: 700 + e * 900, vel: 0.1, attack: 0.9 });
-      if (e >= 0.3) for (let k = 0; k < 8; k++) a.bass(c.root - 12, k * a.beat / 2, a.beat * 0.42, { synth: true, cutoff: 160 + e * 160, vel: k % 2 ? 0.16 : 0.22, envDecay: 0.08 });
-      if (e >= 0.55) { a.kick(0, 0.55); a.kick(a.beat * 2.5, 0.35); }
-      if (e >= 0.72) { a.kick(a.beat * 2, 0.45); for (let k = 0; k < 16; k++) a.hat(k * a.beat / 4, k % 4 === 2 ? 0.08 : 0.04); }
-      if (e >= 0.62) c.voicing.forEach((n, i) => a.keys(n + 12, i * a.beat * 0.5 + a.beat * 2, a.beat * 1.5, { vel: 0.06, bright: 0.5, echo: 0.25, pan: lerp(-0.3, 0.3, i / 2) }));
-    },
-  },
-  // Bright, curious, friendly: knowledge explainers, how-it-works, data.
-  explainer: {
-    bpm: 100, key: 'D', mode: 'major', prog: [0, 5, 3, 4], sevenths: true, every: 1,
-    lead: { inst: 'bell', range: [74, 88], rhythm: 'melodic', vel: 0.1, opts: { kind: 'glock', echo: 0.15 } },
-    bar(a, c, e) {
-      a.pad(c.voicing, 0, a.barLen, { cutoff: 900 + e * 600, vel: 0.06, attack: 0.4 });
-      // keys: syncopated stabs (on 1, the & of 2, and 4)
-      if (e >= 0.25) for (const [b, l] of [[0, 1.2], [1.5, 0.9], [3, 0.8]]) a.chord('keys', c.voicing, b * a.beat, l * a.beat, { vel: 0.07 + e * 0.03, bright: 0.8 });
-      if (e >= 0.35) { a.bass(c.root - 12, 0, a.beat * 1.4, { vel: 0.3 }); a.bass(c.root - 12 + 7, a.beat * 2, a.beat * 0.9, { vel: 0.25 }); a.bass(c.root - 12, a.beat * 3.5, a.beat * 0.45, { vel: 0.2 }); }
-      if (e >= 0.5) { a.kick(0, 0.5); a.kick(a.beat * 1.5, 0.32); a.kick(a.beat * 2, 0.45); a.rim(a.beat, 0.12); a.rim(a.beat * 3, 0.12); }
-      if (e >= 0.4) for (let k = 0; k < 8; k++) a.shaker(k * a.beat / 2, k % 2 ? 0.08 : 0.045);
-      if (e >= 0.75) { a.clap(a.beat, 0.16); a.clap(a.beat * 3, 0.16); }
-    },
-  },
-  // Minimal, precise, typographic: marimba ostinato on a four-on-the-floor.
-  kinetic: {
-    bpm: 104, key: 'E', mode: 'dorian', prog: [0, 0, 5, 6], every: 1,
-    lead: { inst: 'bell', range: [76, 88], rhythm: 'rhythmic', vel: 0.09, opts: { kind: 'kalimba', echo: 0.2 } },
-    bar(a, c, e) {
-      const pat = [0, 2, 1, 2, 0, 2, 1, 2, 0, 2, 1, 2, 3, 2, 1, 2];
-      const tones = [c.voicing[0], c.voicing[1], c.voicing[2], c.voicing[0] + 12];
-      if (e >= 0.2) pat.forEach((k, i) => { if (e >= 0.5 || i % 2 === 0) a.bell(tones[k], i * a.beat / 4, 0.2, { kind: 'marimba', vel: (i % 4 === 0 ? 0.12 : 0.07), pan: k % 2 ? 0.25 : -0.2, verb: 0.12 }); });
-      a.pad(c.voicing, 0, a.barLen, { cutoff: 600 + e * 400, vel: 0.04, attack: 0.5 });
-      if (e >= 0.45) for (let k = 0; k < 4; k++) { a.kick(k * a.beat, k ? 0.5 : 0.6); a.bass(c.root - 12, k * a.beat + a.beat / 2, a.beat * 0.3, { vel: 0.24 }); }
-      if (e >= 0.55) { a.clap(a.beat, 0.18); a.clap(a.beat * 3, 0.18); for (let k = 0; k < 4; k++) a.hat(k * a.beat + a.beat / 2, 0.09); }
-      if (e >= 0.8) for (let k = 0; k < 16; k++) if (k % 4 !== 2) a.hat(k * a.beat / 4, 0.025);
-    },
-  },
-  // Night drive: arpeggiated saws, gated pads, big snare.
-  synthwave: {
-    bpm: 112, key: 'F#', mode: 'minor', prog: [0, 5, 2, 6], every: 1,
-    lead: { inst: 'lead', range: [66, 81], rhythm: 'melodic', vel: 0.08, opts: { saw: 0.7, cutoff: 3200, echo: 0.4 } },
-    bar(a, c, e) {
-      a.pad(c.voicing, 0, a.barLen, { cutoff: 1100 + e * 1200, vel: 0.07, attack: 0.25 });
-      if (e >= 0.3) for (let k = 0; k < 16; k++) a.bass(c.root - 12 + (k % 4 === 2 ? 12 : 0), k * a.beat / 4, a.beat * 0.2, { synth: true, cutoff: 220 + e * 280, vel: 0.17, envDecay: 0.05 });
-      if (e >= 0.45) { const arp = [0, 1, 2, 1, 2, 3, 2, 1]; for (let k = 0; k < 8; k++) a.pluck(c.voicing[arp[k] % 3] + 12 + (arp[k] === 3 ? 12 : 0), k * a.beat / 2, a.beat * 0.4, { vel: 0.08, bright: 0.85, echo: 0.3, pan: k % 2 ? 0.35 : -0.35 }); }
-      if (e >= 0.5) { a.kick(0, 0.6); a.kick(a.beat * 2, 0.6); a.snare(a.beat, 0.3); a.snare(a.beat * 3, 0.3); }
-      if (e >= 0.6) for (let k = 0; k < 8; k++) a.hat(k * a.beat / 2, k % 2 ? 0.06 : 0.03, false);
-      if (e >= 0.85) { a.kick(a.beat, 0.5); a.kick(a.beat * 3, 0.5); }
-    },
-  },
-  // Handmade and warm: fingerpicked strings, glockenspiel, snaps.
-  acoustic: {
-    bpm: 96, key: 'G', mode: 'major', prog: [0, 4, 5, 3], every: 1,
-    lead: { inst: 'bell', range: [74, 88], rhythm: 'melodic', vel: 0.1, opts: { kind: 'glock', echo: 0.1 } },
-    bar(a, c, e) {
-      // Travis-style picking: alternating bass on the beats, chord tones between
-      const v = c.voicing, bassA = c.root - 12, bassB = c.root - 12 + 7;
-      const pick = [[0, bassA], [0.5, v[2]], [1, bassB], [1.5, v[1]], [2, bassA], [2.5, v[2]], [3, bassB], [3.5, v[0] + 12]];
-      if (e >= 0.15) pick.forEach(([b, n], i) => { if (e >= 0.45 || i % 2 === 0) a.pluck(n, b * a.beat, a.beat * 1.6, { vel: i % 2 ? 0.12 : 0.16, bright: 0.35, decay: 0.997, pan: i % 2 ? 0.25 : -0.15 }); });
-      a.pad(v, 0, a.barLen, { cutoff: 700, vel: 0.035, attack: 0.8 });
-      if (e >= 0.5) { a.snap(a.beat, 0.16); a.snap(a.beat * 3, 0.16); for (let k = 0; k < 8; k++) a.shaker(k * a.beat / 2, k % 2 ? 0.045 : 0.025); }
-      if (e >= 0.7) { a.kick(0, 0.35); a.kick(a.beat * 2.5, 0.25); a.bass(c.root - 12, 0, a.beat * 1.8, { vel: 0.2 }); a.bass(c.root - 5, a.beat * 2, a.beat * 1.8, { vel: 0.18 }); }
-    },
-  },
-  // Space and light: long pads, a few piano notes, no drums.
-  ambient: {
-    bpm: 76, key: 'C', mode: 'lydian', prog: [0, 3, 5, 4], sevenths: true, every: 2,
-    lead: { inst: 'keys', range: [72, 86], rhythm: 'sparse', vel: 0.09, opts: { bright: 0.35, decay: 2.2, echo: 0.35 } },
-    bar(a, c, e, bi) {
-      if (bi % 2 === 0) a.chord('sinepad', c.voicing, 0, a.barLen * 2, { vel: 0.07, attack: 1.4, release: 2.6 });
-      if (e >= 0.4 && bi % 2 === 0) a.bass(c.root - 24, 0, a.barLen * 2, { vel: 0.14, decay: 6 });
-      if (e >= 0.3) [[0, 0], [1.5, 1], [2.5, 2], [3.5, 1]].forEach(([b, k], i) => { if (e >= 0.55 || i < 2) a.keys(c.voicing[k] + 12, b * a.beat, a.beat * 2, { vel: 0.05, bright: 0.3, decay: 2, echo: 0.3, pan: lerp(-0.4, 0.4, k / 2) }); });
-      if (e >= 0.7) a.bell(c.voicing[2] + 24, a.beat * 2, 1, { kind: 'celesta', vel: 0.035, verb: 0.7 });
-    },
-  },
-  // Upbeat, colourful, social: syncopated plucks, claps, bouncing bass.
-  pop: {
-    bpm: 116, key: 'C', mode: 'major', prog: [5, 3, 0, 4], every: 1,
-    lead: { inst: 'pluck', range: [72, 86], rhythm: 'rhythmic', vel: 0.15, opts: { bright: 0.9, decay: 0.993, echo: 0.3 } },
-    bar(a, c, e) {
-      const v = c.voicing;
-      if (e >= 0.2) [0, 0.75, 1.5, 2.5, 3.25].forEach((b, i) => a.chord('pluck', v, b * a.beat, a.beat * 0.5, { vel: 0.055 + (i === 0 ? 0.02 : 0), bright: 0.75, decay: 0.99 }));
-      a.pad(v, 0, a.barLen, { cutoff: 1300, vel: 0.04, attack: 0.3 });
-      if (e >= 0.35) for (let k = 0; k < 8; k++) a.bass(c.root - 12 + (k % 2 && e >= 0.65 ? 12 : 0), k * a.beat / 2, a.beat * 0.4, { vel: 0.24 });
-      if (e >= 0.5) { for (let k = 0; k < (e >= 0.7 ? 4 : 2); k++) a.kick(k * a.beat * (e >= 0.7 ? 1 : 2), 0.55); a.clap(a.beat, 0.22); a.clap(a.beat * 3, 0.22); }
-      if (e >= 0.6) for (let k = 0; k < 4; k++) a.hat(k * a.beat + a.beat / 2, 0.05, true);
-    },
-  },
-  // Measured, human, cinematic: low strings, piano, a heartbeat drum.
-  documentary: {
-    bpm: 84, key: 'D', mode: 'minor', prog: [0, 5, 3, 4], every: 1,
-    lead: { inst: 'keys', range: [69, 84], rhythm: 'sparse', vel: 0.1, opts: { bright: 0.4, decay: 2, echo: 0.2 } },
-    bar(a, c, e) {
-      a.pad(c.voicing.map((n) => n - 12), 0, a.barLen, { cutoff: 650 + e * 500, vel: 0.09, attack: 1.1, release: 1.6 });
-      if (e >= 0.4) for (let k = 0; k < 8; k++) a.pluck(c.voicing[k % 2 ? 1 : 0], k * a.beat / 2, a.beat * 0.45, { vel: 0.07, bright: 0.2, decay: 0.993, pan: k % 2 ? 0.3 : -0.3 });
-      if (e >= 0.3) a.bass(c.root - 24, 0, a.barLen * 0.95, { vel: 0.2, decay: 4 });
-      if (e >= 0.6) { a.tom(0, 0.4, 75); a.tom(a.beat * 0.5, 0.2, 75); if (e >= 0.75) a.tom(a.beat * 2, 0.3, 90); }
-    },
-  },
+// There are no built-in music styles. Each composition declares its own score,
+// designed from the brief (docs/music-and-sound.md §2):
+//
+//   music: {
+//     bpm: 96, key: 'G', mode: 'major', seed: 7,
+//     progression: [0, 4, 5, 3], sevenths: false, chordBars: 1,
+//     layers: [
+//       { inst: 'pad', notes: 'chord', pattern: 'X---', vel: 0.05, cutoff: [700, 1400] },
+//       { inst: 'pluck', notes: ['root_', 2, 'fifth_', 1], pattern: 'XxXx XxXx', vel: 0.14, from: 0.2 },
+//       { inst: 'kick', pattern: 'X... ..x. X... ....', vel: 0.5, from: 0.5 },
+//     ],
+//     lead: { inst: 'bell', kind: 'glock', range: [74, 88], rhythm: 'melodic', vel: 0.1 },
+//   }
+//
+// A pattern covers `bars` bars (default 1) in equal steps: X = hit, x = soft
+// hit (0.6), 1–9 = hit at n/9, '-' = hold the previous note one more step,
+// '.' = rest; spaces are ignored. A layer plays in bars whose energy is in
+// [from, to). Any numeric sound option may be [low, high], set by the energy.
+// validateScore() enforces LIMITS; renderScore() refuses a spec with errors.
+
+export const LIMITS = {
+  bpm: [60, 150],
+  beatsPerBar: [2, 7],
+  progressionLength: [1, 8],
+  degree: [0, 6],
+  chordBars: [1, 2, 4],
+  layers: 8,
+  patternBars: [1, 2, 4],
+  stepsPerBar: 32,
+  octave: [-2, 2],
+  noteRange: [28, 100], // MIDI, after octave shifts (E1 … E7)
+  gate: [0.05, 8],
+  // loudest allowed hit per instrument (the mix is normalised afterwards; these
+  // keep one layer from swamping the others or clipping the bus)
+  vel: { pad: 0.12, sinepad: 0.12, keys: 0.2, pluck: 0.2, bell: 0.2, lead: 0.12, bass: 0.35, kick: 0.7, snare: 0.35, clap: 0.3, snap: 0.25, rim: 0.2, hat: 0.12, openhat: 0.1, shaker: 0.12, tom: 0.5 },
+  drumHitsPerBar: 40, // all drum layers together, at full energy
+  lead: { vel: 0.15, range: [55, 96], insts: ['keys', 'bell', 'pluck', 'lead'] },
 };
+export const INSTRUMENTS = {
+  pitched: ['pad', 'sinepad', 'keys', 'pluck', 'bell', 'bass', 'lead'],
+  drums: ['kick', 'snare', 'clap', 'snap', 'rim', 'hat', 'openhat', 'shaker', 'tom'],
+};
+export const MODE_NAMES = Object.keys(MODES);
+export const BELL_KINDS = ['glock', 'marimba', 'kalimba', 'celesta'];
+
+// sound options and their allowed ranges (numbers may also be [low, high] by energy)
+const OPT_RANGES = {
+  cutoff: [80, 8000], attack: [0, 4], release: [0, 6], bright: [0, 1], decay: [0, 8],
+  echo: [0, 0.6], verb: [0, 1], strum: [0, 0.1], envDecay: [0.01, 1], saw: [0, 1], pitch: [40, 400],
+};
+const OPTS_FOR = {
+  pad: ['cutoff', 'attack', 'release'], sinepad: ['attack', 'release'],
+  keys: ['bright', 'decay', 'echo', 'verb', 'release', 'strum'], pluck: ['bright', 'decay', 'echo', 'verb', 'strum'],
+  bell: ['kind', 'echo', 'verb'], bass: ['synth', 'cutoff', 'envDecay', 'decay', 'release'], lead: ['saw', 'cutoff', 'echo', 'verb'],
+  tom: ['pitch'],
+};
+const LAYER_KEYS = ['inst', 'pattern', 'notes', 'octave', 'vel', 'from', 'to', 'bars', 'gate', 'pan', 'name'];
+const SPEC_KEYS = ['bpm', 'key', 'mode', 'seed', 'progression', 'sevenths', 'chordBars', 'layers', 'lead', 'fills', 'beatsPerBar'];
+const NOTE_TOKEN = /^(root|third|fifth|seventh|[0-7])([_^]*)$/;
+
+// pattern → { len, events: [{ i, v, len }] }
+function parsePattern(p) {
+  const s = String(p).replace(/\s+/g, '');
+  const events = [];
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (c === '.') continue;
+    if (c === '-') { if (!events.length) return { error: `starts with a hold '-'` }; events[events.length - 1].len++; continue; }
+    const v = c === 'X' ? 1 : c === 'x' ? 0.6 : /[1-9]/.test(c) ? +c / 9 : null;
+    if (v == null) return { error: `has '${c}' (use X x 1-9 - .)` };
+    events.push({ i, v, len: 1 });
+  }
+  return { len: s.length, events };
+}
+
+const isRange = (v) => Array.isArray(v) && v.length === 2 && v.every((x) => typeof x === 'number' && Number.isFinite(x));
+const atEnergy = (v, e) => (Array.isArray(v) ? lerp(v[0], v[1], e) : v);
+
+// → { errors: string[], warnings: string[] }
+export function validateScore(spec) {
+  const errors = [], warnings = [];
+  const err = (m) => errors.push(m), warn = (m) => warnings.push(m);
+  if (!spec || typeof spec !== 'object') return { errors: ['music must be an object'], warnings };
+  if ('style' in spec) err(`music.style ('${spec.style}') is not supported: there are no preset styles. Design the score for this video (bpm, key, mode, progression, layers, lead), see docs/music-and-sound.md`);
+  for (const k of Object.keys(spec)) if (!SPEC_KEYS.includes(k) && !['volume', 'duck', 'gap', 'intro', 'ending', 'offset', 'snap', 'voiceOnBeat', 'sfx', 'file', 'style', 'duration', 'fps', 'sections', 'voice'].includes(k)) err(`music.${k} is not a score option`);
+  const inRange = (name, v, [a, b]) => { if (typeof v !== 'number' || !Number.isFinite(v) || v < a || v > b) err(`${name} must be a number in ${a}…${b} (got ${JSON.stringify(v)})`); };
+  inRange('music.bpm', spec.bpm, LIMITS.bpm);
+  if (spec.beatsPerBar != null) inRange('music.beatsPerBar', spec.beatsPerBar, LIMITS.beatsPerBar);
+  // layers: [] and no lead = sound effects only (on the beat grid): no harmony needed
+  const sfxOnly = Array.isArray(spec.layers) && !spec.layers.length && spec.lead == null;
+  if (sfxOnly) { /* nothing to check */ } else if (!(spec.key in NOTE)) err(`music.key must be one of ${Object.keys(NOTE).join(' ')} (got ${JSON.stringify(spec.key)})`);
+  if (!sfxOnly && !MODE_NAMES.includes(spec.mode)) err(`music.mode must be one of ${MODE_NAMES.join(', ')} (got ${JSON.stringify(spec.mode)})`);
+  const prog = spec.progression;
+  if (sfxOnly) { /* no chords */ } else if (!Array.isArray(prog) || prog.length < LIMITS.progressionLength[0] || prog.length > LIMITS.progressionLength[1]) err(`music.progression must list ${LIMITS.progressionLength.join('–')} scale degrees`);
+  else prog.forEach((d, i) => { if (!Number.isInteger(d) || d < LIMITS.degree[0] || d > LIMITS.degree[1]) err(`music.progression[${i}] must be a scale degree 0–6 (0 = tonic)`); });
+  if (spec.chordBars != null && !LIMITS.chordBars.includes(spec.chordBars)) err(`music.chordBars must be ${LIMITS.chordBars.join(', ')}`);
+  if (spec.sevenths != null && typeof spec.sevenths !== 'boolean') err('music.sevenths must be true or false');
+
+  const layers = spec.layers;
+  if (!Array.isArray(layers)) err('music.layers must be an array ([] = sound effects only)');
+  else {
+    if (layers.length > LIMITS.layers) err(`music.layers: at most ${LIMITS.layers} layers (got ${layers.length}); fewer, clearer parts leave room for the voice`);
+    let drumHits = 0;
+    layers.forEach((L, li) => {
+      const at = `music.layers[${li}]${L?.name ? ` (${L.name})` : ''}`;
+      if (!L || typeof L !== 'object') return err(`${at} must be an object`);
+      const pitched = INSTRUMENTS.pitched.includes(L.inst), drum = INSTRUMENTS.drums.includes(L.inst);
+      if (!pitched && !drum) return err(`${at}.inst must be one of ${[...INSTRUMENTS.pitched, ...INSTRUMENTS.drums].join(', ')} (got ${JSON.stringify(L.inst)})`);
+      const allowed = [...LAYER_KEYS, ...(OPTS_FOR[L.inst] || [])];
+      for (const k of Object.keys(L)) if (!allowed.includes(k)) err(`${at}.${k} is not an option for ${L.inst} (allowed: ${allowed.join(', ')})`);
+      const bars = L.bars ?? 1;
+      if (!LIMITS.patternBars.includes(bars)) err(`${at}.bars must be ${LIMITS.patternBars.join(', ')}`);
+      if (typeof L.pattern !== 'string') err(`${at}.pattern is required (e.g. 'X---' or 'X.x.X.x.')`);
+      else {
+        const p = parsePattern(L.pattern);
+        if (p.error) err(`${at}.pattern ${p.error}`);
+        else if (p.len % bars) err(`${at}.pattern has ${p.len} steps, which doesn't divide into ${bars} bar(s)`);
+        else if (p.len / bars > LIMITS.stepsPerBar) err(`${at}.pattern: at most ${LIMITS.stepsPerBar} steps per bar`);
+        else if (!p.events.length) err(`${at}.pattern has no hits`);
+        else if (drum) drumHits += p.events.length / bars;
+      }
+      const cap = LIMITS.vel[L.inst];
+      if (cap != null) {
+        const vs = isRange(L.vel) ? L.vel : [L.vel];
+        if (vs.some((v) => typeof v !== 'number' || !(v > 0) || v > cap)) err(`${at}.vel must be in (0, ${cap}] for ${L.inst} (got ${JSON.stringify(L.vel)})`);
+      }
+      for (const k of ['from', 'to']) if (L[k] != null) inRange(`${at}.${k}`, L[k], [0, 1.01]);
+      if (L.from != null && L.to != null && L.to <= L.from) err(`${at}: to must be above from`);
+      if (L.gate != null) inRange(`${at}.gate`, L.gate, LIMITS.gate);
+      if (L.pan != null && L.pan !== 'spread') inRange(`${at}.pan`, L.pan, [-1, 1]);
+      if (L.octave != null && (!Number.isInteger(L.octave) || L.octave < LIMITS.octave[0] || L.octave > LIMITS.octave[1])) err(`${at}.octave must be an integer ${LIMITS.octave.join('…')}`);
+      if (drum && L.notes != null) err(`${at}.notes: ${L.inst} is a drum and has no notes`);
+      if (pitched && L.notes != null) {
+        const ns = Array.isArray(L.notes) ? L.notes : [L.notes];
+        if (!ns.length) err(`${at}.notes is empty`);
+        ns.forEach((t) => { if (!(t === 'chord' && !Array.isArray(L.notes)) && !NOTE_TOKEN.test(String(t))) err(`${at}.notes: '${t}' is not a note (use 'chord', root, third, fifth, seventh or a chord-tone index 0–7, with ^ / _ for an octave up / down)`); });
+      }
+      if (L.kind != null && !BELL_KINDS.includes(L.kind)) err(`${at}.kind must be one of ${BELL_KINDS.join(', ')}`);
+      if (L.synth != null && typeof L.synth !== 'boolean') err(`${at}.synth must be true or false`);
+      for (const k of Object.keys(OPT_RANGES)) if (L[k] != null) {
+        const vs = isRange(L[k]) ? L[k] : [L[k]];
+        vs.forEach((v) => inRange(`${at}.${k}`, v, OPT_RANGES[k]));
+      }
+    });
+    if (drumHits > LIMITS.drumHitsPerBar) err(`music.layers: ${Math.round(drumHits)} drum hits per bar at full energy (max ${LIMITS.drumHitsPerBar}); thin the patterns`);
+    const ok = layers.filter((L) => L && INSTRUMENTS.pitched.includes(L.inst));
+    if (layers.length && !ok.some((L) => (L.from ?? 0) <= 0.3 && L.inst !== 'bass')) warn('no harmony plays at low energy (a pad, keys or pluck layer with from ≤ 0.3): quiet scenes will sound empty');
+    if (layers.length > 1 && layers.every((L) => (L?.from ?? 0) === 0 && L?.to == null)) warn('every layer plays at every energy: give layers a `from` so the score builds and breathes with the story');
+    if (layers.some((L) => L && INSTRUMENTS.drums.includes(L.inst) && (L.from ?? 0) < 0.3)) warn('drums play at energy < 0.3: they will sit under the quietest, most intimate moments');
+  }
+  const lead = spec.lead;
+  if (lead != null) {
+    if (typeof lead !== 'object') err('music.lead must be an object or null');
+    else {
+      if (!LIMITS.lead.insts.includes(lead.inst)) err(`music.lead.inst must be one of ${LIMITS.lead.insts.join(', ')}`);
+      if (!(lead.rhythm in RHYTHMS)) err(`music.lead.rhythm must be one of ${Object.keys(RHYTHMS).join(', ')}`);
+      if (!isRange(lead.range) || lead.range[0] < LIMITS.lead.range[0] || lead.range[1] > LIMITS.lead.range[1] || lead.range[1] - lead.range[0] < 7) err(`music.lead.range must be [low, high] MIDI within ${LIMITS.lead.range.join('…')}, at least 7 semitones wide`);
+      if (typeof lead.vel !== 'number' || !(lead.vel > 0) || lead.vel > LIMITS.lead.vel) err(`music.lead.vel must be in (0, ${LIMITS.lead.vel}]`);
+      const allowed = ['inst', 'range', 'rhythm', 'vel', ...(OPTS_FOR[lead.inst] || []), 'bright', 'decay'];
+      for (const k of Object.keys(lead)) if (!allowed.includes(k)) err(`music.lead.${k} is not an option for ${lead.inst}`);
+      if (lead.kind != null && !BELL_KINDS.includes(lead.kind)) err(`music.lead.kind must be one of ${BELL_KINDS.join(', ')}`);
+      for (const k of Object.keys(OPT_RANGES)) if (lead[k] != null) inRange(`music.lead.${k}`, lead[k], OPT_RANGES[k]);
+    }
+  }
+  return { errors, warnings };
+}
+
+// One layer, one bar: schedule its notes with the arranger API.
+function playLayer(a, L, P, c, e, bi) {
+  const bars = L.bars ?? 1, spb = P.len / bars, step = a.barLen / spb;
+  const pos = bi % bars, lo = pos * spb, hi = lo + spb;
+  const gate = L.gate ?? (L.inst === 'pad' || L.inst === 'sinepad' ? 1 : 0.9);
+  const base = atEnergy(L.vel, e);
+  const opts = {};
+  for (const k of OPTS_FOR[L.inst] || []) if (L[k] != null && k !== 'pitch') opts[k] = atEnergy(L[k], e);
+  if (typeof L.pan === 'number') opts.pan = L.pan;
+  const notes = L.notes == null ? (L.inst === 'bass' ? ['root'] : ['chord']) : Array.isArray(L.notes) ? L.notes : [L.notes];
+  const shift = 12 * (L.octave ?? 0);
+  const fold = (n) => { while (n < LIMITS.noteRange[0]) n += 12; while (n > LIMITS.noteRange[1]) n -= 12; return n; };
+  const pitch = (tok) => {
+    const [, name, oct] = String(tok).match(NOTE_TOKEN);
+    const v = c.voicing;
+    let n = name === 'root' ? c.root : name === 'third' ? c.tones[1] : name === 'fifth' ? c.tones[2]
+      : name === 'seventh' ? c.seventh : v[+name % v.length] + 12 * Math.floor(+name / v.length);
+    for (const ch of oct) n += ch === '^' ? 12 : -12;
+    return fold(n + shift);
+  };
+  P.events.forEach((ev, k) => {
+    if (ev.i < lo || ev.i >= hi) return;
+    const lt = (ev.i - lo) * step, d = ev.len * step * gate, vel = base * ev.v;
+    if (INSTRUMENTS.drums.includes(L.inst)) {
+      if (L.inst === 'hat' || L.inst === 'openhat') a.hat(lt, vel, L.inst === 'openhat');
+      else if (L.inst === 'tom') a.tom(lt, vel, L.pitch ?? 90);
+      else a[L.inst](lt, vel);
+      return;
+    }
+    const tok = notes[k % notes.length];
+    const o = { ...opts, vel };
+    if (tok === 'chord') {
+      const ns = c.voicing.map((n) => fold(n + shift));
+      if (L.inst === 'pad') a.pad(ns, lt, d, o);
+      else if (L.inst === 'bass' || L.inst === 'bell' || L.inst === 'lead') ns.forEach((n) => a[L.inst](n, lt, d, o));
+      else a.chord(L.inst, ns, lt, d, o);
+      return;
+    }
+    const n = pitch(tok);
+    if (L.inst === 'pad') a.pad([n], lt, d, o);
+    else if (L.inst === 'sinepad') a.chord('sinepad', [n], lt, d, o);
+    else a[L.inst](n, lt, d, o);
+  });
+}
 
 // Melody rhythms in beats: [start, length] over two bars (8 beats).
 const RHYTHMS = {
@@ -555,17 +662,21 @@ const RHYTHMS = {
 // arrangement
 // ---------------------------------------------------------------------------
 export function renderScore(plan, opts = {}) {
-  const silent = plan.style === 'none'; // sound effects only
-  const style = STYLES[plan.style] || STYLES.explainer;
-  const bpm = plan.bpm || style.bpm;
+  const { errors, warnings } = validateScore(plan);
+  if (errors.length) throw new Error(`music: the score spec has ${errors.length} problem(s):\n  ${errors.join('\n  ')}`);
+  const layers = plan.layers.map((L) => ({ L, P: parsePattern(L.pattern) }));
+  const silent = !layers.length && !plan.lead; // sound effects only
+  if (silent) plan = { ...plan, key: plan.key || 'C', mode: plan.mode || 'major', progression: plan.progression || [0] }; // harmony for tonal sfx
+  const bpm = plan.bpm;
   const beat = 60 / bpm, beatsPerBar = plan.beatsPerBar || 4, barLen = beat * beatsPerBar;
   const offset = plan.offset || 0;
   const duration = plan.duration;
   const n = Math.ceil((duration + 0.05) * SR);
   const m = new Mixer(n);
-  const R = rng(`${plan.seed ?? 1}:${plan.style}`);
-  const tonic = 48 + (NOTE[plan.key || style.key] ?? 0) + (plan.key && /m$/.test(plan.key) ? 0 : 0);
-  const mode = plan.mode || style.mode;
+  const R = rng(`${plan.seed ?? 1}:${plan.key}:${plan.mode}`);
+  const tonic = 48 + NOTE[plan.key];
+  const mode = plan.mode;
+  const prog = plan.progression, chordBars = plan.chordBars ?? 1, sevenths = !!plan.sevenths;
   const voice = (plan.voice || []).map((v) => [v.start - 0.12, v.end + 0.2]);
   const voicedAt = (t) => voice.some(([a, b]) => t >= a && t < b);
   const sections = plan.sections || [{ start: 0, end: duration, energy: 0.5 }];
@@ -596,29 +707,30 @@ export function renderScore(plan, opts = {}) {
   const chords = [];
   let prevV = null;
   for (let b = 0; b < nBars; b++) {
-    const deg = style.prog[Math.floor(b / style.every) % style.prog.length];
-    const pcs = chordTones(tonic, mode, deg, style.sevenths ? 4 : 3);
+    const deg = prog[Math.floor(b / chordBars) % prog.length];
+    const pcs = chordTones(tonic, mode, deg, sevenths ? 4 : 3);
     const voicing = voiceLead(pcs, 57, 76, prevV);
     prevV = voicing;
-    chords.push({ deg, root: degree(tonic, mode, deg), voicing, tones: pcs });
+    chords.push({ deg, root: degree(tonic, mode, deg), seventh: degree(tonic, mode, deg + 6), voicing, tones: pcs });
   }
   const harmony = {
     tonic,
     chordAt: (t) => chords[clamp(Math.floor((t - offset) / barLen), 0, chords.length - 1)].voicing,
   };
 
-  // the arranger API handed to style.bar(): times are local to the bar
+  // the arranger API layers play through: times are local to the bar
   const mkArr = (b0, gainFor) => {
     const at = (lt) => b0 + lt;
     const ok = (lt) => { const t = at(lt); return t >= 0 && t < endT - 0.02 && !breathAt(t); };
     return {
       beat, barLen,
-      pad: (notes, lt, d, o) => notes.forEach((nn, i) => ok(lt) && I.pad(m, m.bed, at(lt), Math.min(d, endT - at(lt)), nn, { ...o, pan: lerp(-0.35, 0.35, i / Math.max(1, notes.length - 1)) })),
-      chord: (inst, notes, lt, d, o = {}) => notes.forEach((nn, i) => ok(lt) && I[inst](m, inst === 'sinepad' ? m.bed : m.keys, at(lt) + i * (o.strum ?? 0.008), d, nn, { ...o, pan: lerp(-0.3, 0.3, i / Math.max(1, notes.length - 1)) }, R)),
+      pad: (notes, lt, d, o = {}) => notes.forEach((nn, i) => ok(lt) && I.pad(m, m.bed, at(lt), Math.min(d, endT - at(lt)), nn, { ...o, pan: notes.length > 1 ? lerp(-0.35, 0.35, i / (notes.length - 1)) : o.pan ?? 0 })),
+      chord: (inst, notes, lt, d, o = {}) => notes.forEach((nn, i) => ok(lt) && I[inst](m, inst === 'sinepad' ? m.bed : m.keys, at(lt) + i * (o.strum ?? 0.008), d, nn, { ...o, pan: notes.length > 1 ? lerp(-0.3, 0.3, i / (notes.length - 1)) : o.pan ?? 0 }, R)),
       keys: (nn, lt, d, o) => ok(lt) && I.keys(m, m.keys, at(lt), d, nn, o),
       pluck: (nn, lt, d, o) => ok(lt) && I.pluck(m, m.keys, at(lt), d, nn, o, R),
       bell: (nn, lt, d, o) => ok(lt) && I.bell(m, m.keys, at(lt), d, nn, o),
       bass: (nn, lt, d, o) => ok(lt) && I.bass(m, m.bed, at(lt), d, nn, o),
+      lead: (nn, lt, d, o) => ok(lt) && I.lead(m, m.keys, at(lt), d, nn, o),
       kick: (lt, v) => ok(lt) && D.kick(m, at(lt), { vel: v * gainFor('drums') }),
       snare: (lt, v) => ok(lt) && D.snare(m, at(lt), { vel: v * gainFor('drums') }, R),
       clap: (lt, v) => ok(lt) && D.clap(m, at(lt), { vel: v * gainFor('drums') }, R),
@@ -631,7 +743,7 @@ export function renderScore(plan, opts = {}) {
   };
 
   // --- bars -------------------------------------------------------------------
-  const report = { style: plan.style, bpm, key: `${plan.key || style.key} ${mode}`, bars: [] };
+  const report = { bpm, key: `${plan.key} ${mode}`, progression: prog.join('-'), layers: layers.length, lead: plan.lead?.inst ?? null, bars: [], warnings };
   for (let b = 0; b < (silent ? 0 : Math.min(nBars, endBar)); b++) {
     const b0 = offset + b * barLen;
     if (b0 >= duration) break;
@@ -639,11 +751,11 @@ export function renderScore(plan, opts = {}) {
     let e = energyOf(sections[si], si);
     if (b === 0 && plan.intro !== 'full') e = Math.min(e, 0.3); // let the first bar breathe in
     const arr = mkArr(b0, () => 1);
-    style.bar(arr, chords[b], e, b);
+    for (const { L, P } of layers) if (e >= (L.from ?? 0) && e < (L.to ?? 1.01)) playLayer(arr, L, P, chords[b], e, b);
     report.bars.push(Math.round(e * 100) / 100);
     // section changes: crash on the downbeat + a short fill into it
     const next = sections[si + 1];
-    if (next && e >= 0.5) {
+    if (next && e >= 0.5 && plan.fills !== false) {
       const nb = Math.round((next.start - offset) / beat); // beat index of the change (transitions are snapped)
       const ct = offset + nb * beat;
       if (ct > b0 && ct <= b0 + barLen + 1e-6) {
@@ -657,7 +769,7 @@ export function renderScore(plan, opts = {}) {
   }
 
   // --- melody in the gaps ---------------------------------------------------------
-  const L = style.lead;
+  const L = plan.lead ? { ...plan.lead, opts: Object.fromEntries(Object.entries(plan.lead).filter(([k]) => !['inst', 'range', 'rhythm', 'vel'].includes(k))) } : null;
   if (L && !silent) {
     const motifs = [0, 1].map(() => {
       const rh = RHYTHMS[L.rhythm][Math.floor(R() * RHYTHMS[L.rhythm].length)];
@@ -699,7 +811,7 @@ export function renderScore(plan, opts = {}) {
 
   // --- ending: tonic chord rings out with the last frame --------------------------
   if (endT < duration && !silent) {
-    const v = voiceLead(chordTones(tonic, mode, 0, style.sevenths ? 4 : 3), 57, 76, prevV);
+    const v = voiceLead(chordTones(tonic, mode, 0, sevenths ? 4 : 3), 57, 76, prevV);
     const ringFor = duration - endT;
     v.forEach((nn, i) => I.pad(m, m.bed, endT, ringFor, nn, { vel: 0.08, attack: 0.05, release: 0.6, cutoff: 1400, pan: lerp(-0.35, 0.35, i / (v.length - 1)) }));
     v.forEach((nn, i) => I.keys(m, m.keys, endT + i * 0.012, ringFor, nn + 12, { vel: 0.08, bright: 0.6, decay: 2.5, pan: lerp(-0.3, 0.3, i / (v.length - 1)) }));
@@ -878,6 +990,5 @@ export function writeWav(file, { left, right, sampleRate = SR }) {
   fs.writeFileSync(file, buf);
 }
 
-export const styles = Object.fromEntries(Object.entries(STYLES).map(([k, v]) => [k, { bpm: v.bpm, key: v.key, mode: v.mode }]));
 export const sfxTypes = Object.keys(FX);
 export const _internals = { I, D, FX, Mixer, rng, SR };

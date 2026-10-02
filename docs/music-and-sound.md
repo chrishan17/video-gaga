@@ -6,9 +6,24 @@ Everything is generated locally by [`scripts/music.mjs`](../scripts/music.mjs): 
 
 ## 1. Turn it on
 
+There are no preset music styles. For every video the agent **designs the score from the brief**: tempo, key, mode, chords, which instruments play and how they build. The composition declares it in full:
+
 ```js
 CV.create({
-  music: { style: 'explainer', bpm: 100, seed: 3 },  // the beat grid + a generated score
+  music: {
+    // the grid and the harmony
+    bpm: 100, key: 'D', mode: 'major', progression: [0, 5, 3, 4], sevenths: true, seed: 3,
+    // what plays, and from which scene energy up
+    layers: [
+      { name: 'pad', inst: 'pad', notes: 'chord', pattern: 'X---', vel: 0.06, cutoff: [900, 1500] },
+      { name: 'stabs', inst: 'keys', notes: 'chord', pattern: 'X..X..X.', gate: 2.2, vel: [0.07, 0.1], from: 0.25 },
+      { name: 'bass', inst: 'bass', notes: ['root', 'fifth', 'root'], octave: -1, pattern: 'X--.X-.x', vel: 0.3, from: 0.35 },
+      { name: 'shaker', inst: 'shaker', pattern: 'xXxXxXxX', vel: 0.08, from: 0.4 },
+      { name: 'kick', inst: 'kick', pattern: 'X... ..x. X... ....', vel: 0.5, from: 0.5 },
+    ],
+    // the melody that plays only where nobody speaks
+    lead: { inst: 'bell', kind: 'glock', range: [74, 88], rhythm: 'melodic', vel: 0.1 },
+  },
   scenes: [
     { id: 'hook', voiceDelay: 2.1, energy: 0.35, draw … },            // one bar of music before the first word
     { id: 'curve', energy: 0.6, sfx: [{ at: 'ten', type: 'tick' }], draw … },
@@ -18,18 +33,24 @@ CV.create({
 });
 ```
 
-`cv render` synthesizes the score (cached in `build/music.wav`), mixes it with the voice and checks the balance. `cv music <project>` renders only the score, so the preview player can play it, and prints the arrangement: key, BPM, energy per bar, the cut times and every sound effect.
+`cv render` synthesizes the score (cached in `build/music.wav`), mixes it with the voice and checks the balance. `cv music <project>` renders only the score, so the preview player can play it, and prints the arrangement: key, BPM, chords, layers, energy per bar, the cut times, every sound effect and any **warnings** about the spec. A spec that breaks a limit (§2.4) is refused with a list of exactly what to fix.
 
 | `music` key | Default | Meaning |
 |---|---|---|
-| `style` | — | One of the styles below, or `'none'` (sound effects only) |
-| `bpm` | the style's tempo | The beat grid. Every cut and the first syllable of every line snaps to it |
+| `bpm` | — (required) | The beat grid. Every cut and the first syllable of every line snaps to it |
+| `key` | — | Tonic: `C C# Db D D# Eb E F F# Gb G G# Ab A A# Bb B` |
+| `mode` | — | `major`, `minor`, `dorian`, `lydian`, `mixolydian`, `phrygian` |
+| `progression` | — | 1–8 scale degrees, 0 = tonic (`[0, 5, 3, 4]` = I–vi–IV–V in major). Chords are diatonic triads, voice-led |
+| `sevenths` | false | Four-note chords |
+| `chordBars` | 1 | Bars per chord: 1, 2 or 4 |
+| `layers` | — | The parts (§2.2). `[]` with no `lead` = sound effects only, on the grid |
+| `lead` | none | The melody in the gaps (§2.3), or omit it |
+| `seed` | 1 | Change it to hear a different melody in the same design |
+| `fills` | true | A crash and a short snare fill into a section where the energy rises |
 | `beatsPerBar` | 4 | |
 | `snap` | `'beat'` | Where cuts land: `'beat'`, `'half'`, `'bar'` or `false`. Scenes can override with `snap` |
 | `voiceOnBeat` | true | Start every voice line on an eighth note |
-| `seed` | 1 | Change it to hear a different melody and voicing in the same style |
-| `key` | the style's key | e.g. `'F'`, `'Bb'` (the mode comes from the style) |
-| `energy` (per scene) | an arc | 0..1. Low = pad only, high = full groove. Default: quiet open, fuller middle, settled end, with music-only scenes a little higher |
+| `energy` (per scene) | an arc | 0..1. Decides which layers play. Default: quiet open, fuller middle, settled end, with music-only scenes a little higher |
 | `duck` | −12 | How many dB the bed dips while someone speaks (the melody dips a further 12 dB) |
 | `gap` | 7 | How many dB the music-only passages sit under the voice's speech level. The renderer measures the actual voice, so every voice gets the same balance |
 | `volume` | 1 | A gain on top of that (`1.4` ≈ +3 dB) |
@@ -37,25 +58,74 @@ CV.create({
 | `ending` | `'resolve'` | `'resolve'` lands the tonic chord on the last downbeat and lets it ring. `'none'` lets the groove run to the end |
 | `file` | — | A licensed track instead of the generated score (side-chain ducked, faded) |
 
-## 2. Styles
+The ten presets each carry the score designed for their own example video. Read them as worked examples of the spec, not as styles to reuse: a new video gets a new score.
 
-| Style | BPM · key | Sound | Fits |
-|---|---|---|---|
-| `keynote` | 92 · A minor | dark pad, pulsing sub-bass eighths, sparse deep kick, echoing keys | launches, product reveals, 3D hero shots |
-| `explainer` | 100 · D major (7ths) | FM electric-piano stabs, warm bass, rim + shaker groove, glockenspiel melody | knowledge, how-it-works, data, onboarding |
-| `kinetic` | 104 · E dorian | marimba ostinato in 16ths, four-on-the-floor, claps on 2 & 4 | typography, manifestos, brand principles |
-| `synthwave` | 112 · F♯ minor | 16th saw bass, plucked arpeggios, big snare, saw lead with delay | gaming, dev tools, events, night/neon |
-| `acoustic` | 96 · G major | fingerpicked strings (Karplus–Strong), snaps, shaker, glockenspiel | education, habits, kids, friendly brand |
-| `ambient` | 76 · C lydian (9ths) | slow sine pads, a few soft piano notes, celesta, no drums | data stories, calm, science, wellness |
-| `pop` | 116 · C major | syncopated plucks, bouncing octave bass, claps, open hats | social shorts, promos, colourful brand |
-| `documentary` | 84 · D minor | low string pad, pulsing plucks, piano, heartbeat toms | essays, history, journalism, serious topics |
+## 2. Designing the score
 
-**Choosing.** Match the *content's* emotion, not the visual style alone. A product launch filmed in a calm way may want `ambient` more than `keynote`. When unsure, ask in Phase 1 with three options (one recommended), the way you ask about voices.
+### 2.1 From the brief to the sound
+
+Design from the **content's emotion and the audience**, not from the visual preset. Decide these in order, and say them in one line in the storyboard (Phase 3) and in the music question (Phase 1):
+
+1. **Feeling in three words** ("curious, bright, trustworthy"; "tense, then relieved"; "warm, homemade").
+2. **Tempo** from the pace of the edit and the voice:
+
+   | Feel | BPM |
+   |---|---|
+   | still, reflective, wellness, science wonder | 60–80 |
+   | measured, serious, documentary, premium | 80–95 |
+   | clear, friendly, explanatory | 95–108 |
+   | upbeat, social, promotional | 108–124 |
+   | urgent, hype, sport, gaming | 124–150 |
+
+3. **Mode** for the colour: `major` bright and open; `lydian` wonder, space, lift; `mixolydian` relaxed, sunny, a little rough; `dorian` cool, minimal, confident; `minor` serious, cinematic, premium-dark; `phrygian` tense, exotic, ominous (use sparingly).
+4. **Progression**: 4 chords suit most videos. Loops that work: `[0, 5, 3, 4]` (I–vi–IV–V, warm), `[0, 4, 5, 3]` (I–V–vi–IV, anthemic), `[5, 3, 0, 4]` (vi–IV–I–V, pop), `[0, 3, 5, 4]` (lydian/major float), `[0, 5, 2, 6]` (minor, cinematic), `[0, 0, 5, 6]` (dorian vamp, hypnotic). A single chord (`[0]`) is a drone. Slow it down with `chordBars: 2` for calm pieces.
+5. **Instruments** that belong to the subject: a fingerpicked `pluck` and `snap` for handmade/human, `bell` marimba/kalimba for playful precision, `keys` for intelligence and clarity, synth `bass` (`synth: true`) and `lead` saws for tech/night, `sinepad` and a low `bass` for space and calm, `tom` heartbeats for gravity. Two or three timbres plus drums is plenty.
+6. **The build**: assign each layer a `from` energy so the score grows with the story, typically in 3–4 tiers: harmony (`from: 0`), then bass/pulse (≈0.3), then groove (≈0.5), then the extra drive (≈0.7–0.85). Then give scenes `energy` values that follow the emotional arc.
+
+### 2.2 Layers
+
+A layer is one part, repeated every bar (or every `bars` bars), playing in the bars whose energy is in `[from, to)`.
+
+| Key | Meaning |
+|---|---|
+| `inst` | pitched: `pad` (warm saw pad), `sinepad` (soft sine pad), `keys` (FM electric piano), `pluck` (plucked string), `bell` (`kind`: `glock`, `marimba`, `kalimba`, `celesta`), `bass` (`synth: true` for a filtered saw), `lead` (saw lead) · drums: `kick`, `snare`, `clap`, `snap`, `rim`, `hat`, `openhat`, `shaker`, `tom` (`pitch` Hz) |
+| `pattern` | Steps across the bar(s), equal length: `X` hit, `x` soft hit (0.6), `1`–`9` hit at n/9, `-` hold the previous note one more step, `.` rest. Spaces are ignored. `'X---'` = a whole-bar note, `'X.x.X.x.'` = eighths, 16 characters = sixteenths |
+| `bars` | 1, 2 or 4: how many bars the pattern spans |
+| `notes` | pitched only: `'chord'` (all chord tones), or a list cycled per hit: `root`, `third`, `fifth`, `seventh`, or a chord-tone index `0`–`7` of the voiced chord (`3` on a triad = the bottom note an octave up); add `^` / `_` for an octave up / down (`'root_'`, `'0^'`). Default: `'chord'` (`'root'` for bass) |
+| `octave` | Shift the whole layer −2…+2 octaves |
+| `vel` | Loudness of a full hit, or `[low, high]` scaled by the scene energy. Capped per instrument (§2.4) |
+| `gate` | Note length as a fraction of its steps (default 0.9; 1 for pads); above 1 lets notes ring over the next hit |
+| `from`, `to` | The energy range the layer plays in (default 0 and 1) |
+| `pan` | −1…1 for single notes (chords spread on their own) |
+| sound | per instrument: `cutoff`, `attack`, `release` (pad) · `bright`, `decay`, `echo`, `verb`, `strum` (keys, pluck) · `kind`, `echo`, `verb` (bell) · `synth`, `cutoff`, `envDecay`, `decay`, `release` (bass) · `saw`, `cutoff`, `echo`, `verb` (lead) · `pitch` (tom). Any number may be `[low, high]` by energy |
+
+### 2.3 The lead
+
+`lead: { inst, range: [lowMidi, highMidi], rhythm, vel, …sound }`: `inst` is `keys`, `bell`, `pluck` or `lead`; `rhythm` is `sparse` (long notes, reflective), `melodic` (a singable line) or `rhythmic` (short, syncopated). Two seeded motifs are composed from the progression, snapped to chord tones on strong beats, and played **only where nobody is speaking**. Keep the range above the voice (MIDI ≥ 66 for a lead that sings, at least 7 semitones wide).
+
+### 2.4 Rules and limits
+
+`scripts/music.mjs` enforces these (`validateScore`, `LIMITS`); a spec that breaks one is refused with the exact field to fix:
+
+- `bpm` 60–150; `progression` 1–8 degrees 0–6; `chordBars` 1, 2 or 4; known `key` and `mode`.
+- At most **8 layers**, at most **32 steps per bar** per layer, and at most **40 drum hits per bar** across all drum layers at full energy.
+- Loudest hit per instrument: pad/sinepad 0.12 · keys/pluck/bell 0.2 · lead 0.12 · bass 0.35 · kick 0.7 · snare 0.35 · clap 0.3 · snap 0.25 · rim 0.2 · hat/shaker 0.12 · openhat 0.1 · tom 0.5. Lead `vel` ≤ 0.15. (The mix is normalised against the voice afterwards; these keep one part from swamping the others.)
+- Notes stay inside MIDI 28–100 (folded by octaves); sound options stay in safe ranges (e.g. `cutoff` 80–8000 Hz, `echo` ≤ 0.6).
+- Unknown keys are errors, so typos never pass silently. Everything is synthesized: no samples, no external audio.
+
+And these are **design rules** (warnings from `cv music`, and things to check yourself):
+
+- Something harmonic plays at low energy (a pad, keys or pluck with `from` ≤ 0.3), so quiet scenes are not empty.
+- No drums below energy 0.3: the quietest, most intimate moments stay drum-free.
+- Layers enter with energy (`from`), so the score builds and breathes with the story rather than playing flat.
+- Leave the voice its band: keep busy parts (arps, 16ths) at `from` ≥ 0.45 or in music-only scenes, and prefer pads, bass and sparse keys under narration.
+- One signature sound per video (a marimba ostinato, a heartbeat tom, a saw arp), not five.
+- Ask, don't assume: in Phase 1 offer three concrete score designs for *this* brief (one recommended), e.g. "A. 96 BPM G major, fingerpicked guitar + snaps, glockenspiel melody (recommended: warm and homemade, like the topic)".
 
 ## 3. How the score follows the video
 
 - **One clock.** The runtime moves every cut so that the middle of the transition lands on a beat, starts each voice line on an eighth note, and ends the video on a beat. Draw code reads the same grid: `s.onBeat(i)`, `s.nextBeat(t)`, `s.pulse()`.
-- **Energy per scene** decides which layers play in each bar: pad → bass → groove → full kit and counter-lines.
+- **Energy per scene** decides which layers play in each bar (each layer's `from`/`to`), so the arrangement builds the way you designed it: harmony → bass → groove → full kit.
 - **The voice comes first.** While someone speaks, the bed dips 12 dB and the melody drops out. The melody plays *only in the gaps*, so a music-only beat (`narration: false, beats: 6`) gets a phrase of its own.
 - **Section changes** get a crash on the downbeat and a short snare fill into it, when the energy rises.
 - **A hit gets a breath.** A `hit` or `boom` effect silences the music for the half beat before it, which makes the hit land.

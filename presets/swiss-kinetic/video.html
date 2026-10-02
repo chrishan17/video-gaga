@@ -32,6 +32,7 @@ const F = (w, px) => `${w} ${px}px ${T.font}`;
 const M = 72;                            // outer margin
 const COLS = 12;
 
+// === KIT: snap moves, grid, labels ===========================================
 // Snap-in: fast start, dead stop — the Swiss move.
 const snap = ease.bezier(0.7, 0, 0.1, 1);
 // eased 0→1 of a snap move that starts on beat i (local, from the music grid)
@@ -66,6 +67,7 @@ function label(ctx, str, x, y, col = T.ink, align = 'left') {
   ctx.letterSpacing = '0px';
 }
 
+// === EXAMPLE: the ten principles =============================================
 // where principle 10's marker sits (the red square's last position)
 const SLOT = { x: 1080 - M - 30, y: M + 70 + 9 * 78 - 30, s: 30 };
 const ITEMS = ['Innovative', 'Useful', 'Aesthetic', 'Understandable', 'Unobtrusive', 'Honest', 'Long-lasting', 'Thorough', 'Environmentally friendly', 'As little design as possible'];
@@ -75,7 +77,21 @@ CV.create({
   width: 1080, height: 1080, fps: 30,
   background: T.paper,
   lang: 'en',
-  music: { style: 'kinetic', bpm: 104, seed: 10 },
+  // the score designed for this video: minimal and precise: a dorian marimba ostinato over a four-on-the-floor
+  music: {
+    bpm: 104, seed: 10, key: 'E', mode: 'dorian', progression: [0, 0, 5, 6],
+    layers: [
+      { name: 'pad', inst: 'pad', notes: 'chord', pattern: 'X---', vel: 0.04, cutoff: [600, 1000], attack: 0.5 },
+      { name: 'marimba (sparse)', inst: 'bell', kind: 'marimba', notes: [0, 1, 0, 1, 0, 1, 3, 1], pattern: 'X.x.X.x.X.x.X.x.', gate: 1.4, vel: 0.12, verb: 0.12, from: 0.2, to: 0.5 },
+      { name: 'marimba', inst: 'bell', kind: 'marimba', notes: [0, 2, 1, 2, 0, 2, 1, 2, 0, 2, 1, 2, 3, 2, 1, 2], pattern: 'XxxxXxxxXxxxXxxx', gate: 1.4, vel: 0.12, verb: 0.12, from: 0.5 },
+      { name: 'kick', inst: 'kick', pattern: '9888', vel: 0.6, from: 0.45 },
+      { name: 'bass', inst: 'bass', octave: -1, pattern: '.X.X.X.X', gate: 0.6, vel: 0.24, from: 0.45 },
+      { name: 'clap', inst: 'clap', pattern: '.X.X', vel: 0.18, from: 0.55 },
+      { name: 'offbeat hat', inst: 'hat', pattern: '.X.X.X.X', vel: 0.09, from: 0.55 },
+      { name: 'ticks', inst: 'hat', pattern: 'XX.XXX.XXX.XXX.X', vel: 0.025, from: 0.8 },
+    ],
+    lead: { inst: 'bell', kind: 'kalimba', range: [76, 88], rhythm: 'rhythmic', vel: 0.09, echo: 0.2 },
+  },
   scenes: [
     // --- 1. "Less," — grid on the downbeat, square on 1, word slams on 2 -----
     {
@@ -211,10 +227,13 @@ CV.create({
   // Time made visible: a hairline at the foot of the page advances one step per beat.
   overlay(ctx, g) {
     if (!Number.isFinite(g.beat)) return;
-    const total = Math.round(g.duration / (60 / 104));
+    const total = Math.round(g.duration / g.beatLen);
     const k = clamp(Math.floor(g.beat + 1e-6) + 1, 0, total) / total;
+    let dark = false; // over an inverted (ink) scene the hairline turns to paper
+    // <example>
     const inv = g.scenes.find((sc) => sc.id === 'but');
-    const dark = inv && g.T >= inv.start && g.T < inv.end;
+    dark = !!inv && g.T >= inv.start && g.T < inv.end;
+    // </example>
     ctx.fillStyle = dark ? color.rgba(T.paper, 0.5) : color.rgba(T.ink, 0.5);
     ctx.fillRect(M, g.H - M + 14, (g.W - M * 2) * k, 2);
   },
