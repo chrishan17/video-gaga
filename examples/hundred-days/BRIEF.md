@@ -1,6 +1,6 @@
 # 一百天，把心里话画出来
 
-A worked example of a **long video** (about three minutes). Everything here was written for this brief; the Paper Sketch preset contributed only its style (palette, type, pencil/boil/wash helpers, the page-slide transition).
+A worked example of a **long video** (about two and a half minutes: 2:35 with the Edge TTS voice). Everything here was written for this brief; the Paper Sketch preset contributed only its style (palette, type, pencil/boil/wash helpers, the page-slide transition).
 
 - **Message:** drawing is not about drawing well; it is a way to say what words can't. Start small.
 - **Audience:** adults who feel they "can't draw" or struggle to explain their ideas. 16:9, burned-in captions.

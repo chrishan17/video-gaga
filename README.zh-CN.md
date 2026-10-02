@@ -41,7 +41,7 @@
 
 ### 更长的视频
 
-预设示例都是 15–30 秒。[`examples/hundred-days`](examples/hundred-days/video.html) 是一支三分钟的个人故事（Paper Sketch 风格，26 个场景、六个章节）：角落里有章节标记，章节之间留出纯音乐的停顿，配乐按章节换和声（`music.parts`），结尾呼应开头的第一个画面。规划长视频见 SKILL.md 的 *Long videos* 一节。
+预设示例都是 15–30 秒。[`examples/hundred-days`](examples/hundred-days/video.html) 是一支两分半的个人故事（Paper Sketch 风格，26 个场景、六个章节，云希中文旁白）：角落里有章节标记，章节之间留出纯音乐的停顿，配乐按章节换和声（`music.parts`），结尾呼应开头的第一个画面。规划长视频见 SKILL.md 的 *Long videos* 一节。[▶ 视频](docs/media/hundred-days.mp4)
 
 ## 工作流程
 
