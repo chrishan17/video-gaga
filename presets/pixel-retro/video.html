@@ -377,7 +377,7 @@ function tileWipe(ctx, A, B, p, o = {}) {
 // a status screen where one meter is empty, words that collapse into "……",
 // one step left where everyone runs right, a wall that breaks, colour flooding
 // in, everything you make turning into bricks, and the empty meter filling.
-const BEAT = 60 / 100;
+const BEAT = 60 / 108;
 // the player: 16×24, facing right. k outline · h hair · s skin · e eye · c hoodie ·
 // r its shade · i drawstring · d trousers
 const HERO_TOP = [
@@ -572,24 +572,26 @@ CV.create({
   background: T.bg,
   lang: 'zh-CN',
   fonts: [F(8), F(12, T.cjk)],
-  // the score designed for this story: lonely and looping, then a door opens.
-  // A minor in two-bar chords for the grey main quest; the relative C major,
-  // a chord a bar, from the moment the wall breaks. Square-wave chiptune.
+  // the score designed for this story: wistful and stuck in a loop, then a door
+  // bursts open. E dorian for the grey main quest (a square-wave arp ticking like
+  // a clock over a felt piano), the relative G major from the moment the wall
+  // breaks, IV–V–I to land. Chiptune leads on real drums and a synth bass.
   music: {
-    bpm: 100, seed: 11, key: 'A', mode: 'minor', progression: [0, 5, 2, 6], chordBars: 2,
+    bpm: 108, seed: 7, key: 'E', mode: 'dorian', progression: [0, 3, 0, 6], kit: 'electronic', duck: -13, gap: 7,
     layers: [
-      { name: 'soft pad', inst: 'sinepad', notes: 'chord', pattern: 'X---', vel: 0.07, to: 0.6 },
-      { name: 'square chords', inst: 'lead', saw: 0, notes: 'chord', pattern: 'X..x..X.', gate: 0.5, vel: [0.035, 0.055], cutoff: 2400, from: 0.25 },
-      { name: 'hopping bass', inst: 'bass', notes: ['root', 'root', 'fifth', 'root^'], pattern: 'X.X.X.X.', gate: 0.55, vel: 0.24, from: 0.35 },
-      { name: 'arp', inst: 'lead', saw: 0, octave: 1, notes: [0, 1, 2, 3], pattern: 'XXXXXXXXXXXXXXXX', gate: 0.45, vel: 0.04, cutoff: 5000, from: 0.7 },
-      { name: 'kick', inst: 'kick', pattern: 'X...X...', vel: 0.45, from: 0.5 },
-      { name: 'snare', inst: 'snare', pattern: '.X.X', vel: 0.2, from: 0.5 },
-      { name: 'hats', inst: 'hat', pattern: 'xXxXxXxX', vel: 0.06, from: 0.6 },
+      { name: 'square arp', inst: 'lead', saw: 0, notes: [0, 1, 2, 1], pattern: 'XxXxXxXx', gate: 0.55, vel: [0.05, 0.08], cutoff: 3600 },
+      { name: 'felt piano', inst: 'felt', notes: 'chord', pattern: 'X...X.x.', gate: 1.6, vel: [0.08, 0.12] },
+      { name: 'synth bass', inst: 'bass', kind: 'synth', notes: ['root', 'root', 'fifth', 'root^'], octave: -1, pattern: 'X..xX.x.', vel: 0.24, from: 0.35 },
+      { name: 'kick', inst: 'kick', pattern: 'X...X...X...X.x.', vel: 0.27, from: 0.4 },
+      { name: 'clap', inst: 'clap', pattern: '....X.......X...', vel: 0.12, from: 0.4 },
+      { name: 'hats', inst: 'hat', pattern: 'xXxXxXxXxXxXxXxX', vel: 0.04, from: 0.55 },
+      { name: 'brass stabs', inst: 'synthbrass', notes: 'chord', pattern: 'X..X..X.', gate: 0.5, vel: 0.1, from: 0.75 },
+      { name: 'sixteenth arp', inst: 'lead', saw: 0, octave: 1, notes: [0, 1, 2, 3], pattern: 'XXXXXXXXXXXXXXXX', gate: 0.4, vel: 0.04, cutoff: 5000, from: 0.8 },
     ],
-    lead: { inst: 'lead', range: [69, 84], rhythm: 'melodic', vel: 0.08, saw: 0.1, cutoff: 5500, echo: 0.2 },
+    lead: { inst: 'lead', saw: 0.2, range: [71, 86], rhythm: 'melodic', vel: 0.1, echo: 0.2 },
     parts: {
-      found: { key: 'C', mode: 'major', progression: [0, 4, 5, 3], chordBars: 1, seed: 4 },
-      home: { key: 'C', mode: 'major', progression: [3, 4, 0, 0], chordBars: 1, lead: { rhythm: 'sparse' } },
+      found: { key: 'G', mode: 'major', progression: [0, 4, 5, 3], seed: 4 },
+      home: { key: 'G', mode: 'major', progression: [3, 4, 0, 0], lead: { rhythm: 'sparse' } },
     },
   },
   transition: wipe,
@@ -600,7 +602,7 @@ CV.create({
   scenes: [
     // --- 1. Cold open: a screen powers on; the player's box holds only "……" ---
     {
-      id: 'hook', voiceDelay: 4 * BEAT, tail: 0.7, energy: 0.15,
+      id: 'hook', voiceDelay: 4 * BEAT, tail: 0.7, energy: 0.3,
       sfx: [{ at: 0.05, type: 'click' }, ...[0, 1, 2].map((k) => ({ at: (s) => s.onBeat(2 + k * 0.5), type: 'type', gain: 0.5 }))],
       draw(ctx, s) {
         const b = (k) => s.onBeat(k), speak = s.when('想说的话', 2.2);
@@ -639,7 +641,7 @@ CV.create({
     },
     // --- 2. Title: 隐藏关卡 drops in as blocks, a glint, PRESS START -------------
     {
-      id: 'title', narration: false, beats: 8, energy: 0.3,
+      id: 'title', narration: false, beats: 8, energy: 0.45,
       sfx: [0, 1, 2, 3].map((k) => ({ at: (s) => s.onBeat(k), type: 'tick', gain: 0.6 })).concat([{ at: (s) => s.onBeat(4), type: 'shimmer', gain: 0.6 }, { at: (s) => s.onBeat(7), type: 'click' }]),
       draw(ctx, s) {
         const b = (k) => s.onBeat(k);
@@ -663,7 +665,7 @@ CV.create({
     // --- 3. The main quest: alarm, subway, punch clock, alarm again ------------
     // the quest log ticks each task as it is said; on 再起床 it resets and the days roll on
     {
-      id: 'grind', tail: 0.8, energy: 0.35,
+      id: 'grind', tail: 0.8, energy: 0.5,
       sfx: [['起床', 'tick'], ['地铁', 'tick'], ['打卡', 'tick'], ['再起床', 'click']].map(([at, type]) => ({ at, type, gain: 0.7 })),
       draw(ctx, s) {
         const v = 80, cam = Math.round(s.t * v), G = 178, heroX = 120;
@@ -707,7 +709,7 @@ CV.create({
     // --- 4. The status screen: HP full, gold rising, one meter empty -----------
     // the empty 声音 meter is the only colour in the grey world; a punch-in on 空
     {
-      id: 'stats', tail: 1.0, energy: 0.3, transition: { type: 'pixelate', size: 40, duration: 0.4 },
+      id: 'stats', tail: 1.0, energy: 0.4, transition: { type: 'pixelate', size: 40, duration: 0.4 },
       sfx: [{ at: '血条', type: 'tick' }, { at: '金币', type: 'tick' }, { at: '只有', type: 'click' }, { at: '空', type: 'pop', gain: 0.8 }],
       draw(ctx, s) {
         const tHp = s.when('血条', 0.6), tG = s.when('金币', 1.6), tOne = s.when('只有', 2.6), tEmpty = s.when('空', 4);
@@ -746,7 +748,7 @@ CV.create({
     },
     // --- 5. Words at the tip of the tongue collapse into dots ------------------
     {
-      id: 'mute', tail: 1.0, energy: 0.2,
+      id: 'mute', tail: 1.0, energy: 0.3,
       sfx: [{ at: (s) => s.voiceStart, type: 'type', gain: 0.5 }, { at: '省略号', type: 'click' }],
       draw(ctx, s) {
         const t0 = s.voiceStart - 0.2, tTurn = s.when('都变成', 1.6), tDots = s.when('省略号', 2.2);
@@ -782,7 +784,7 @@ CV.create({
     // the crowd streams past once the player stops; a punch-in on the turn; the
     // camera pans back to a wall nobody looks at, and on 一步 it cracks
     {
-      id: 'left', tail: 0.5, energy: 0.45,
+      id: 'left', tail: 0.5, energy: 0.55,
       sfx: [{ at: '左', type: 'click' }, { at: '一步', type: 'tick' }],
       draw(ctx, s) {
         const v = 72, G = 172;
@@ -822,7 +824,7 @@ CV.create({
     },
     // --- 7. The wall breaks; colour floods in from the hole (music only) -------
     {
-      id: 'found', narration: false, beats: 8, energy: 0.8, part: 'found', transition: 'cut',
+      id: 'found', narration: false, beats: 8, energy: 0.9, part: 'found', transition: 'cut',
       sfx: [{ at: (s) => s.onBeat(0), type: 'hit' }, { at: (s) => s.onBeat(2.5), type: 'shimmer' }, { at: (s) => s.onBeat(4), type: 'pop' }, { at: (s) => s.onBeat(5), type: 'pop' }],
       draw(ctx, s) {
         const b = (k) => s.onBeat(k), G = 172;
@@ -855,7 +857,7 @@ CV.create({
     // --- 8. Everything you make becomes a brick --------------------------------
     // the player heads three ? blocks on 画 · 写 · 哼; on 变成一块砖 they drop and stack
     {
-      id: 'make', tail: 0.8, energy: 0.6, transition: 'cut',
+      id: 'make', tail: 0.8, energy: 0.65, transition: 'cut',
       sfx: [{ at: '画', type: 'pop' }, { at: '写', type: 'pop' }, { at: '哼', type: 'pop' }, { at: '砖', type: 'tick' }],
       draw(ctx, s) {
         const G = 176, BY = 92, xs = [124, 196, 268];
@@ -894,7 +896,7 @@ CV.create({
     },
     // --- 9. The bricks become a stair; the dots below start answering ----------
     {
-      id: 'climb', tail: 1.0, energy: 0.75, transition: 'cut',
+      id: 'climb', tail: 1.0, energy: 0.8, transition: 'cut',
       sfx: [{ at: '省略号', type: 'tick' }, { at: '回音', type: 'shimmer', gain: 0.7 }],
       draw(ctx, s) {
         const G = 176, tDots = s.when('省略号', 1.6), tEcho = s.when('回音', 3);
@@ -960,7 +962,7 @@ CV.create({
     },
     // --- 11. Music only: the player opens their mouth and the bubble fills the screen
     {
-      id: 'max', narration: false, beats: 6, energy: 1, transition: 'cut',
+      id: 'max', narration: false, beats: 6, energy: 0.95, transition: 'cut',
       sfx: [{ at: (s) => s.onBeat(2), type: 'riser', dur: 1.2 }, ...[3, 3.5, 4].map((k) => ({ at: (s) => s.onBeat(k), type: 'tick' }))],
       draw(ctx, s) {
         const b = (k) => s.onBeat(k), G = 176;
@@ -985,7 +987,7 @@ CV.create({
     },
     // --- 12. The callback: the box that held only dots now holds your line -----
     {
-      id: 'end', part: 'home', tail: 2.4, energy: 0.45, transition: 'cut', voiceDelay: 2 * BEAT,
+      id: 'end', part: 'home', tail: 2.4, energy: 0.55, transition: 'cut', voiceDelay: 2 * BEAT,
       sfx: [{ at: '开始', type: 'chime' }],
       draw(ctx, s) {
         const tStart = s.when('开始', 2.6), settled = s.t >= s.dur - 1.3;
