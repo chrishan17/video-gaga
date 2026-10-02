@@ -1,6 +1,6 @@
 # Style presets
 
-Ten motion-design systems, each shipped as a working composition in `presets/<slug>/video.html` (with `narration.json` where voiced). A preset is a **visual style**: its palette and type (`THEME`), its reusable motion and drawing helpers (`KIT` sections), its transition vocabulary, caption style and pacing. Its example video (the `EXAMPLE` sections, the scenes, the narration and the score) only shows that grammar at work: `cv init` copies the style and leaves the example out, and each new video gets its own script, structure and score. **Read this index first. Read a preset's full `video.html` only after the user has picked it**, then treat that file as the design recipe: its palette, type, motion grammar, transitions and score. For a Phase 2 preview, read only its `THEME` object and first scene.
+Thirteen motion-design systems, each shipped as a working composition in `presets/<slug>/video.html` (with `narration.json` where voiced). A preset is a **visual style**: its palette and type (`THEME`), its reusable motion and drawing helpers (`KIT` sections), its transition vocabulary, caption style and pacing. Its example video (the `EXAMPLE` sections, the scenes, the narration and the score) only shows that grammar at work: `cv init` copies the style and leaves the example out, and each new video gets its own script, structure and score. **Read this index first. Read a preset's full `video.html` only after the user has picked it**, then treat that file as the design recipe: its palette, type, motion grammar, transitions and score. For a Phase 2 preview, read only its `THEME` object and first scene.
 
 Every preset exposes a `THEME` / `T` object at the top (colours and fonts) so it can be re-branded without touching the motion code. Two presets use three.js for 3D (see [docs/three-d.md](docs/three-d.md)).
 
@@ -10,10 +10,12 @@ Every preset exposes a `THEME` / `T` object at the top (colours and fonts) so it
 | Understand · learn · trust the numbers | Clear Explainer, Blueprint, Data Globe |
 | "Where in the world" · scale · global data | Data Globe |
 | How a thing works · technical · precise | Blueprint, Studio 3D (exploded view) |
-| Story · history · essay · gravitas | Editorial |
+| Story · history · essay · gravitas | Editorial, Ink Wash, Cinematic Film |
+| Calm · contemplative · Chinese culture and poetry | Ink Wash |
 | Excited · hype · social | Pop Collage, Neon Circuit, Swiss Kinetic |
 | Warm · friendly · human | Paper Sketch, Pop Collage, Clear Explainer |
 | Bold · design-led · editorial | Swiss Kinetic, Editorial, Launch Keynote |
+| Playful · nostalgic · gamified | Pixel Retro, Pop Collage |
 
 | Preset | Format | Voice | Example's score | 3D |
 |---|---|---|---|---|
@@ -27,6 +29,9 @@ Every preset exposes a `THEME` / `T` object at the top (colours and fonts) so it
 | Swiss Kinetic | 1:1 | none | `kinetic` 104 | — |
 | Neon Circuit | 9:16 | ZH | `synthwave` 112 | — |
 | Pop Collage | 9:16 | ZH | `pop` 116 | — |
+| Pixel Retro | 16:9 | ZH | `chiptune` 126 | — |
+| Ink Wash | 16:9 | ZH | `D major` 76 | — |
+| Cinematic Film | 16:9 (2.39:1 scope) | ZH | 72, D major | — |
 
 ---
 
@@ -193,6 +198,57 @@ Every preset exposes a `THEME` / `T` object at the top (colours and fonts) so it
 - **Example's score:** `pop` 116 BPM, C major: high energy, a dip on the last tip, one `hit` on the recap; pops and ticks on sticker landings, shimmer on the payoff
 - **Captions:** big (62 px), cream with an ink stroke, **karaoke highlight** in yellow, baseline at 80% height
 - **Pacing:** fast. A sticker lands on nearly every beat; `tail: 0.25` keeps ~0.5 s of air after each line.
+
+## 11. Pixel Retro — `pixel-retro`
+
+<img src="docs/media/pixel-retro.jpg" width="480" alt="Pixel Retro">
+
+- **Vibe:** an 8-bit console game, played straight. Cheerful, nostalgic, a little heroic; every frame could be a screenshot.
+- **Best for:** year-in-review and milestone videos, gaming and indie-dev content, gamified onboarding ("level up", quests, achievements), kids and community promos, playful product changelogs.
+- **Avoid for:** luxury, finance and healthcare, serious or sensitive topics, dense data, anything that needs fine detail or photographic realism.
+- **Format:** 16:9 (also 9:16 and 1:1) · 20–35 s · narration (ZH: YunxiaNeural +4% for the cartoon voice, or YunxiNeural; EN: GuyNeural) with dialogue-box captions, or music only
+- **Palette:** 12 colours and nothing else: `#16122B` night · `#2C2554` shade · `#4B3F86` dusk · `#8C85BD` dim · `#FFF3D6` ink · `#5FA8E8` sky · `#57C98A` mint · `#2E8A5C` leaf · gold `#FFC93C` = rewards and the point · coral `#F25F5C` = danger and the hero · `#A3473A` rust · `#E8B07A` sand
+- **Type:** Press Start 2P (Latin, numerals, HUD) on its 8 px grid · Noto Sans SC 700 thresholded to 1-bit for Chinese (12 grid px minimum, 16 for titles)
+- **The device:** `pixelFrame` paints each scene on a low-resolution buffer (one cell = 5 design px, 384×216 at 1080p), snaps every pixel to the palette (optionally with a 4×4 ordered dither, so gradients become dithered bands) and scales it up with nearest-neighbour sampling. Circles, gradients and rotated shapes drawn with the normal canvas API come out as pixel art. A faint LCD cell grid sits on top.
+- **Motion signature:** everything moves in whole cells and quantised steps (`steps`, `jump`), never eased glides · sprites from character art, animated on eighth notes (`sprite`, `cycle`) · RPG windows that open in four steps (`win`) · a dialogue box that types its line and blinks a ▼ on the beat (`dialogue`) · segmented meters for HP, EXP and loading (`meter`) · a jolt of a few whole-cell frames on impact (`jolt`) · blocks and letters dropping in on sixteenths · a parallax side-scroll with layers at whole-cell speeds
+- **Transitions:** `tileWipe` (a staircase of tiles closes along the diagonal and opens on the next screen, with a swish) · the runtime's `pixelate` into a battle or a new level · hard cuts on the beat for payoffs
+- **Example's score:** `chiptune` 126 BPM, D major: square-wave chords (`lead` with `saw: 0`), a hopping octave bass, a 16th square arp from energy 0.6, noise-kit drums, a square lead in the gaps · ticks as blocks land, pops on ? blocks (on the spoken numbers), clicks on hits (on 一刀 · 两刀 · 三刀), the one `hit` on the KO, shimmer on LEVEL UP, a chime when the cursor picks
+- **Captions:** Noto Sans SC 700, 46 px, ink on a square night box (no radius), low at 0.9 H, like a game's text box
+- **Pacing:** brisk and on the grid. Something reacts on every beat or half beat, text holds until it can be read at typing speed, and one music-only payoff gets a full bar.
+- **Render tip:** keep the grid size (`T.px`) a divisor of both sides; at 9:16 the grid is 216×384. GIF exports want few colours (16) and no dithering of their own.
+
+## 12. Ink Wash — `ink-wash`
+
+<img src="docs/media/ink-wash.jpg" width="480" alt="Ink Wash">
+
+- **Vibe:** a Chinese ink painting (水墨) that paints itself on rice paper. Still, spacious, literate; the empty paper is part of the picture.
+- **Best for:** Chinese culture, poetry and philosophy, tea, calligraphy and craft, festivals and the solar terms, brand stories with an Eastern voice, reflective essays and wellness.
+- **Avoid for:** dense data, tech launches, hype and fast social cuts.
+- **Format:** 16:9 · 20–40 s · a calm voice (ZH: XiaoxiaoNeural −8% as in the example, or YunyangNeural −6%; EN: ChristopherNeural) or music only
+- **Palette:** `#EEE7D7` 宣纸 rice paper (fibres, cloudy sizing, a warm edge) · one ink `#16150F` used at tones from 淡墨 0.15 to 浓墨 0.9 · `#F4EFE4` mist · one cinnabar `#B5342A`, for the seal and nothing else
+- **Type:** Ma Shan Zheng (brush 楷书 display, set in vertical columns read right to left) · Noto Serif SC 500/700 for small labels and captions
+- **Motion signature:** an ink drop **blooming** into the paper, paler inside with a darker wet edge · **brush strokes** that press in, run and lift, breaking into dry-brush bristles (飞白) at the tail · washes that soak in pale and settle, dark at the crest and fading into mist at the foot (远山淡、近山浓) · calligraphy that **soaks in** character by character, soft and slightly large, then sharp with a faint bleed · drifting **mist** that swallows what it passes, which is also how things exit · one **seal** pressed on the beat as the full stop
+- **Transitions:** a custom **handscroll pan** (手卷: the next scene is the next stretch of the same scroll, the join hidden in mist, with a paper sound) · the runtime `ink` bloom with a faint ink edge into the ending · hard cuts on the beat when the painting stays and only the words change
+- **Example's score:** 76 BPM, D major, two bars per chord: a soft sine drone, a plucked zither line that thickens with the energy, a low string, a tom heartbeat only in the music-only breath, a sparse plucked lead · energy 0.2 → 0.65 in the breath, 0.3 at the seal · paper on the scroll pans, a swell into the ending, one click for the seal
+- **Captions:** Noto Serif SC 500 40 px, ink on a translucent paper box, low (0.92 H); or `captions: 'file'` when the line is already on screen in calligraphy
+- **Pacing:** slow. The painting comes first and the voice after it (`voiceDelay` of a few beats), each column soaking in on its spoken words, a bloom or stroke on the beat, every column held ≥ 2 s, a music-only breath where the mist clears the page, a long ring-out under the seal.
+
+## 13. Cinematic Film — `cinematic-film`
+
+<img src="docs/media/cinematic-film.jpg" width="480" alt="Cinematic Film">
+
+- **Vibe:** a documentary shot on film and projected in a dark room. Patient, warm, a little nostalgic.
+- **Best for:** brand films and manifestos, documentary and memoir pieces, places and people, anniversaries, trailers and title sequences, anything that should feel *felt* rather than explained.
+- **Avoid for:** dense data, fast social hooks, UI walkthroughs, anything that must read as crisp and digital.
+- **Format:** 16:9 with a 2.39:1 scope letterbox (`T.aspect`; 1.85 for a flat frame) · 30–60 s · a slow documentary narration (ZH: YunyangNeural −6%, with a second voice for a quoted interviewee; EN: ChristopherNeural −4%) or music only. For 9:16, set `T.aspect` to 1 (no bars) and keep the gate.
+- **Palette:** `#0B0A08` film black, lifted to `#121A1B` teal · `#F1E6D0` cream titles · one warm accent `#E3A257` (timecodes, the light) · `#8A7F70` dim · the grade is a warm soft-light `#FFB46E` with red-orange halation `#FF6A2A`
+- **Type:** Noto Serif SC 500/600 (Chinese titles, supers) · Cormorant Garamond 500/600 (Latin titles in wide-tracked caps) · Courier Prime (timecodes and kickers)
+- **Motion signature:** the **film gate** over every frame (`filmGate`: gate weave, halation, a warm grade with lifted blacks, exposure flicker, dust, hairs and a scratch that lives for a few dozen frames, vignette, grain) · scope **letterbox** bars · slow **dollies** on every shot (`dolly`: a push or a lateral track over the whole shot, never a snap) · titles that **fade up out of focus and keep tracking open** while they hold (`trackTitle`) · a documentary **lower third**: mono timecode kicker, a hairline that draws, a serif line that resolves glyph by glyph (`lowerThird`) · an academy **countdown leader** (`leader`) · rack focus by blurring a half-size buffer
+- **Transitions:** long dissolves (`fade`, 1.4–1.8 s) by default · `dip` to black for chapter breaks · one custom **film burn** (`filmBurn`: the stock overexposes into orange and white and the next shot comes through) for the turn of the piece. No pushes, wipes or whips.
+- **Example's score:** 72 BPM, D major from the relative minor (`[5, 3, 0, 4]`): a sine pad alone under the leader, low strings and a bass as the city wakes, felt-piano eighths at first light, a heartbeat tom only under the sunrise, a sparse keys melody in the gaps; the leader, the sunrise and the title card are music only · ticks on the countdown, swells on the dissolve and the burn, one shimmer when the sun clears
+- **Captions:** in the lower letterbox bar like a film print's subtitles: Noto Serif SC 38 px cream with a thin dark stroke, no box
+- **Pacing:** slow. The narrator sets the shot lengths (6–10 beats each, a long `tail` after each line), every title held long enough to read twice, a dip to black before the title, a long fade to black at the end.
+- **Render tip:** the gate touches every pixel each frame, so draft with `--scale 0.5`; for the GIF use fewer frames and colours.
 
 ---
 

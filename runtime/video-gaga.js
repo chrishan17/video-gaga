@@ -1407,8 +1407,14 @@
     // ---- timeline resolution (voice drives duration) -------------------------
     if (!config.scenes?.length) fail('no scenes yet: add one scene per storyboard row to CV.create({ scenes: [ … ] })');
     const scenes = config.scenes.map((s, i) => ({ ...s, index: i }));
-    let cursor = 0;
+    let cursor = 0, part = null;
     for (const s of scenes) {
+      // music parts (chapters of a long score): a scene's `part` holds until the
+      // next scene that names one, and a new part starts on a bar line
+      const newPart = s.part != null && s.part !== part;
+      if (s.part != null && !mus?.parts?.[s.part]) fail(`scene "${s.id}": part '${s.part}' is not defined in music.parts`);
+      if (s.part != null) part = s.part;
+      s._part = part;
       const tr = s.index > 0 ? normTransition(s.transition ?? config.transition) : null;
       const overlap = tr && tr.type !== 'cut' ? tr.duration : 0;
       s._tr = tr;
@@ -1417,7 +1423,7 @@
       // previous scene holds a little longer to get there
       if (s.index > 0 && snapUnit && s.snap !== false) {
         const prev = scenes[s.index - 1];
-        const unit = s.snap ? unitOf(s.snap) || snapUnit : snapUnit;
+        const unit = s.snap ? unitOf(s.snap) || snapUnit : newPart && mus.parts ? barLen : snapUnit;
         s.start = snapUp(s.start + overlap / 2, unit) - overlap / 2;
         prev.end = s.start + overlap;
         prev.dur = prev.end - prev.start;
@@ -1717,10 +1723,10 @@
         score: mus && (mus.layers || mus.lead) && !mus.file ? {
           bpm, beatsPerBar, offset: gridOffset, seed: mus.seed ?? 1,
           key: mus.key ?? null, mode: mus.mode ?? null, progression: mus.progression ?? null, sevenths: mus.sevenths ?? false,
-          chordBars: mus.chordBars ?? 1, layers: mus.layers ?? [], lead: mus.lead ?? null, fills: mus.fills ?? true,
+          chordBars: mus.chordBars ?? 1, layers: mus.layers ?? [], lead: mus.lead ?? null, fills: mus.fills ?? true, ...(mus.parts ? { parts: mus.parts } : {}),
           volume: mus.volume ?? 1, duck: mus.duck ?? null, gap: mus.gap ?? null, duration, fps,
           intro: mus.intro ?? null, ending: mus.ending ?? 'resolve',
-          sections: scenes.map((s) => ({ id: s.id, start: s.start, end: s.end, energy: s.energy ?? null, voiced: !!s.voice })),
+          sections: scenes.map((s) => ({ id: s.id, start: s.start, end: s.end, energy: s.energy ?? null, voiced: !!s.voice, ...(s._part != null ? { part: s._part } : {}) })),
           voice: scenes.filter((s) => s.voice).map((s) => ({ start: s.start + s.voiceDelay, end: s.start + s.voiceDelay + speechEnd(s.voice) })),
           sfx: sfx.map((e) => ({ ...e })),
         } : null,

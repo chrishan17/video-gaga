@@ -55,10 +55,11 @@ CV.create({
 | `gap` | 7 | How many dB the music-only passages sit under the voice's speech level. The renderer measures the actual voice, so every voice gets the same balance |
 | `volume` | 1 | A gain on top of that (`1.4` ≈ +3 dB) |
 | `sfx` | true | Transitions play their natural sound |
+| `parts` | — | Chapters of a long score: `{ name: { key, mode, progression, chordBars, sevenths, seed, lead } }`, chosen by a scene's `part` (§2.5) |
 | `ending` | `'resolve'` | `'resolve'` lands the tonic chord on the last downbeat and lets it ring. `'none'` lets the groove run to the end |
 | `file` | — | A licensed track instead of the generated score (side-chain ducked, faded) |
 
-The ten presets each carry the score designed for their own example video. Read them as worked examples of the spec, not as styles to reuse: a new video gets a new score.
+The thirteen presets each carry the score designed for their own example video. Read them as worked examples of the spec, not as styles to reuse: a new video gets a new score.
 
 ## 2. Designing the score
 
@@ -121,6 +122,33 @@ And these are **design rules** (warnings from `cv music`, and things to check yo
 - Leave the voice its band: keep busy parts (arps, 16ths) at `from` ≥ 0.45 or in music-only scenes, and prefer pads, bass and sparse keys under narration.
 - One signature sound per video (a marimba ostinato, a heartbeat tom, a saw arp), not five.
 - Ask, don't assume: in Phase 1 offer three concrete score designs for *this* brief (one recommended), e.g. "A. 96 BPM G major, fingerpicked guitar + snaps, glockenspiel melody (recommended: warm and homemade, like the topic)".
+
+### 2.5 Parts: a long score in chapters
+
+One four-chord loop carries a 30 s piece. Over two or three minutes it repeats fifteen times or more and turns into wallpaper, and the melody's two motifs come round again and again. A long video is told in chapters, so give the score chapters too: **parts**.
+
+```js
+music: {
+  bpm: 88, key: 'D', mode: 'major', progression: [0, 4, 5, 3], layers: [ … ], lead: { … },
+  parts: {
+    stuck:   { key: 'B', mode: 'minor', progression: [0, 5, 2, 6], chordBars: 2, lead: { rhythm: 'sparse' } },
+    hundred: { progression: [5, 3, 0, 4], seed: 8, lead: { rhythm: 'rhythmic' } },
+    home:    { progression: [3, 0, 4, 0], chordBars: 2 },
+  },
+},
+scenes: [
+  { id: 'open', … },                    // the main harmony (the top-level spec)
+  { id: 'kid', part: 'stuck', … },      // from here on: B minor, two bars per chord
+  { id: 'voice', … },                   // still 'stuck' (a part holds until the next one)
+  { id: 'day30', part: 'hundred', … },
+]
+```
+
+- A part may change `key`, `mode`, `progression`, `chordBars`, `sevenths`, `seed` (new melody motifs) and `lead` (merged over the main lead: a different `rhythm`, `range` or `vel`). The **layers stay the same** for the whole video, so it keeps one sound; energy still decides which of them play.
+- Put `part` on the first scene of each chapter. It holds until another scene names a part. The cut into that scene moves to the next **bar line** (not just the beat) so the new chords arrive with the new picture; this can hold the previous scene up to one bar longer. Set the scene's `snap` to override.
+- Each part starts on the first chord of its own progression, and the melody in it uses its own two motifs. The ending resolves to the home chord of the part the video ends in.
+- Design parts from the story, not for variety's sake: a relative minor for the low point, a pop loop (`[5, 3, 0, 4]`) for momentum, a slower `chordBars: 2` for reflection, and back home for the ending. Three to six parts suit a 2–5 minute piece.
+- `cv music` prints where each part takes over (`parts (name@bar): main@1 stuck@9 …`) and warns when a score longer than ~75 s loops one progression more than eight times.
 
 ## 3. How the score follows the video
 

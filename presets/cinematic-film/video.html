@@ -1,0 +1,565 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>天亮以前 — Before Dawn (video-gaga · Cinematic Film)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Noto+Serif+SC:wght@500;600&family=Courier+Prime:wght@400;700&display=block" rel="stylesheet">
+</head>
+<body>
+<script src="build/narration.js"></script>
+<script src="../../runtime/video-gaga.js"></script>
+<script>
+/* =============================================================================
+   CINEMATIC FILM — a documentary shot on film and projected in a dark room.
+   Scope letterbox (2.39:1), warm highlights over lifted teal blacks, halation
+   around every light, grain, gate weave, a breath of exposure flicker, dust and
+   the odd scratch. Nothing snaps: shots drift on slow dollies, titles fade up
+   out of focus and keep tracking open while they hold, cuts are dissolves,
+   dips to black and one film burn. Documentary furniture: a mono timecode
+   kicker over a serif line, subtitles set in the lower bar.
+   Rhythm: slow. Shots hold for 6–10 beats of the video's own score. In the
+   example below a documentary narrator sets the shot lengths, a remembered
+   voice speaks the quote, and the leader, the sunrise and the title card are
+   music only.
+   ============================================================================= */
+const { ease, clamp, lerp, fx, draw, color } = CV;
+
+// === THEME (swap for brand) ==================================================
+const T = {
+  black: '#0B0A08',
+  cream: '#F1E6D0',       // titles, highlights
+  amber: '#E3A257',       // the one warm accent: timecodes, the light
+  dim: '#8A7F70',
+  leader: '#9C907E',      // countdown leader field
+  warm: '#FFB46E',        // grade: soft-light over everything
+  halation: '#FF6A2A',    // the red-orange bloom film gives a highlight
+  lift: '#121A1B',        // the floor of the blacks: film never reaches pure black
+  aspect: 2.39,           // scope; 1.85 for a flat frame, 1 to drop the bars
+  serif: '"Cormorant Garamond", "Noto Serif SC", Georgia, serif',
+  han: '"Noto Serif SC", "Songti SC", serif',
+  mono: '"Courier Prime", "Courier New", monospace',
+};
+const F = (w, px, fam = T.serif, style = '') => `${style ? style + ' ' : ''}${w} ${px}px ${fam}`;
+// the picture inside the letterbox bars
+const picture = (W, H, aspect = T.aspect) => {
+  const h = Math.min(H, W / aspect), y0 = (H - h) / 2;
+  return { y0, y1: y0 + h, h };
+};
+
+// === KIT: the film gate ======================================================
+// Everything the projector adds, drawn in the overlay over every frame:
+// gate weave, halation, the warm grade with lifted blacks, exposure flicker,
+// dust and scratches, vignette, grain. Pure functions of the frame index.
+const gateBufs = {};
+function gateBuf(key, w, h) {
+  let c = gateBufs[key];
+  if (!c || c.width !== w || c.height !== h) {
+    c = gateBufs[key] = document.createElement('canvas');
+    c.width = w; c.height = h;
+    c.g = c.getContext('2d', { willReadFrequently: true });
+  }
+  return c;
+}
+
+function filmGate(ctx, g, o = {}) {
+  const { weave = 1, halation = 0.5, grade = 0.2, flicker = 0.035, dust = 1, vignette = 0.55, grain = 0.08 } = o;
+  const cv = ctx.canvas, pw = cv.width, ph = cv.height, f = g.frame, W = g.W, H = g.H;
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  // gate weave: the frame drifts a pixel or two in the gate (over-scanned so no edge shows)
+  if (weave) {
+    const b = gateBuf('weave', pw, ph), k = pw / W, z = 1.004;
+    b.g.globalCompositeOperation = 'copy';
+    b.g.drawImage(cv, 0, 0);
+    const dx = CV.noise(f * 0.21, 3) * 1.4 * weave * k, dy = CV.noise(f * 0.17, 7) * 2 * weave * k;
+    ctx.drawImage(b, (pw - pw * z) / 2 + dx, (ph - ph * z) / 2 + dy, pw * z, ph * z);
+  }
+  // halation: the highlights bloom red-orange. No ctx.filter and no high-quality
+  // resampling (both can rasterise differently between pages): the frame is
+  // halved four times (a box blur), multiplied by itself so only the highlights
+  // survive, tinted, and scaled back up over the frame.
+  if (halation) {
+    let src = cv, w = pw, h = ph;
+    for (let i = 0; i < 4; i++) {
+      w = Math.max(4, w >> 1); h = Math.max(4, h >> 1);
+      const b = gateBuf(`halation${i}`, w, h);
+      b.g.globalCompositeOperation = 'copy';
+      b.g.drawImage(src, 0, 0, w, h);
+      src = b;
+    }
+    const hb = gateBuf('halation', w, h), g2 = hb.g;
+    g2.globalCompositeOperation = 'copy';
+    g2.drawImage(src, 0, 0);
+    g2.globalCompositeOperation = 'multiply';
+    g2.drawImage(src, 0, 0);
+    g2.drawImage(src, 0, 0);
+    g2.fillStyle = T.halation;
+    g2.fillRect(0, 0, w, h);
+    ctx.globalCompositeOperation = 'screen';
+    ctx.globalAlpha = halation;
+    ctx.drawImage(hb, 0, 0, pw, ph);
+  }
+  ctx.restore();
+  ctx.save();
+  // the grade: warm highlights, blacks lifted toward teal
+  ctx.globalCompositeOperation = 'soft-light';
+  ctx.globalAlpha = grade;
+  ctx.fillStyle = T.warm;
+  ctx.fillRect(0, 0, W, H);
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = 'lighten';
+  ctx.fillStyle = T.lift;
+  ctx.fillRect(0, 0, W, H);
+  // exposure flicker
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = (CV.noise(f * 0.9, 5) * 0.5 + 0.5) * flicker;
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, W, H);
+  // dust: a few specks and hairs, new every frame; a scratch that lives for a few dozen frames
+  if (dust) {
+    const r = CV.rand(f * 13 + 1), n = Math.floor(r() * 3.4 * dust);
+    for (let i = 0; i < n; i++) {
+      const x = r() * W, y = r() * H, light = r() < 0.25, sz = 1 + r() * 3.5;
+      ctx.globalAlpha = 0.35 + r() * 0.35;
+      ctx.fillStyle = ctx.strokeStyle = light ? T.cream : '#000';
+      if (r() < 0.7) { ctx.beginPath(); ctx.ellipse(x, y, sz, sz * (0.6 + r() * 0.6), r() * 3, 0, Math.PI * 2); ctx.fill(); }
+      else {
+        ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.moveTo(x, y);
+        ctx.bezierCurveTo(x + (r() - 0.5) * 40, y + r() * 30, x + (r() - 0.5) * 40, y + r() * 30, x + (r() - 0.5) * 30, y + 20 + r() * 30);
+        ctx.stroke();
+      }
+    }
+    const seg = Math.floor(f / 37), rs = CV.rand(seg * 5 + 2);
+    if (rs() < 0.4 * dust) {
+      const x = rs() * W + CV.noise(f * 0.3, seg) * 6;
+      ctx.globalAlpha = 0.12 + rs() * 0.1;
+      ctx.fillStyle = T.cream;
+      ctx.fillRect(x, 0, 1.2, H);
+    }
+  }
+  ctx.restore();
+  draw.vignette(ctx, W, H, vignette, '#000');
+  draw.grain(ctx, f, grain, { blend: 'overlay' });
+}
+
+// Letterbox bars, drawn last. open: 0 = full frame, 1 = the full letterbox.
+function letterbox(ctx, W, H, open = 1, aspect = T.aspect) {
+  const bar = (H - picture(W, H, aspect).h) / 2 * clamp(open);
+  if (bar <= 0) return;
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, W, bar);
+  ctx.fillRect(0, H - bar, W, bar);
+}
+
+// === KIT: camera and type ====================================================
+// The slow cinematic ease: long, soft settle.
+const drift = ease.bezier(0.33, 0, 0.15, 1);
+
+// A slow dolly over the whole shot (zoom and/or lateral track), never a snap.
+// The zoom holds (focusX, focusY) still on screen; x / y track the camera.
+function dolly(ctx, s, fn, { zoom = [1, 1.06], x = [0, 0], y = [0, 0], focusX = s.W / 2, focusY = s.H / 2 } = {}) {
+  const k = ease.inOutSine(s.p), z = lerp(zoom[0], zoom[1], k);
+  draw.camera(ctx, s.W, s.H, { zoom: z, focusX, focusY, x: lerp(x[0], x[1], k) + (s.W / 2 - focusX) / z, y: lerp(y[0], y[1], k) + (s.H / 2 - focusY) / z }, fn);
+}
+
+// A title that fades up out of focus and keeps tracking open while it holds.
+// spacing in em: [at t = 0, at t = life]. Returns 0..1 visibility.
+function trackTitle(ctx, str, x, y, t, { font = F(600, 120), fill = T.cream, spacing = [0.12, 0.3], life = 8, fadeIn = 1.4, blur = 10, exit = 0, align = 'center' } = {}) {
+  const a = ease.inOutSine(clamp(t / fadeIn)) * (1 - clamp(exit));
+  if (a <= 0) return 0;
+  ctx.save();
+  ctx.font = font;
+  const size = parseFloat(font.match(/(\d+(?:\.\d+)?)px/)[1]);
+  const sp = lerp(spacing[0], spacing[1], clamp(t / life)) * size;
+  ctx.letterSpacing = `${sp.toFixed(2)}px`;
+  const w = ctx.measureText(str).width - sp; // trailing spacing doesn't count
+  const x0 = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x;
+  ctx.textAlign = 'left';
+  ctx.globalAlpha = a;
+  ctx.fillStyle = fill;
+  const b = (1 - a) * blur;
+  if (b > 0.05) ctx.filter = `blur(${b.toFixed(2)}px)`;
+  ctx.fillText(str, x0, y);
+  ctx.restore();
+  return a;
+}
+
+// Documentary super: a mono timecode kicker, a hairline that draws, a serif line.
+function lowerThird(ctx, x, y, kicker, line, t, { exit = 0, font = F(500, 42, T.han), width = 520, scrim = 0.5 } = {}) {
+  if (t <= 0) return;
+  const o = 1 - clamp(exit);
+  ctx.save();
+  // a soft scrim keeps the super legible over a busy picture
+  if (scrim > 0) {
+    const g = ctx.createLinearGradient(0, y - 170, 0, y + 70);
+    g.addColorStop(0, 'rgba(0,0,0,0)');
+    g.addColorStop(1, `rgba(0,0,0,${scrim})`);
+    ctx.globalAlpha = o * ease.inOutSine(clamp(t / 1.2));
+    ctx.fillStyle = g;
+    ctx.fillRect(0, y - 170, ctx.canvas.__cvW || ctx.canvas.width, 240);
+  }
+  ctx.globalAlpha = o * ease.inOutSine(clamp(t / 0.8));
+  ctx.font = F(400, 24, T.mono);
+  ctx.letterSpacing = '4px';
+  ctx.fillStyle = T.amber;
+  ctx.textAlign = 'left';
+  ctx.fillText(kicker, x, y - 64 + (1 - clamp(t / 0.8)) * 8);
+  ctx.letterSpacing = '0px';
+  ctx.fillStyle = color.rgba(T.cream, 0.55);
+  ctx.fillRect(x, y - 46, width * drift(clamp((t - 0.25) / 1.4)), 1.5);
+  ctx.restore();
+  ctx.save();
+  ctx.globalAlpha = o;
+  ctx.font = font;
+  ctx.fillStyle = T.cream;
+  fx.charReveal(ctx, line, x, y, t - 0.5, { stagger: 0.05, dur: 0.9, rise: 0.08, blur: 6, ease: ease.inOutSine });
+  ctx.restore();
+}
+
+// One frame of an academy countdown leader: n is the numeral, q 0→1 the sweep.
+function leader(ctx, W, H, n, q) {
+  const cx = W / 2, cy = H / 2, R = H * 0.36;
+  ctx.fillStyle = T.leader;
+  ctx.fillRect(0, 0, W, H);
+  // the sweep: a darker wedge turning clockwise from twelve o'clock
+  ctx.fillStyle = color.mix(T.leader, '#000', 0.28);
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.arc(cx, cy, R * 3, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * clamp(q));
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = color.rgba('#000', 0.75);
+  ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(W, cy); ctx.moveTo(cx, 0); ctx.lineTo(cx, H); ctx.stroke();
+  ctx.strokeStyle = color.rgba(T.cream, 0.9);
+  ctx.lineWidth = 6;
+  for (const r of [R, R * 0.84]) { ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke(); }
+  ctx.font = F(600, H * 0.5);
+  ctx.fillStyle = '#111';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(String(n), cx, cy + H * 0.02);
+  ctx.textBaseline = 'alphabetic';
+}
+
+// Film burn: the stock overexposes into orange and white, and the next shot
+// comes through it. A custom transition; seed / x / y move where it burns from.
+function filmBurn(ctx, A, B, p, o = {}) {
+  const W = ctx.canvas.width, H = ctx.canvas.height;
+  ctx.drawImage(A, 0, 0);
+  const m = clamp((p - 0.38) / 0.24);
+  if (m > 0) { ctx.globalAlpha = m; ctx.drawImage(B, 0, 0); ctx.globalAlpha = 1; }
+  const k = Math.sin(Math.PI * p), r = CV.rand(o.seed ?? 3);
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  for (let i = 0; i < 5; i++) {
+    const x = W * ((o.x ?? 0.75) + (r() - 0.5) * 0.6 - p * 0.2), y = H * ((o.y ?? 0.45) + (r() - 0.5) * 0.7);
+    const rad = W * (0.12 + r() * 0.3) * (0.35 + 1.4 * k);
+    const gr = ctx.createRadialGradient(x, y, 0, x, y, rad);
+    gr.addColorStop(0, `rgba(255,238,200,${0.95 * k})`);
+    gr.addColorStop(0.3, `rgba(255,160,70,${0.8 * k})`);
+    gr.addColorStop(0.65, `rgba(210,60,20,${0.4 * k})`);
+    gr.addColorStop(1, 'rgba(120,20,0,0)');
+    ctx.fillStyle = gr;
+    ctx.fillRect(0, 0, W, H);
+  }
+  ctx.restore();
+}
+
+// === EXAMPLE: a river city before dawn =======================================
+// The example's world: sky, skylines, the river, a ferry, the sun, birds. All
+// procedural and seeded, drawn in design pixels inside the scope frame.
+const HY = 640; // horizon
+const SKY = [
+  ['#0D1820', '#26363E', '#4A5658'],   // before dawn: top, middle, horizon
+  ['#2E2933', '#B5604A', '#F2B46A'],   // sunrise
+];
+function sky(ctx, W, k) {
+  const g = ctx.createLinearGradient(0, 0, 0, HY);
+  g.addColorStop(0, color.mix(SKY[0][0], SKY[1][0], k));
+  g.addColorStop(0.62, color.mix(SKY[0][1], SKY[1][1], k));
+  g.addColorStop(1, color.mix(SKY[0][2], SKY[1][2], k));
+  ctx.fillStyle = g;
+  ctx.fillRect(-200, -200, W + 400, HY + 200);
+}
+// a seeded skyline: [{x, w, h, windows: [[x, y, order]]}]
+function makeSkyline(seed, minH, maxH, minW, maxW) {
+  const r = CV.rand(seed), out = [];
+  for (let x = -300; x < 2300;) {
+    const w = minW + r() * (maxW - minW), h = minH + Math.pow(r(), 1.6) * (maxH - minH);
+    const windows = [];
+    for (let wy = HY - h + 14; wy < HY - 12; wy += 16) for (let wx = x + 8; wx < x + w - 10; wx += 13) if (r() < 0.55) windows.push([wx, wy, r()]);
+    out.push({ x, w, h, windows });
+    x += w + r() * 10;
+  }
+  return out;
+}
+const FAR = makeSkyline(11, 40, 170, 50, 130);
+const NEAR = makeSkyline(23, 70, 300, 70, 170);
+function skyline(ctx, rows, fill, lit = 0, k = 0) {
+  ctx.fillStyle = fill;
+  for (const b of rows) ctx.fillRect(b.x, HY - b.h, b.w, b.h + 2);
+  if (lit <= 0) return;
+  ctx.fillStyle = color.mix('#FFC27A', '#FFE2B0', k);
+  for (const b of rows) for (const [x, y, o] of b.windows) if (o < lit) ctx.fillRect(x, y, 6, 8);
+}
+function mist(ctx, W, t, a = 0.18) {
+  for (let i = 0; i < 4; i++) {
+    const y = HY - 30 + i * 22, x = ((t * (8 + i * 5) + i * 400) % 800) - 400;
+    const g = ctx.createLinearGradient(0, y - 30, 0, y + 30);
+    g.addColorStop(0, 'rgba(200,210,205,0)');
+    g.addColorStop(0.5, `rgba(200,210,205,${a})`);
+    g.addColorStop(1, 'rgba(200,210,205,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(x - 200, y - 30, W + 800, 60);
+  }
+}
+// the river: a darker reflection of the sky, ripples, and broken columns of light
+function river(ctx, W, t, k, lights = []) {
+  const g = ctx.createLinearGradient(0, HY, 0, 1000);
+  g.addColorStop(0, color.mix(color.mix(SKY[0][2], SKY[1][2], k), '#000', 0.35));
+  g.addColorStop(1, color.mix(color.mix(SKY[0][0], SKY[1][0], k), '#000', 0.5));
+  ctx.fillStyle = g;
+  ctx.fillRect(-200, HY, W + 400, 600);
+  ctx.fillStyle = color.rgba('#DDE6E6', 0.06 + k * 0.05);
+  for (let y = HY + 4, j = 0; y < 1000; y += 4 + (y - HY) * 0.03, j++) {
+    for (let x = -200; x < W + 200; x += 120) {
+      const n = CV.noise2(x * 0.004 + t * 0.15, j * 0.7, 3);
+      if (n > 0.15) ctx.fillRect(x, y, 120 * n, 1 + (y - HY) * 0.008);
+    }
+  }
+  for (const L of lights) {
+    for (let y = HY + 3, j = 0; y < 1000; y += 5 + (y - HY) * 0.02, j++) {
+      const n = CV.noise2(j * 0.9, t * 1.6 + L.x * 0.01, 5) * 0.5 + 0.5;
+      const w = L.w * (0.4 + n) * (1 + (y - HY) / 260);
+      ctx.fillStyle = color.rgba(L.color, L.a * n * (1 - (y - HY) / 420));
+      ctx.fillRect(L.x - w / 2 + CV.noise2(j, t, 9) * 6, y, w, 2 + (y - HY) * 0.01);
+    }
+  }
+}
+function glow(ctx, x, y, r, col, a) {
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, color.rgba(col, a));
+  g.addColorStop(1, color.rgba(col, 0));
+  ctx.fillStyle = g;
+  ctx.fillRect(x - r, y - r, r * 2, r * 2);
+}
+function ferry(ctx, x, y) {
+  ctx.fillStyle = '#07090A';
+  ctx.beginPath();
+  ctx.moveTo(x - 90, y); ctx.lineTo(x + 100, y); ctx.lineTo(x + 80, y + 16); ctx.lineTo(x - 78, y + 16); ctx.closePath(); ctx.fill();
+  ctx.fillRect(x - 50, y - 26, 90, 26);
+  ctx.fillRect(x - 6, y - 44, 6, 18);
+  ctx.fillStyle = '#FFD9A0';
+  for (let i = 0; i < 5; i++) ctx.fillRect(x - 42 + i * 17, y - 18, 8, 7);
+  glow(ctx, x - 3, y - 46, 70, '#FFB060', 0.5);
+  ctx.fillStyle = '#FFF1D8';
+  ctx.beginPath(); ctx.arc(x - 3, y - 46, 3.5, 0, Math.PI * 2); ctx.fill();
+}
+// sunrise: rise 0 = under the horizon, 1 = a hand above it
+function sunrise(ctx, W, t, rise) {
+  const k = clamp(0.25 + rise * 0.9);
+  sky(ctx, W, k);
+  const sx = 1240, sy = lerp(HY + 50, HY - 280, rise);
+  glow(ctx, sx, sy, 900, '#FFB45E', 0.45 * k);
+  glow(ctx, sx, sy, 260, '#FFE6B5', 0.7 * k);
+  ctx.save();
+  ctx.beginPath(); ctx.rect(-200, -200, W + 400, HY + 200); ctx.clip();
+  ctx.fillStyle = '#FFF4DE';
+  ctx.beginPath(); ctx.arc(sx, sy, 52, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+  skyline(ctx, FAR, color.mix('#5E6A6E', '#C27B5E', k), 0);
+  mist(ctx, W, t, 0.1 + 0.12 * k);
+  river(ctx, W, t, k, [{ x: sx, w: 150, a: 0.8 * k, color: '#FFD49A' }]);
+  // birds crossing the light
+  ctx.strokeStyle = '#1B1414';
+  ctx.lineWidth = 3;
+  const r = CV.rand(41);
+  for (let i = 0; i < 6; i++) {
+    const x = 500 + r() * 300 + t * (60 + r() * 30), y = 380 + r() * 120 - t * 6, flap = Math.sin(t * 7 + i * 1.7) * 9, s = 0.7 + r() * 0.6;
+    ctx.beginPath();
+    ctx.moveTo(x - 16 * s, y - flap * s); ctx.quadraticCurveTo(x - 6 * s, y - 4 * s, x, y);
+    ctx.quadraticCurveTo(x + 6 * s, y - 4 * s, x + 16 * s, y - flap * s);
+    ctx.stroke();
+  }
+}
+// the city wakes: facades close up, each window with its own seeded order
+const FACADE = (() => {
+  const r = CV.rand(77), out = [];
+  for (let x = -260; x < 2400;) {
+    const w = 260 + r() * 220, top = 150 + r() * 260, depth = r();
+    const cols = Math.floor((w - 50) / 46), rows = Math.floor((960 - top - 40) / 64);
+    const win = [];
+    for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) win.push([x + 30 + i * 46, top + 34 + j * 64, r()]);
+    out.push({ x, w, top, depth, win });
+    x += w + 16 + r() * 40;
+  }
+  return out;
+})();
+const WINDOW_COUNT = FACADE.reduce((n, b) => n + b.win.length, 0);
+
+// === VIDEO ===================================================================
+CV.create({
+  width: 1920, height: 1080, fps: 30,
+  background: T.black,
+  lang: 'zh-CN',
+  // the score designed for this video: quiet, nostalgic, hopeful: a soft pad from the relative minor, felt piano at first light, a heartbeat under the sun
+  music: {
+    bpm: 72, seed: 11, key: 'D', mode: 'major', progression: [5, 3, 0, 4],
+    layers: [
+      { name: 'air', inst: 'sinepad', notes: 'chord', pattern: 'X---', vel: 0.09, attack: 1.4, release: 2 },
+      { name: 'low strings', inst: 'pad', notes: 'chord', octave: -1, pattern: 'X---', vel: 0.07, cutoff: [600, 1400], attack: 1.2, release: 1.8, from: 0.3 },
+      { name: 'low', inst: 'bass', octave: -2, pattern: 'X---', gate: 0.95, vel: 0.18, decay: 4, from: 0.35 },
+      { name: 'felt piano', inst: 'keys', notes: [0, 2, 1, 2], pattern: 'X.x.X.x.', vel: [0.05, 0.1], bright: 0.15, decay: 1.2, verb: 0.4, from: 0.45 },
+      { name: 'heartbeat', inst: 'tom', pitch: 68, pattern: 'X..x....', vel: 0.35, from: 0.7 },
+    ],
+    lead: { inst: 'keys', range: [69, 86], rhythm: 'sparse', vel: 0.1, bright: 0.3, decay: 2, echo: 0.3 },
+  },
+  transition: { type: 'fade', duration: 1.4, ease: ease.inOutSine },
+  subtitles: {
+    // set in the lower letterbox bar, like a film print's subtitles
+    style: { font: F(500, 38, T.han), color: T.cream, box: null, stroke: 'rgba(0,0,0,0.6)', strokeWidth: 4, y: 0.94 },
+  },
+  scenes: [
+    // --- 1. The leader counts down, one number per beat ----------------------
+    {
+      id: 'leader', narration: false, beats: 4, energy: 0.2,
+      sfx: [0, 1, 2].map((i) => ({ at: (s) => s.onBeat(i), type: 'tick', gain: 0.7 })),
+      draw(ctx, s) {
+        const b = Math.max(0, (s.t - s.onBeat(0)) / s.beatLen);
+        if (b >= 3) return; // the beat before the picture: black
+        leader(ctx, s.W, s.H, 3 - Math.floor(b), b - Math.floor(b));
+      },
+    },
+    // --- 2. Black: the hour, then the line -----------------------------------
+    {
+      id: 'hour', captions: 'file', tail: 1.6, energy: 0.25, // the line is the title
+      transition: { type: 'cut' },
+      draw(ctx, s) {
+        const { W, H, t } = s;
+        const out = s.out(1.1, ease.inOutSine);
+        trackTitle(ctx, '凌晨 4:52', W / 2, H / 2 - 70, t - s.when('凌晨', s.onBeat(0.5)), { font: F(400, 26, T.mono), fill: T.amber, spacing: [0.3, 0.42], life: s.dur, exit: out, blur: 4 });
+        trackTitle(ctx, '城市还没有醒', W / 2, H / 2 + 40, t - s.when('城市', s.onBeat(1.5)), { font: F(600, 88, T.han), spacing: [0.1, 0.24], life: s.dur, exit: out });
+      },
+    },
+    // --- 3. The river: a slow push in, the first ferry crosses ----------------
+    {
+      id: 'river', tail: 1.4, energy: 0.35,
+      transition: { type: 'fade', duration: 1.8, ease: ease.inOutSine, sfx: 'swell' },
+      draw(ctx, s) {
+        const { W, t } = s;
+        const fx0 = lerp(260, 1380, ease.inOutSine(s.p));
+        dolly(ctx, s, () => {
+          sky(ctx, W, 0.08);
+          glow(ctx, 1240, HY + 20, 700, '#6E7A78', 0.35);
+          skyline(ctx, FAR, '#2A363A', 0.18, 0);
+          mist(ctx, W, t, 0.14);
+          river(ctx, W, t, 0.08, [{ x: fx0 - 3, w: 18, a: 0.7, color: '#FFB060' }]);
+          ferry(ctx, fx0, HY + 46);
+        }, { zoom: [1, 1.07], focusX: 1000, focusY: HY });
+        lowerThird(ctx, 160, 880, '05:10 · 江北渡口', '第一班渡轮离岸', t - s.when('江北', s.onBeat(2)), { exit: s.out(0.9, ease.inOutSine) });
+      },
+    },
+    // --- 4. The city wakes: windows light in bursts, on the half-beats -------
+    {
+      id: 'windows', tail: 2.6, energy: 0.5, // the tail lets the last windows come on
+      sfx: [{ at: (s) => s.when('一扇', s.onBeat(1)), type: 'click', gain: 0.5 }],
+      draw(ctx, s) {
+        const { W, t } = s;
+        const first = s.when('一扇', s.onBeat(1)); // the first window lights as it is named
+        // how many windows are lit: grows on each half-beat, never fades back
+        const step = Math.floor(clamp((t - first) / (s.beatLen / 2) + 1, 0, 13));
+        const lit = Math.pow(step / 13, 1.4) * 0.85;
+        dolly(ctx, s, () => {
+          const g = ctx.createLinearGradient(0, 0, 0, 1000);
+          g.addColorStop(0, '#16222A'); g.addColorStop(1, '#3B4A4E');
+          ctx.fillStyle = g;
+          ctx.fillRect(-300, 0, W + 600, 1080);
+          for (const b of FACADE) {
+            ctx.fillStyle = color.mix('#0E1418', '#1C2529', b.depth);
+            ctx.fillRect(b.x, b.top, b.w, 1080 - b.top);
+            for (const [x, y, o] of b.win) {
+              const on = o < lit;
+              // a window comes on with a short flicker, two frames dark
+              const age = on ? t - (first + Math.ceil(Math.pow(o / 0.85, 1 / 1.4) * 13 - 1) * s.beatLen / 2) : -1;
+              const flick = age >= 0 && age < 0.2 && Math.floor(age * 30) % 3 === 1;
+              ctx.fillStyle = on && !flick ? (o < 0.3 ? '#FFC783' : '#F4D7A6') : '#141B1F';
+              ctx.fillRect(x, y, 26, 38);
+              if (on && !flick) glow(ctx, x + 13, y + 19, 46, '#FFB060', 0.12);
+            }
+          }
+        }, { zoom: [1.04, 1.1], x: [-80, 120] });
+        lowerThird(ctx, 160, 880, '05:31', '一扇窗，又一扇窗', t - s.when('一扇', s.onBeat(4)), { exit: s.out(0.6, ease.inOutSine), scrim: 0.8 });
+      },
+    },
+    // --- 5. Sunrise: the film burns into the light ---------------------------
+    {
+      id: 'sun', narration: false, beats: 8, energy: 0.8,
+      transition: { type: filmBurn, duration: 1.6, ease: ease.inOutSine, sfx: 'swell', seed: 5, x: 0.7, y: 0.5 },
+      sfx: [{ at: (s) => s.onBeat(4), type: 'shimmer', gain: 0.6 }],
+      draw(ctx, s) {
+        const { W, t } = s;
+        dolly(ctx, s, () => sunrise(ctx, W, t, ease.inOutSine(s.p) * 0.85), { zoom: [1.08, 1], focusX: 1240, focusY: HY - 60 });
+        lowerThird(ctx, 160, 880, '06:02', '日出', t - s.onBeat(5), { exit: s.out(0.8, ease.inOutSine), width: 220 });
+      },
+    },
+    // --- 6. Rack focus: the light goes soft, a voice is remembered ----------
+    {
+      // the quote is heard in the ferryman's own voice (its own voice in narration.json)
+      id: 'voice', captions: 'file', tail: 3.0, energy: 0.55,
+      draw(ctx, s) {
+        const { W, H, t } = s;
+        const buf = gateBuf('soft', W / 2, H / 2);
+        buf.g.setTransform(1, 0, 0, 1, 0, 0);
+        buf.g.clearRect(0, 0, buf.width, buf.height);
+        buf.g.setTransform(0.5, 0, 0, 0.5, 0, 0);
+        sunrise(buf.g, W, t + 13, 0.85); // where the sun shot ended, a little later
+        ctx.save();
+        ctx.filter = `blur(${lerp(4, 14, ease.inOutSine(clamp(t / 2))).toFixed(1)}px)`;
+        ctx.drawImage(buf, -20, -20, W + 40, H + 40);
+        ctx.filter = 'none';
+        // bokeh: out-of-focus glints drifting on the water
+        ctx.globalCompositeOperation = 'screen';
+        const r = CV.rand(91);
+        for (let i = 0; i < 14; i++) {
+          const x = 900 + r() * 700 + Math.sin(t * 0.4 + i) * 20, y = 660 + r() * 220, rad = 18 + r() * 34;
+          const a = (0.12 + r() * 0.2) * (0.6 + 0.4 * Math.sin(t * 1.3 + i * 2.1));
+          ctx.fillStyle = color.rgba('#FFD49A', a);
+          ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
+        ctx.fillStyle = color.rgba('#000', 0.35);
+        ctx.fillRect(0, 0, W, H);
+        const out = s.out(1, ease.inOutSine);
+        ctx.font = F(500, 58, T.han);
+        ctx.fillStyle = T.cream;
+        fx.charReveal(ctx, '“每天都一样。', W / 2, 520, t - s.when('每天都', s.onBeat(1)), { align: 'center', stagger: 0.07, dur: 1, rise: 0.06, blur: 8, ease: ease.inOutSine, exit: out });
+        fx.charReveal(ctx, '可每天的光，都不一样。”', W / 2, 610, t - s.when('可每天', s.onBeat(3)), { align: 'center', stagger: 0.07, dur: 1, rise: 0.06, blur: 8, ease: ease.inOutSine, exit: out });
+        trackTitle(ctx, '—— 一位摆渡人', W / 2, 720, t - (s.voiceEnd + 0.4), { font: F(500, 30, T.han), fill: T.dim, spacing: [0.16, 0.24], life: 4, exit: out, blur: 4 });
+      },
+    },
+    // --- 7. The title, then the light goes out -------------------------------
+    {
+      id: 'title', narration: false, beats: 10, energy: 0.35,
+      transition: { type: 'dip', duration: 1.4, ease: ease.inOutSine, color: '#000' },
+      draw(ctx, s) {
+        const { W, H, t } = s;
+        const out = clamp((t - s.onBeat(8)) / (s.dur - s.onBeat(8) - 0.2));
+        trackTitle(ctx, '天亮以前', W / 2, H / 2 + 30, t - s.onBeat(0.5), { font: F(600, 150, T.han), spacing: [0.2, 0.42], life: s.dur, exit: ease.inOutSine(out), fadeIn: 2 });
+        trackTitle(ctx, 'BEFORE DAWN', W / 2, H / 2 + 120, t - s.onBeat(2.5), { font: F(500, 34), fill: T.amber, spacing: [0.5, 0.7], life: s.dur, exit: ease.inOutSine(out), blur: 5 });
+        trackTitle(ctx, '一部关于清晨的短片', W / 2, H / 2 + 230, t - s.onBeat(4.5), { font: F(500, 24, T.han), fill: T.dim, spacing: [0.3, 0.4], life: s.dur, exit: ease.inOutSine(out), blur: 4 });
+      },
+    },
+  ],
+  // the projector: grain, weave, halation, grade, dust; then the scope bars
+  overlay(ctx, g) {
+    filmGate(ctx, g);
+    letterbox(ctx, g.W, g.H);
+  },
+});
+</script>
+</body>
+</html>

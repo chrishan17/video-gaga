@@ -149,7 +149,18 @@ async function launch() {
   }
 }
 
+// A project keeps the runtime `cv init` copied. After the skill is updated that
+// copy is stale, and newer options (music.parts, scene.part …) are silently ignored.
+const staleWarned = new Set();
+function checkRuntime(html) {
+  const local = path.join(path.dirname(html), 'video-gaga.js');
+  if (staleWarned.has(local) || !fs.existsSync(local) || !/src="video-gaga\.js"/.test(fs.readFileSync(html, 'utf8'))) return;
+  staleWarned.add(local);
+  if (!fs.readFileSync(local).equals(fs.readFileSync(path.join(ROOT, 'runtime', 'video-gaga.js')))) log(`  ⚠ ${path.relative(process.cwd(), local)} differs from the skill's runtime (copied by an older \`cv init\`?): newer options may be ignored. Update it: cp ${path.relative(process.cwd(), path.join(ROOT, 'runtime', 'video-gaga.js'))} ${path.relative(process.cwd(), local)}`);
+}
+
 async function openComposition(browser, html, q) {
+  checkRuntime(html);
   const page = await browser.newPage({ viewport: { width: 800, height: 600 }, deviceScaleFactor: 1 });
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
@@ -214,13 +225,16 @@ async function render(opts) {
   log(`▸ rendering with ${workers} worker(s)${mb > 1 ? `, motion blur ${mb} subframes` : ''} [${fmt}]`);
   const chunk = Math.ceil(frames / workers);
   let done = 0;
+  const tFrames = Date.now();
   const tick = () => {
     done++;
     const every = process.stdout.isTTY ? 10 : Math.max(1, Math.round(frames / 4));
     if (done % every === 0 || done === frames) {
       const pct = ((done / frames) * 100).toFixed(0);
       const el = (Date.now() - t0) / 1000;
-      process.stdout.write(`\r  ${done}/${frames} frames (${pct}%)  ${el.toFixed(1)}s   `);
+      // long renders: say how long is left (from the frame rate so far)
+      const eta = done < frames && done > workers * 5 ? `, ~${Math.ceil(((frames - done) * (Date.now() - tFrames)) / (done * 1000))}s left` : '';
+      process.stdout.write(`\r  ${done}/${frames} frames (${pct}%)  ${el.toFixed(1)}s${eta}   `);
     }
   };
 
@@ -503,7 +517,7 @@ async function still(opts) {
   if (!opts.noTts && opts.tts) await tts(dir);
   const outDir = path.resolve(opts.out || path.join(dir, 'build', 'stills'));
   fs.mkdirSync(outDir, { recursive: true });
-  for (const f of fs.readdirSync(outDir)) if (/^t[\d.]+\.png$|^contact-sheet\.png$/.test(f)) fs.rmSync(path.join(outDir, f));
+  for (const f of fs.readdirSync(outDir)) if (/^t[\d.]+\.png$|^contact-sheet(-\d+)?\.png$/.test(f)) fs.rmSync(path.join(outDir, f));
   const browser = await launch();
   const { page, info, errors } = await openComposition(browser, html, { render: '1', scale: String(opts.scale || 0.5), subs: opts.subs ? '1' : '0' });
   if (errors.length) log(`⚠ page errors:\n  ${errors.join('\n  ')}`);
@@ -512,8 +526,16 @@ async function still(opts) {
   if (opts.at) times = String(opts.at).split(',').map(Number);
   else {
     // default: 3 probes per scene (entering, middle, just before exit)
+    // --scenes hook,curve or --scenes rule..wonky: probe only those scenes (long videos)
+    const pick = opts.scenes ? String(opts.scenes).split(',').flatMap((x) => {
+      const [a, b] = x.split('..');
+      const ia = info.scenes.findIndex((s) => s.id === a), ib = b ? info.scenes.findIndex((s) => s.id === b) : ia;
+      if (ia < 0 || ib < 0) die(`--scenes: no scene "${ia < 0 ? a : b}" (scenes: ${info.scenes.map((s) => s.id).join(', ')})`);
+      return info.scenes.slice(Math.min(ia, ib), Math.max(ia, ib) + 1).map((s) => s.id);
+    }) : null;
     times = [];
     info.scenes.forEach((s, i) => {
+      if (pick && !pick.includes(s.id)) return;
       const next = info.scenes[i + 1];
       const settled = (next && next.start < s.start + s.dur ? next.start : s.start + s.dur) - 0.1;
       times.push(s.start + Math.min(0.5, s.dur * 0.2), s.start + s.dur * 0.5, settled);
@@ -530,11 +552,21 @@ async function still(opts) {
   await browser.close();
   log(`✔ ${files.length} stills → ${path.relative(process.cwd(), outDir)}`);
   if (opts.sheet) {
-    const cols = Number(opts.cols || 3), rows = Math.ceil(files.length / cols);
-    const sheet = path.join(outDir, 'contact-sheet.png');
-    const w = Math.round(640);
-    await run('ffmpeg', ['-y', '-loglevel', 'error', '-framerate', '1', '-pattern_type', 'glob', '-i', path.join(outDir, 't*.png'), '-vf', `scale=${w}:-2,tile=${cols}x${rows}:padding=6:color=0x222222`, '-frames:v', '1', sheet]);
-    log(`  contact sheet → ${path.relative(process.cwd(), sheet)}`);
+    // a long video makes one sheet too tall to read: split it into pages of
+    // `--rows` rows (default 6, i.e. 6 scenes at 3 probes each)
+    const cols = Number(opts.cols || 3), perPage = cols * Number(opts.rows || 6);
+    const sorted = files.slice().sort();
+    const pages = Math.ceil(sorted.length / perPage);
+    const tmpList = path.join(outDir, '.sheet.txt');
+    for (let k = 0; k < pages; k++) {
+      const part = sorted.slice(k * perPage, (k + 1) * perPage);
+      const sheet = path.join(outDir, pages > 1 ? `contact-sheet-${k + 1}.png` : 'contact-sheet.png');
+      fs.writeFileSync(tmpList, part.map((f) => `file '${f.replace(/'/g, "'\\''")}'`).join('\n'));
+      await run('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', tmpList, '-vf', `scale=640:-2,tile=${cols}x${Math.ceil(part.length / cols)}:padding=6:color=0x222222`, '-frames:v', '1', sheet]);
+      const span = (f) => path.basename(f).slice(1, -4).replace(/^0+(?=\d)/, '');
+      log(`  contact sheet → ${path.relative(process.cwd(), sheet)}${pages > 1 ? `  (${span(part[0])}–${span(part[part.length - 1])}s)` : ''}`);
+    }
+    fs.rmSync(tmpList, { force: true });
   }
   log(`  timeline: ${info.scenes.map((s) => `${s.id} ${s.start.toFixed(2)}–${(s.start + s.dur).toFixed(2)}s`).join(' | ')}`);
 }
@@ -730,6 +762,7 @@ async function musicCmd(opts) {
   const { file, report } = await synthMusic(dir, info.score);
   log(`✔ ${path.relative(process.cwd(), file)}  ${info.duration.toFixed(2)}s`);
   log(`  ${report.key} · ${report.bpm} BPM · chords ${report.progression} · ${report.layers} layers${report.lead ? ` + ${report.lead} lead` : ''} · bar energy ${report.bars.join(' ')}`);
+  if (report.parts) log(`  parts (name@bar): ${report.parts.join(' ')}`);
   log(`  peak ${report.peakDb} dBFS · gaps ${report.gapDb ?? '—'} dB vs the voice (${report.voiceDb ?? '—'} dBFS speech), dips ${report.voiceDuckDb} dB while it speaks · final chord ${report.endChordAt != null ? `at ${report.endChordAt}s` : 'none'}`);
   log(`  sfx: ${info.score.sfx.map((e) => `${e.type}@${e.t.toFixed(2)}`).join(' ') || 'none'}`);
   log(`  cuts on the grid: ${info.scenes.slice(1).map((s) => s.start.toFixed(2)).join(' ')}`);
@@ -796,7 +829,7 @@ render <project|video.html>   render to MP4 (runs Edge TTS first if narration.js
     --no-tts                  skip TTS even if narration.json exists
     --keep-temp
 still <project>               export PNG probes (3 per scene) for review
-    --at 1.2,3.4  --sheet  --subs  --scale 0.5  --tts
+    --at 1.2,3.4  --scenes a,b | a..c  --sheet [--rows 6]  --subs  --scale 0.5  --tts
 moodboard <preview> <preview> …   the style directions side by side on one HTML page (motion
                               sample, frames, palette, type, music direction) for the user to pick
     --out <file.html>         default moodboard.html next to the previews

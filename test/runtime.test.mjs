@@ -284,3 +284,57 @@ test('scene timing ends at the last spoken word, not the clip end', () => {
   const api = stubCreate({ narration: { lang: 'en', segments: { a: { text: 'One two', duration: 3.0, words } } }, scenes: [{ id: 'a', voiceDelay: 0.5, tail: 0.5, draw() {} }] });
   assert.ok(Math.abs(api.scenes[0].dur - (0.5 + 2.45 + 0.5)) < 1e-9);
 });
+
+test('music parts: a scene part holds until the next one, and a new part starts on a bar', () => {
+  const bar = (60 / 100) * 4;
+  const api = stubCreate({
+    music: { ...SCORE, bpm: 100, parts: { low: { mode: 'minor', progression: [0, 5] }, lift: { progression: [5, 3, 0, 4] } } },
+    transition: { type: 'push', duration: 0.6 },
+    scenes: [
+      { id: 'a', duration: 2.3, draw() {} },
+      { id: 'b', part: 'low', duration: 3.1, draw() {} },
+      { id: 'c', duration: 1.7, draw() {} },
+      { id: 'd', part: 'lift', duration: 2.2, draw() {} },
+    ],
+  });
+  const [, b, c, d] = api.scenes;
+  for (const s of [b, d]) {
+    const mid = s.start + 0.3;
+    assert.ok(Math.abs(mid / bar - Math.round(mid / bar)) < 1e-6, `chapter cut ${mid} not on a bar line`);
+  }
+  const beat = 60 / 100, cm = c.start + 0.3;
+  assert.ok(Math.abs(cm / beat - Math.round(cm / beat)) < 1e-6 && Math.abs(cm / bar - Math.round(cm / bar)) > 1e-6, 'other cuts stay on the beat');
+  const sc = api.info().score;
+  assert.deepEqual(sc.sections.map((s) => s.part ?? null), [null, 'low', 'low', 'lift']);
+  assert.equal(sc.parts.low.mode, 'minor');
+  assert.throws(() => stubCreate({ music: { ...SCORE, bpm: 100, parts: {} }, scenes: [{ id: 'a', part: 'nope', duration: 2, draw() {} }] }), /part 'nope' is not defined/);
+});
+
+test('music parts change the harmony from their bar, and are validated', async () => {
+  const { renderScore, validateScore } = await import('../scripts/music.mjs');
+  const bar = (60 / 120) * 4;
+  const plan = (parts, secParts) => ({ ...FULL, bpm: 120, lead: { inst: 'bell', range: [72, 86], rhythm: 'melodic', vel: 0.1 }, ...(parts ? { parts } : {}), duration: 8 * bar,
+    sections: [{ start: 0, end: 4 * bar, energy: 0.5, part: secParts[0] }, { start: 4 * bar, end: 8 * bar, energy: 0.5, part: secParts[1] }], voice: [], sfx: [] });
+  const parts = { b: { key: 'A', mode: 'minor', progression: [5], seed: 3, lead: { rhythm: 'sparse' } } };
+  const same = renderScore(plan(parts, [undefined, undefined])), moved = renderScore(plan(parts, [undefined, 'b']));
+  assert.deepEqual(moved.report.parts, ['main@1', 'b@5']);
+  // the mix is levelled as a whole, so compare after matching the gain
+  const misfit = (a0, a1) => {
+    let ab = 0, bb = 0, d = 0, n = 0;
+    for (let i = a0; i < a1; i += 13) { ab += same.left[i] * moved.left[i]; bb += moved.left[i] ** 2; }
+    const k = ab / bb;
+    for (let i = a0; i < a1; i += 13) { d += Math.abs(same.left[i] - k * moved.left[i]); n += Math.abs(same.left[i]); }
+    return d / n;
+  };
+  assert.ok(misfit(0, 3.5 * bar * 48000) < 0.01, 'bars before the part are unchanged');
+  assert.ok(misfit(5 * bar * 48000, 7 * bar * 48000) > 0.3, 'the part changes what plays');
+  const errs = (p, secParts = [undefined, 'b']) => validateScore(plan(p, secParts)).errors.join('\n');
+  assert.equal(errs(parts), '');
+  assert.match(errs({ b: { layers: [] } }), /parts\.b\.layers is not a part option/);
+  assert.match(errs({ b: { progression: [9] } }), /parts\.b\.progression\[0\]/);
+  assert.match(errs({ b: { lead: { rhythm: 'waltz' } } }), /parts\.b\.lead\.rhythm/);
+  assert.match(errs({ c: {} }), /part 'b' is not in music\.parts/);
+  // one loop for minutes on end gets a warning
+  const long = renderScore({ ...SCORE, bpm: 120, duration: 90, sections: [{ start: 0, end: 90, energy: 0.5 }], voice: [], sfx: [] });
+  assert.ok(long.report.warnings.some((w) => /music\.parts/.test(w)));
+});
