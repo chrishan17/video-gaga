@@ -201,6 +201,8 @@ function cursor(g, x, y, col = T.pal.gold, dir = 'right') {
 // A dialogue box: `str` types at `cps` characters per second from local time
 // `t0`, wrapped to the box; the prompt blinks once the line is complete.
 // Returns the local time the line finishes typing.
+// cps that finishes typing str as the narrator finishes saying it
+const voiceCps = (s, str, from = s.voiceStart, to = s.voiceEnd) => Array.from(str.replace(/\s/g, '')).length / Math.max(0.5, to - from);
 function dialogue(g, s, str, x, y, w, h, t0, { cps = 14, font = F(12, T.cjk), lineH = 16, open = 1 } = {}) {
   if (!win(g, x, y, w, h, { open })) return t0 + Array.from(str).length / cps;
   const lines = wrapCells(g, str, font, w - 16);
@@ -270,6 +272,8 @@ const ITEMS = [
   { n: 1, what: '只猫', art: ['k.....k.', 'kg...gk.', 'kgggggk.', 'kgkgkgk.', 'kgggggk.', '.kgggk.k', '.kgggkgk', '.kkkkkk.'] },
 ];
 const ITEM_COLOURS = { k: T.pal.night, c: T.pal.coral, i: T.pal.ink, s: T.pal.sand, g: T.pal.gold };
+const bossHits = (s) => [['一刀', 4], ['两刀', 6], ['三刀', 8], ['击倒', 10]].map(([w, k]) => s.when(w, s.onBeat(k)));
+const runHits = (s) => [['十二', 3], ['三座', 7], ['一只', 11]].map(([w, k]) => s.when(w, s.onBeat(k)));
 const STARS = (() => { const r = rand(7); return Array.from({ length: 70 }, () => ({ x: r(), y: r() * 0.7, ph: r() })); })();
 function stars(g, w, h, s, col = T.pal.dim) {
   STARS.forEach((st) => {
@@ -351,10 +355,10 @@ CV.create({
         });
       },
     },
-    // --- 2. The save file opens; a dialogue line types under it ---------------
+    // --- 2. The save file opens; the narrator's line types under it ------------
     {
-      id: 'save', narration: false, beats: 12, energy: 0.4,
-      sfx: [{ at: (s) => s.onBeat(0.5), type: 'click' }, ...[2, 2.75, 3.5].map((k) => ({ at: (s) => s.onBeat(k), type: 'type', gain: 0.6 }))],
+      id: 'save', captions: 'file', tail: 1.0, energy: 0.4, // the dialogue box already shows the line
+      sfx: [{ at: (s) => s.onBeat(0.5), type: 'click' }, ...['读取', '这一年', '更远'].map((w) => ({ at: (s) => s.when(w), type: 'type', gain: 0.6 }))],
       draw(ctx, s) {
         pixelFrame(ctx, s, (g, w) => {
           const b = (k) => s.onBeat(k);
@@ -368,14 +372,16 @@ CV.create({
             // the load bar fills one segment per half beat
             meter(g, x + 12, y + 84, ww - 24, 6, steps((s.t - b(2)) / (s.beatLen * 4), 8), { segments: 8, fill: T.pal.mint });
           }
-          dialogue(g, s, '读取存档中……\n这一年，你比想象中走得更远。', 16, 146, w - 32, 56, b(2), { cps: 9 });
+          const line = '读取存档……\n这一年，你比想象中走得更远。';
+          dialogue(g, s, line, 16, 146, w - 32, 56, s.voiceStart, { cps: voiceCps(s, line) });
         });
       },
     },
     // --- 3. Side-scroller: three ? blocks, three things the year gave ----------
+    // the hero hits each block as its number is said
     {
-      id: 'run', narration: false, beats: 16, energy: 0.65, transition: 'cut',
-      sfx: [3, 7, 11].flatMap((k) => [{ at: (s) => s.onBeat(k), type: 'pop' }, { at: (s) => s.onBeat(k + 1.5), type: 'tick', gain: 0.5 }]),
+      id: 'run', tail: 1.2, energy: 0.6, transition: 'cut',
+      sfx: [0, 1, 2].flatMap((i) => [{ at: (s) => runHits(s)[i], type: 'pop' }, { at: (s) => runHits(s)[i] + s.beatLen * 1.5, type: 'tick', gain: 0.5 }]),
       draw(ctx, s) {
         pixelFrame(ctx, s, (g, w, h) => {
           const speed = 46, cam = Math.round(s.t * speed), heroX = 70, ground = 184;
@@ -400,7 +406,7 @@ CV.create({
           g.fillStyle = T.pal.sand;
           for (let y = ground + 6, r = 0; y < h; y += 8, r++) for (let x = -((cam + r * 8) % 16); x < w; x += 16) g.fillRect(x, y, 14, 1);
           // ? blocks sit where the hero will be on beats 3, 7 and 11
-          const hits = [3, 7, 11].map((k) => s.onBeat(k));
+          const hits = runHits(s);
           hits.forEach((tb, i) => {
             const bx = heroX + 4 + Math.round(tb * speed) - cam - 1, by = 104;
             if (bx < -20 || bx > w) return;
@@ -433,11 +439,12 @@ CV.create({
     },
     // --- 4. Boss battle: four hits on the beat, the last one is the KO --------
     {
-      id: 'boss', narration: false, beats: 12, energy: 0.8,
+      id: 'boss', captions: 'file', tail: 1.5, energy: 0.75, // the encounter line is in the box, the count is on the hits
       transition: { type: 'pixelate', size: 60, duration: 0.5 },
-      sfx: [{ at: (s) => s.onBeat(0.5), type: 'type', gain: 0.6 }, ...[4, 6, 8].map((k) => ({ at: (s) => s.onBeat(k), type: 'click' })), { at: (s) => s.onBeat(10), type: 'hit' }],
+      sfx: [{ at: (s) => s.voiceStart, type: 'type', gain: 0.6 }, ...[0, 1, 2].map((i) => ({ at: (s) => bossHits(s)[i], type: 'click' })), { at: (s) => bossHits(s)[3], type: 'hit' }],
       draw(ctx, s) {
-        const b = (k) => s.onBeat(k), attacks = [4, 6, 8, 10].map(b);
+        // one slash per spoken count: 一刀 · 两刀 · 三刀 · 击倒
+        const b = (k) => s.onBeat(k), attacks = bossHits(s);
         const shake = attacks.reduce((a, at) => a + jolt(s, at, 2), 0);
         pixelFrame(ctx, s, (g, w, h) => {
           g.translate(shake, 0);
@@ -446,7 +453,7 @@ CV.create({
           for (let x = -4; x < w + 4; x += 24) { g.fillStyle = T.pal.dusk; g.fillRect(x + ((Math.floor(s.beat) % 2) * 12), 168, 12, 2); }
           // HP drains a quarter on each hit
           const hp = 1 - attacks.filter((at) => s.t >= at + 0.1).length / 4;
-          const ko = steps((s.t - b(10) - 0.15) / (s.beatLen * 1.5), 12);
+          const ko = steps((s.t - attacks[3] - 0.15) / (s.beatLen * 1.5), 12);
           const hurt = attacks.some((at) => s.t >= at && s.t < at + 2 / s.fps);
           if (ko < 1) {
             const bob = s.beat % 1 < 0.5 ? 0 : 1;
@@ -458,7 +465,7 @@ CV.create({
               for (let y = 60; y < 150; y += 3) for (let x = 210; x < 316; x += 3) if (r() < ko) g.fillRect(x, y, 3, 3);
             }
           }
-          if (s.t >= b(11)) pixelText(g, 'WIN!', 262, 116, { font: F(16), color: T.pal.gold, align: 'center', shadow: T.pal.rust });
+          if (s.t >= attacks[3] + s.beatLen) pixelText(g, 'WIN!', 262, 116, { font: F(16), color: T.pal.gold, align: 'center', shadow: T.pal.rust });
           // the name plate and HP meter
           if (win(g, 196, 14, 172, 30, { open: (s.t - b(0)) / (s.beatLen * 0.5) })) {
             pixelText(g, '拖延怪', 206, 31, { font: F(12, T.cjk) });
@@ -478,8 +485,9 @@ CV.create({
             if (s.t >= at && s.t < at + s.beatLen * 1.5) pixelText(g, i === 3 ? 'KO' : '-25', 300, 70 - up * 12, { color: T.pal.gold, shadow: T.pal.night });
           });
           // the encounter line, then the box closes before the first hit
-          const closing = 1 - steps((s.t - b(3.25)) / (s.beatLen * 0.5), 4);
-          if (closing > 0) dialogue(g, s, '野生的拖延怪出现了！', 16, 174, w - 32, 32, b(0.5), { cps: 12, open: closing });
+          const closing = 1 - steps((s.t - attacks[0] + s.beatLen * 0.75) / (s.beatLen * 0.5), 4);
+          const line = '野生的拖延怪出现了！';
+          if (closing > 0) dialogue(g, s, line, 16, 174, w - 32, 32, s.voiceStart, { cps: voiceCps(s, line, s.voiceStart, s.when('了') + 0.2), open: closing });
         });
       },
     },
@@ -532,8 +540,9 @@ CV.create({
     },
     // --- 6. CONTINUE? — the cursor picks the next year; the final chord rings -
     {
-      id: 'end', narration: false, beats: 10, energy: 0.45,
-      sfx: [{ at: (s) => s.onBeat(4), type: 'chime' }, { at: (s) => s.onBeat(5), type: 'type', gain: 0.6 }],
+      // the voice waits for the cursor to pick 2027 (beat 4.5), then the chord rings out
+      id: 'end', captions: 'file', voiceDelay: 4.5 * 60 / 126, tail: 2.2, energy: 0.45,
+      sfx: [{ at: (s) => s.onBeat(4), type: 'chime' }, { at: (s) => s.voiceStart, type: 'type', gain: 0.6 }],
       draw(ctx, s) {
         pixelFrame(ctx, s, (g, w, h) => {
           const b = (k) => s.onBeat(k);
@@ -548,7 +557,8 @@ CV.create({
             const row = s.t < b(4) ? Math.floor(s.beat) % 2 : 0;
             if (!(chosen && s.beat % 1 >= 0.5)) cursor(g, 126, 79 + row * 24);
           }
-          dialogue(g, s, '新的一年，继续冒险。', 16, 160, w - 32, 34, b(5), { cps: 10, open: (s.t - b(4.5)) / (s.beatLen * 0.5) });
+          const line = '新的一年，继续冒险。';
+          dialogue(g, s, line, 16, 160, w - 32, 34, s.voiceStart, { cps: voiceCps(s, line), open: (s.t - b(4.5)) / (s.beatLen * 0.5) });
         });
       },
     },
