@@ -395,35 +395,38 @@ CV.create({
   },
   overlay: chrome,
   // intimate, tense, then free · 88 BPM · A minor, opening into C major at the
-  // wedding · soft pad and Rhodes-like keys, a low bass, a plucked arpeggio and a
-  // light kit only when the story moves · celesta melody in the gaps.
+  // wedding · a felt-piano arpeggio is the signature (it is there from the first
+  // bar), strings and a finger bass come in as the story moves, a room kit with
+  // brushes-light hats carries the groove, an acoustic guitar joins at the peak ·
+  // celesta melody in the gaps.
   music: {
-    bpm: 88, seed: 7, key: 'A', mode: 'minor', progression: [0, 5, 2, 6],
+    bpm: 88, seed: 7, key: 'A', mode: 'minor', progression: [0, 5, 2, 6], kit: 'room', swing: 0.12,
     parts: {
       school: { progression: [0, 5, 3, 4], seed: 12 },                                              // a classroom, a countdown
       detour: { mode: 'dorian', progression: [0, 3, 0, 6], seed: 5, lead: { rhythm: 'rhythmic' } }, // clever detours, a little wry
       invite: { key: 'C', mode: 'major', progression: [0, 4, 5, 3], seed: 9 },                      // the invitation: first light
-      stage: { progression: [0], chordBars: 4, seed: 3, lead: { rhythm: 'sparse' } },               // eight seconds on one chord
+      stage: { progression: [0, 5], chordBars: 2, seed: 3, lead: { rhythm: 'sparse' } },            // eight seconds, held breath
       free: { key: 'C', mode: 'major', progression: [5, 3, 0, 4], seed: 21 },                       // the wall falls
-      home: { key: 'C', mode: 'major', progression: [3, 0, 4, 0], chordBars: 2, seed: 2, lead: { rhythm: 'sparse' } }, // now
+      home: { key: 'C', mode: 'major', progression: [3, 4, 0, 0], seed: 2 },                        // now: IV–V–I, uplifting
     },
     layers: [
-      { name: 'pad', inst: 'sinepad', notes: 'chord', pattern: 'X---', vel: 0.07 },
-      { name: 'keys', inst: 'keys', notes: 'chord', pattern: 'X..x..x.', gate: 2.2, vel: [0.06, 0.1], bright: [0.2, 0.45], from: 0.2 },
-      { name: 'bass', inst: 'bass', octave: -1, notes: ['root', 'fifth_'], pattern: 'X-----x.', vel: 0.24, from: 0.35 },
-      { name: 'arp', inst: 'pluck', notes: ['root', 'fifth', 'third^', 'fifth'], pattern: 'x.x.x.x.x.x.x.x.', gate: 1.6, vel: 0.1, bright: 0.35, from: 0.55 },
-      { name: 'kick', inst: 'kick', pattern: 'X.......X.x.....', vel: 0.45, from: 0.6 },
-      { name: 'clap', inst: 'clap', pattern: '....X.......X...', vel: 0.15, from: 0.6 },
-      { name: 'hat', inst: 'hat', pattern: '..x...x...x...x.', vel: 0.06, from: 0.75 },
+      { name: 'felt piano', inst: 'felt', notes: [0, 1, 2, 1, 3, 1, 2, 1], pattern: 'XxXxXxXx', gate: 1.8, vel: [0.1, 0.15] },
+      { name: 'strings', inst: 'strings', notes: 'chord', pattern: 'X---', vel: [0.03, 0.06], from: 0.3 },
+      { name: 'bass', inst: 'bass', octave: -1, notes: ['root', 'root', 'fifth'], pattern: 'X..x..X.', vel: 0.26, from: 0.35 },
+      { name: 'kick', inst: 'kick', pattern: 'X.....x.X.......', vel: 0.4, from: 0.45 },
+      { name: 'snare', inst: 'snare', pattern: '....X.......X...', vel: 0.15, from: 0.5 },
+      { name: 'hat', inst: 'hat', pattern: 'x.x.x.x.x.x.x.x.', vel: 0.06, from: 0.55 },
+      { name: 'guitar', inst: 'acoustic', notes: 'chord', pattern: 'X..x..x.', strum: 0.02, vel: 0.1, from: 0.8 },
+      { name: 'shaker', inst: 'shaker', pattern: 'xXxXxXxXxXxXxXxX', vel: 0.05, from: 0.85 },
     ],
-    lead: { inst: 'bell', kind: 'celesta', range: [72, 88], rhythm: 'melodic', vel: 0.1, echo: 0.2 },
+    lead: { inst: 'bell', kind: 'celesta', range: [74, 88], rhythm: 'melodic', vel: 0.13, echo: 0.2 },
   },
   scenes: [
     // ===== 01 · 卡住 ============================================================
     {
       // the red caret waits through the pre-roll; then the name, then the line
       // that will not come out in one go
-      id: 'open', ch: 1, voiceDelay: 2.4, tail: 0.7, energy: 0.3, captions: 'file',
+      id: 'open', ch: 1, voiceDelay: 2.4, tail: 0.7, energy: 0.4, captions: 'file',
       draw(ctx, s) {
         const t = s.t;
         grid(ctx, clamp((t - s.onBeat(0)) / (s.beatLen * 2)), color.rgba(T.ink, 0.07));
@@ -445,7 +448,7 @@ CV.create({
     },
     {
       // the word runs at an invisible wall, twice, then hits it, and the wall shows itself
-      id: 'wall', ch: 1, tail: 1.0, energy: 0.38,
+      id: 'wall', ch: 1, tail: 1.0, energy: 0.45,
       sfx: [
         { at: (s) => s.when('出不来') + 0.12, type: 'tick', gain: 0.5 },
         { at: (s) => s.when('出不来') + 0.47, type: 'tick', gain: 0.5 },
@@ -493,10 +496,10 @@ CV.create({
     },
 
     // ===== 02 · 十一秒 ==========================================================
-    card('card2', 2, '十一秒', '小学  二年级', 'school', 0.3),
+    card('card2', 2, '十一秒', '小学  二年级', 'school', 0.45),
     {
       // the classroom from above: desks snap in, mine is red, the reading goes round
-      id: 'class', ch: 2, tail: 0.5, energy: 0.32,
+      id: 'class', ch: 2, tail: 0.5, energy: 0.45,
       draw(ctx, s) {
         const t = s.t;
         const tR = s.when('轮流', 2.9), tS = s.when('座位', 2.6);
@@ -520,7 +523,7 @@ CV.create({
     },
     {
       // the reading comes closer; I count the people left, then the beats count for me
-      id: 'count', ch: 2, tail: 4.6, energy: 0.45,
+      id: 'count', ch: 2, tail: 4.6, energy: 0.55,
       sfx: [0, 1, 2, 3, 4].map((k) => ({ at: (s) => s.nextBeat(s.voiceEnd + 0.1) + k * s.beatLen, type: 'tick', gain: 0.4 + k * 0.12 })),
       draw(ctx, s) {
         const t = s.t;
@@ -552,7 +555,7 @@ CV.create({
     },
     {
       // my turn (red), the first lesson in a row of practice squares: zoom into the first one
-      id: 'spring', ch: 2, background: T.red, tail: 0.9, energy: 0.5,
+      id: 'spring', ch: 2, background: T.red, tail: 0.9, energy: 0.6,
       transition: { type: 'iris', x: (DESK.x0 + 4 * (DESK.w + DESK.gx) + DESK.w / 2) / W, y: (DESK.y0 + 3 * (DESK.h + DESK.gy) + DESK.h / 2) / H, duration: 0.5, ease: snap },
       draw(ctx, s) {
         const t = s.t;
@@ -593,7 +596,7 @@ CV.create({
     },
     {
       // one character, eleven seconds; then the whole class laughs
-      id: 'eleven', ch: 2, background: T.ink, tail: 0.8, energy: 0.55,
+      id: 'eleven', ch: 2, background: T.ink, tail: 0.8, energy: 0.65,
       sfx: Array.from({ length: 11 }, (_, k) => ({ at: (s) => { const a = s.when('一个字', 0.5), b = s.when('十一秒', 2.4) + 0.35; return a + (b - a) * Math.sqrt((k + 1) / 11.5); }, type: 'tick', gain: 0.3 + k * 0.04 })),
       draw(ctx, s) {
         const t = s.t;
@@ -620,7 +623,7 @@ CV.create({
     },
     {
       // the laughter falls away; what is left is a lesson, and it gets smaller
-      id: 'less', ch: 2, background: T.ink, tail: 1.3, energy: 0.22,
+      id: 'less', ch: 2, background: T.ink, tail: 1.3, energy: 0.3,
       draw(ctx, s) {
         const t = s.t;
         ctx.save();
@@ -656,10 +659,10 @@ CV.create({
     },
 
     // ===== 03 · 绕路 ============================================================
-    card('card3', 3, '绕路', '长大以后', 'detour', 0.45),
+    card('card3', 3, '绕路', '长大以后', 'detour', 0.55),
     {
       // the straight street has a wall in it; the red line goes the long way round
-      id: 'detour', ch: 3, tail: 1.1, energy: 0.5,
+      id: 'detour', ch: 3, tail: 1.1, energy: 0.6,
       draw(ctx, s) {
         const t = s.t;
         const tR = s.when('绕路', 1.9), tH = s.when('高手', 2.2);
@@ -688,7 +691,7 @@ CV.create({
     },
     {
       // the menu: what I want is the word I can't say; what I order is the word I can
-      id: 'menu', ch: 3, tail: 0.9, energy: 0.5, transition: { type: 'whip', direction: 'left', duration: 0.45 },
+      id: 'menu', ch: 3, tail: 0.9, energy: 0.6, transition: { type: 'whip', direction: 'left', duration: 0.45 },
       sfx: [{ at: (s) => s.when('说得出口', 3.4), type: 'pop', gain: 0.6 }],
       draw(ctx, s) {
         const t = s.t;
@@ -741,7 +744,7 @@ CV.create({
     },
     {
       // ten ideas on the table; they shrink into four characters
-      id: 'meeting', ch: 3, tail: 1.0, energy: 0.55, transition: { type: 'whip', direction: 'left', duration: 0.45 },
+      id: 'meeting', ch: 3, tail: 1.0, energy: 0.62, transition: { type: 'whip', direction: 'left', duration: 0.45 },
       sfx: [{ at: (s) => s.when('四个字', 4.3), type: 'swish', gain: 0.6 }, { at: (s) => s.when('我没意见', 5.3), type: 'pop', gain: 0.7 }],
       draw(ctx, s) {
         const t = s.t;
@@ -776,7 +779,7 @@ CV.create({
     },
     {
       // a crowd of 人; one red 我 goes grey and the search never lands on it
-      id: 'hide', ch: 3, tail: 1.1, energy: 0.22,
+      id: 'hide', ch: 3, tail: 1.1, energy: 0.3,
       draw(ctx, s) {
         const t = s.t;
         const tH = s.when('藏', 0.9), tF = s.when('连', 3.6);
@@ -813,10 +816,10 @@ CV.create({
     },
 
     // ===== 04 · 请柬 ============================================================
-    card('card4', 4, '请柬', '去年秋天', 'invite', 0.32),
+    card('card4', 4, '请柬', '去年秋天', 'invite', 0.42),
     {
       // the invitation opens; the seal lands on 结婚
-      id: 'invite', ch: 4, tail: 0.6, energy: 0.38,
+      id: 'invite', ch: 4, tail: 0.6, energy: 0.45,
       sfx: [{ at: (s) => s.when('结婚', 1.5), type: 'pop', gain: 0.7 }],
       draw(ctx, s) {
         const t = s.t;
@@ -868,7 +871,7 @@ CV.create({
     },
     {
       // her voice, set in serif: a hanging red quote mark and the question
-      id: 'ask', ch: 4, tail: 0.8, energy: 0.38, captions: 'file', transition: { type: 'zoom', duration: 0.5, ease: snap },
+      id: 'ask', ch: 4, tail: 0.8, energy: 0.42, captions: 'file', transition: { type: 'zoom', duration: 0.5, ease: snap },
       draw(ctx, s) {
         const t = s.t;
         const out = s.out(0.35);
@@ -891,7 +894,7 @@ CV.create({
     },
     {
       // my answer: 不 stammers, and the wall comes back
-      id: 'refuse', ch: 4, background: T.ink, tail: 0.8, energy: 0.3, captions: 'file',
+      id: 'refuse', ch: 4, background: T.ink, tail: 0.8, energy: 0.35, captions: 'file',
       sfx: [{ at: (s) => s.when('不行', 1.4) + 0.42, type: 'boom', gain: 0.4 }],
       draw(ctx, s) {
         const t = s.t;
@@ -912,7 +915,7 @@ CV.create({
     },
     {
       // her answer. On 慢慢 the wall falls over and lies down; 你慢慢说 spreads out, slowly
-      id: 'wait', ch: 4, tail: 2.1, energy: 0.48, captions: 'file',
+      id: 'wait', ch: 4, tail: 2.1, energy: 0.5, captions: 'file',
       sfx: [{ at: (s) => s.when('慢慢', 1.8) + 0.62, type: 'boom', gain: 0.35 }],
       draw(ctx, s) {
         const t = s.t;
@@ -943,7 +946,7 @@ CV.create({
     },
     {
       // three thousand characters, cut to three lines (their words stay hidden for now)
-      id: 'draft', ch: 4, tail: 0.9, energy: 0.5,
+      id: 'draft', ch: 4, tail: 0.9, energy: 0.6,
       draw(ctx, s) {
         const t = s.t;
         const tW = s.when('写', 1.4), t3k = s.when('三千', 1.7), tD = s.when('删到', 3.2), t3 = s.when('三', 4.8);
@@ -989,7 +992,7 @@ CV.create({
     },
     {
       // a hundred recordings on the phone, faster and faster
-      id: 'practice', ch: 4, background: T.ink, tail: 1.0, energy: 0.6, transition: { type: 'push', direction: 'up', duration: 0.5, ease: snap },
+      id: 'practice', ch: 4, background: T.ink, tail: 1.0, energy: 0.7, transition: { type: 'push', direction: 'up', duration: 0.5, ease: snap },
       sfx: [{ at: (s) => s.when('一百', 3.3) + 0.25, type: 'pop', gain: 0.7 }],
       draw(ctx, s) {
         const t = s.t;
@@ -1040,10 +1043,10 @@ CV.create({
     },
 
     // ===== 05 · 八秒 ============================================================
-    card('card5', 5, '八秒', '婚礼那天', 'stage', 0.25),
+    card('card5', 5, '八秒', '婚礼那天', 'stage', 0.4),
     {
       // the stage: a light, the guests, a microphone
-      id: 'stage', ch: 5, background: T.ink, tail: 0.6, energy: 0.25,
+      id: 'stage', ch: 5, background: T.ink, tail: 0.6, energy: 0.32,
       sfx: [{ at: (s) => s.when('站上台', 1.4), type: 'swell', gain: 0.6 }],
       draw(ctx, s) {
         const t = s.t;
@@ -1057,7 +1060,7 @@ CV.create({
     },
     {
       // the first word: 我. It shivers; the wall is there again
-      id: 'stuck', ch: 5, background: T.ink, tail: 0.5, energy: 0.15,
+      id: 'stuck', ch: 5, background: T.ink, tail: 0.5, energy: 0.25,
       sfx: [{ at: (s) => s.when('卡', 1.6), type: 'tick', gain: 0.6 }],
       draw(ctx, s) {
         const t = s.t;
@@ -1072,7 +1075,7 @@ CV.create({
     },
     {
       // eight seconds, one beat each. Nobody moves.
-      id: 'silence', ch: 5, background: T.ink, narration: false, beats: 8, energy: 0.05,
+      id: 'silence', ch: 5, background: T.ink, narration: false, beats: 8, energy: 0.12,
       sfx: Array.from({ length: 8 }, (_, k) => ({ at: (s) => s.onBeat(k), type: 'tick', gain: 0.35 })),
       draw(ctx, s) {
         const t = s.t;
@@ -1089,7 +1092,7 @@ CV.create({
     },
     {
       // eight, not eleven. Nobody laughs; the room lights up, back rows first
-      id: 'nobody', ch: 5, background: T.ink, tail: 1.0, energy: 0.25,
+      id: 'nobody', ch: 5, background: T.ink, tail: 1.0, energy: 0.3,
       draw(ctx, s) {
         const t = s.t;
         const tX = s.when('没有人笑', 1.4), tL = s.when('笑', 2.0), tW = s.when('他们', 4.2);
@@ -1161,7 +1164,7 @@ CV.create({
     },
     {
       // the other two sentences, typed out while the room claps on the beat
-      id: 'cheer', ch: 5, background: T.ink, narration: false, beats: 11, energy: 1,
+      id: 'cheer', ch: 5, background: T.ink, narration: false, beats: 11, energy: 0.95,
       draw(ctx, s) {
         const t = s.t;
         stage(ctx, s, { lit: 1, light: 0.4, pulse: s.pulse(0.2) });
@@ -1190,7 +1193,7 @@ CV.create({
     },
     {
       // a ledger of the toast: 3 sentences, 2 minutes, 0 phones
-      id: 'long', ch: 5, tail: 0.9, energy: 0.7,
+      id: 'long', ch: 5, tail: 0.9, energy: 0.8,
       transition: { type: 'blinds', count: COLS, direction: 'vertical', stagger: 0.6, duration: 0.5, ease: snap },
       sfx: [{ at: (s) => s.when('三', 0.3), type: 'tick' }, { at: (s) => s.when('两分钟', 2.2), type: 'tick' }, { at: (s) => s.when('没有', 3.8), type: 'pop', gain: 0.8 }],
       draw(ctx, s) {
@@ -1216,10 +1219,10 @@ CV.create({
     },
 
     // ===== 06 · 现在 ============================================================
-    card('card6', 6, '现在', '一年以后', 'home', 0.5),
+    card('card6', 6, '现在', '一年以后', 'home', 0.6),
     {
       // the opening line again, still stuck; but the line on the map now goes straight
-      id: 'still', ch: 6, tail: 1.0, energy: 0.45,
+      id: 'still', ch: 6, tail: 1.0, energy: 0.55,
       draw(ctx, s) {
         const t = s.t;
         const a = s.when('现在的我', 0.3), tB = s.when('但', 3.8), tG = s.when('不再', 4.1);
@@ -1254,7 +1257,7 @@ CV.create({
     },
     {
       // the voice you are hearing, drawn as it speaks; then the tag on it
-      id: 'borrowed', ch: 6, background: T.ink, tail: 0.9, energy: 0.35,
+      id: 'borrowed', ch: 6, background: T.ink, tail: 0.9, energy: 0.45,
       sfx: [{ at: (s) => s.when('不是我的', 2.4), type: 'tick', gain: 0.8 }],
       draw(ctx, s) {
         const t = s.t;
@@ -1292,7 +1295,7 @@ CV.create({
     },
     {
       // the script of this video, every line of it his; the words light up in order
-      id: 'mine', ch: 6, tail: 1.1, energy: 0.42,
+      id: 'mine', ch: 6, tail: 1.1, energy: 0.55,
       draw(ctx, s) {
         const t = s.t;
         const tE = s.when('每一个字', 1.9), tM = s.when('我自己的', 3.1);
@@ -1323,7 +1326,7 @@ CV.create({
     },
     {
       // the end card: the title, and the caret, waiting
-      id: 'end', ch: 6, tail: 2.4, energy: 0.4, captions: 'file',
+      id: 'end', ch: 6, tail: 2.4, energy: 0.5, captions: 'file',
       sfx: [{ at: (s) => s.when('慢慢说', 2.2), type: 'chime', gain: 0.6 }],
       draw(ctx, s) {
         const t = s.t;
