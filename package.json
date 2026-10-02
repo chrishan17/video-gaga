@@ -19,7 +19,7 @@
     "doctor": "node scripts/cv.mjs doctor",
     "render": "node scripts/cv.mjs render",
     "still": "node scripts/cv.mjs still",
-    "examples": "for p in launch-keynote studio-3d clear-explainer blueprint data-globe editorial paper-sketch neon-circuit pop-collage cinematic-film; do node scripts/cv.mjs render presets/$p --subs burn || exit 1; done && node scripts/cv.mjs render presets/swiss-kinetic --motion-blur 5",
+    "examples": "for p in launch-keynote studio-3d clear-explainer blueprint data-globe editorial paper-sketch neon-circuit pop-collage pixel-retro cinematic-film; do node scripts/cv.mjs render presets/$p --subs burn || exit 1; done && node scripts/cv.mjs render presets/swiss-kinetic --motion-blur 5 && node scripts/cv.mjs render presets/ink-wash",
     "test": "node --test test/*.test.mjs",
     "music": "node scripts/cv.mjs music",
     "showcase": "node scripts/showcase.mjs"
