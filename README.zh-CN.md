@@ -38,7 +38,7 @@
 | <img src="docs/media/pop-collage.gif" width="180"> | **Pop Collage 波普拼贴** · 9:16 竖屏 · 20 秒 · 中文旁白（晓伊）· `pop` 配乐。剪纸贴纸踩着拍子弹入，品牌色带转场，卡拉 OK 字幕，纯音乐回顾里三条要点一拍一条落下。[▶ 视频](docs/media/pop-collage.mp4) · [源码](presets/pop-collage/video.html) |
 | <img src="docs/media/pixel-retro.gif" width="360"> | **Pixel Retro 像素复古** · 16:9 · 34 秒 · 中文旁白（云夏）· `chiptune` 配乐。把 8-bit 游戏当真来做：每一帧都画在 384×216 的网格上并锁定 12 色调色板，年份由方块落下拼成，横版关卡里旁白念到哪个数字就顶出哪个问号砖，“一刀、两刀、三刀、击倒”打倒 Boss，最后在纯音乐里 LEVEL UP。[▶ 视频](docs/media/pixel-retro.mp4) · [源码](presets/pixel-retro/video.html) |
 | <img src="docs/media/ink-wash.gif" width="360"> | **Ink Wash 水墨** · 16:9 · 36 秒 · 中文旁白（晓晓）· 拨弦配乐。墨滴在宣纸上晕开，三重山只画在左边三分之一，书法竖排随旁白逐字渗入纸面，一段纯音乐里云雾漫过把字收走，最后一方朱印踩在拍子上落下。[▶ 视频](docs/media/ink-wash.mp4) · [源码](presets/ink-wash/video.html) |
-| <img src="docs/media/cinematic-film.gif" width="360"> | **Cinematic Film 电影胶片** · 16:9 内的 2.39:1 宽银幕 · 45 秒 · 中文旁白（云扬，引语由云健念）· 72 BPM D 大调配乐。像用胶片拍的纪录片：倒计时片头，黎明前的江城在缓慢推镜里出现，窗户在半拍上一扇扇亮起，胶片烧灼转场进入日出，焦点虚化后，摆渡人用自己的声音说出那句话，片名在停留时缓缓拉开字距。[▶ 视频](docs/media/cinematic-film.mp4) · [源码](presets/cinematic-film/video.html) |
+| <img src="docs/media/cinematic-film.gif" width="360"> | **Cinematic Film 电影胶片** · 16:9 内的 2.39:1 宽银幕 · 92 秒 · 中文旁白（晓晓，爸爸那句由云健念）· 72 BPM F 大调配乐。《第三十六张》：女儿在爸爸的旧相机里发现一卷 36 张只拍了 35 张的胶卷。暗房里显影的照片活了过来，胶片一格格推进 1999 年，灯箱上第 36 格是空的；同一片海边，他的影子又举起了相机，镜头拉远到整张印样。[▶ 视频](docs/media/cinematic-film.mp4) · [源码](presets/cinematic-film/video.html) |
 
 选风格时，Agent 每次都会额外给一个"野卡"方案：专门为你的需求设计一套新风格，并用你的真实标题出样帧。预设只决定视觉风格和动效语法（配色、字体、动效函数、转场、字幕样式）；文案、场景结构、具体动画和配乐都按每支视频的需求重新设计，`cv init` 也只复制风格，不复制示例内容。详见 [STYLE_PRESETS.md](STYLE_PRESETS.md)。
 
