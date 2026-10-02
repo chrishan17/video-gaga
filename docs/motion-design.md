@@ -164,6 +164,7 @@ Use **one or two** transition types per video. Consistency is style.
 - Chinese captions drop commas and full stops (spaces instead) and keep `？！`.
 - A cue must be on screen ≥ 0.8 s and must never overlap with the next cue.
 - Karaoke highlight (word-level) suits social shorts. Plain captions suit explainers and brand pieces.
+- Don't say the same words twice on screen. When the narrator's line is already set as type (a title question, the closing tagline), or the picture already shows what is heard, the type replaces the burned caption. Use `captions: 'file'` so the line still reaches the .srt/.vtt.
 
 ---
 

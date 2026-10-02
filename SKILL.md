@@ -43,11 +43,11 @@ Your default instincts converge on generic output: everything fades in at once, 
 
 ## Phase 0 — Setup check & mode
 
-**Setup (first run).** The skill directory is where this SKILL.md lives. Run `node <skill-dir>/scripts/cv.mjs doctor`. If something is missing:
+**Setup (first run).** The skill directory is where this SKILL.md lives. Below, `cv` is short for `node <skill-dir>/scripts/cv.mjs`. Run `cv doctor`. If something is missing:
 - `cd <skill-dir> && npm install` (Playwright). If no browser is found, run `npx playwright install chromium`.
 - ffmpeg: `brew install ffmpeg` on macOS, `apt install ffmpeg` on Linux.
 - Edge TTS: `uv` is recommended (the CLI runs `uv run --with edge-tts`). Otherwise `pip install edge-tts`.
-- Rendering launches Chromium and fetches fonts and TTS over the network. In sandboxed agents, request permission for those commands.
+- **Sandboxed agents:** `cv doctor`, `still`, `render`, `tts` and `voices` need permission. They launch Chromium, which creates a temp profile outside the workspace. They also fetch fonts and TTS over the network, and uv writes its cache to `~/.cache/uv`. `init`, `check` and `gif` run fine inside the sandbox. Ask once, up front, instead of discovering it one command at a time.
 
 **Detect the mode:**
 - **A · New video from an idea.** Go to Phase 1.
@@ -63,8 +63,9 @@ Your default instincts converge on generic output: everything fades in at once, 
 Ask **all questions in one round**. If a native structured-question UI exists, use it; otherwise send one concise numbered message.
 
 **Rules**
-- **Exactly 3 options per question.** Exactly **one** is marked **(Recommended)**, with a one-line reason tied to *this* brief. The user may always answer in their own words.
-- **4–7 questions**, chosen to fit the video type (table below). Skip anything the request already answers, and confirm those as assumptions instead.
+- **Exactly 3 options per question.** Exactly **one** is marked **(Recommended)**, with a one-line reason tied to *this* brief. The user may always answer in their own words. In a label + description UI, put "(Recommended)" in the label and the reason in the description.
+- **4–7 questions**, chosen to fit the video type (table below). Skip anything the request already answers, and confirm those as assumptions instead. If the UI caps a round (often at 4), ask the most decision-relevant ones and list the rest as stated assumptions in the same message.
+- If a question times out or the user is away, take the recommended option, say so, and continue. This applies to the Phase 2 and Phase 3 questions too.
 - Options must be concrete (durations, ratios, named voices, hex colours), never vague ("modern", "nice").
 - Ask in the user's language.
 
@@ -89,6 +90,7 @@ Ask **all questions in one round**. If a native structured-question UI exists, u
 | Vibe / tone | calm & premium | clear & friendly | bold & energetic | infer from the audience and stakes |
 | Pace | calm (a beat every ~2.5 s) | medium (~1.5 s) | punchy (~0.8 s, hits on beats) | social → punchy, explainer → medium, luxury → calm |
 | Voice | none (text + motion only) | {best voice id} — {why} | {alternative voice id} — {why} | voice for explainers, launches and social. None for typography loops |
+| Voice (audio products) | narrator only | narrator + the product's own audio (real voices, accents, languages) | product audio only, no narrator | anything that speaks, reads or translates: let it be heard |
 | Captions | burned-in, styled to the video | subtitle file only (.srt/.vtt) | none | burned-in for social (most people watch muted); file only for YouTube or accessibility pipelines |
 | Brand | use my colours/logo (send hex or file) | use the style's palette | one accent you pick for me: {hex} | if they have a brand, A |
 | Content | I have a script (paste it) | I have bullet points | topic only, write it for me | whichever matches what they sent |
@@ -112,9 +114,10 @@ Ask **all questions in one round**. If a native structured-question UI exists, u
 ## Phase 2 — Style discovery (show, don't tell)
 
 1. Read [STYLE_PRESETS.md](STYLE_PRESETS.md) (the index only).
-2. Choose **3 directions**: the **recommended preset** for the mood, a **contrasting preset**, and one **wildcard**, which is a custom system designed for this brief (see "Custom / wildcard styles").
-3. For each direction, build a *real first scene*: the user's actual title or hook, in the user's format and language. Use `cv init .cv-previews/style-a --preset <slug>`, replace the scenes with that one scene, then run `node <skill-dir>/scripts/cv.mjs still .cv-previews/style-a --at 0.6,1.5,2.8 --sheet --scale 0.5`.
-4. **Look at the sheets yourself** and fix anything off before showing them. Then show the three contact sheets to the user.
+2. Choose **3 directions**: the **best-fit preset** for the mood, a **contrasting preset**, and one **wildcard**, which is a custom system designed for this brief (see "Custom / wildcard styles"). Recommend whichever of the three fits best. When the brand already has a documented visual language (a brand board, a design system, a live site), the wildcard built from it is often the right pick.
+3. For each direction, build a *real first scene*: the user's actual title or hook, in the user's format and language, already in the brand colours if they are known. Run `cv init .cv-previews/style-a --preset <slug> --ratio <chosen> --no-narration`. Read only that preset's `THEME` object and first scene, replace the scenes with your one scene, then run `cv still .cv-previews/style-a --at 0.6,1.5,2.8 --sheet`.
+4. **Look at the sheets yourself** and fix anything off before showing them. Then show all three to the user. In a text-only question UI, stack them into one comparison image (top to bottom = A, B, C, with no labels drawn on it) and include the image and the file paths in the question:
+   `ffmpeg -i .cv-previews/style-a/build/stills/contact-sheet.png -i …/style-b/… -i …/style-c/… -filter_complex vstack=inputs=3 .cv-previews/styles.png`
 5. Ask one question (3 options, one recommended): *"Which direction?"* → A: {name} (Recommended: {reason}) · B: {name} · C: {name}. The user can also say "mix: A's colours with C's motion".
 
 **Preview authenticity (non-negotiable):** previews must look like the real opening of *their* video. Never render words such as "preview", "style A", "option", preset or template names, requirement notes ("bold option", "for Gen Z"), or file paths.
@@ -131,7 +134,8 @@ Write `<project>/BRIEF.md` using the director's-brief template in [docs/prompt-t
 |---|---|---|---|---|---|---|
 
 - One idea per scene, one sentence of narration per scene, and the payoff word at the end of the line.
-- Estimate duration at ≈ 4.3 CJK characters/s or ≈ 2.5 English words/s, plus pauses. If it is too long, **cut words**.
+- Estimate duration at ≈ 4.3 CJK characters/s or ≈ 2.5 English words/s, plus pauses, **plus ~0.8 s per voiced scene** (voice delay + tail). A sequence of short clips (accents, languages, a dialogue) costs about 1 s per clip, however few the words. If it is too long, **cut words**, then scenes.
+- Captions carry the narrator. When a narrator line is already on screen as type (a title question, a tagline), or the picture already shows what is said, give that scene `captions: 'file'`. It stays in the .srt/.vtt but isn't burned in twice.
 - For data, show the numbers and how they were computed.
 - Confirm with one 3-option question: *Looks good, build it (Recommended)* · *Change the script* · *Change the visuals*.
 
@@ -139,16 +143,18 @@ Write `<project>/BRIEF.md` using the director's-brief template in [docs/prompt-t
 
 ## Phase 4 — Build
 
-1. **Scaffold** in the user's working directory: `node <skill-dir>/scripts/cv.mjs init <slug>-video --preset <chosen> [--ratio 9:16]`. This copies the runtime and the preset composition. For a custom wildcard, scaffold from the nearest preset and rewrite it.
+1. **Scaffold** in the user's working directory: `cv init <slug>-video --preset <chosen> [--ratio 9:16]`. This copies the runtime and the preset composition. For a custom wildcard, scaffold from the nearest preset and rewrite it.
 2. **Read the chosen preset's `video.html` fully** and keep its design grammar. Replace the content, not the craft.
 3. **Write `narration.json`** (segments = scene ids) with the chosen voice and rate. See [docs/narration-and-subtitles.md](docs/narration-and-subtitles.md).
 4. **Write the scenes.** API reference: [docs/runtime-api.md](docs/runtime-api.md). Patterns to use:
    - `s.at(start, dur, ease)` for every local move. `s.when('spoken words')` to land hits on the voice.
    - `fx.lineReveal` / `fx.charReveal` for type, `fx.countUp` for numbers, `draw.drawOn` for lines and charts.
-   - Scene `transition` objects from the preset's vocabulary, and `tail` ≥ 1.0 on information-heavy scenes.
+   - Scene `transition` objects from the preset's vocabulary, and `tail` ≥ 1.0 on information-heavy scenes. `tail` is the hold after the **last spoken word**, and `s.voiceEnd` is when that word ends.
+   - Several voices in a row (accents, languages, a dialogue): one scene per clip, each with its own `voice` in narration.json, joined by `cut` transitions over an identical layout so the cuts are invisible.
    - Scale with `s.u` if the ratio differs from the preset's.
-5. **TTS:** `node <skill-dir>/scripts/cv.mjs tts <project>`. Check `build/voice/<id>.json` to see how the words were tokenised.
-6. **Probe:** `node <skill-dir>/scripts/cv.mjs still <project> --sheet --subs`, which renders 3 probes per scene (entering, middle, settled). **Open the contact sheet and review it** against the checklist in [docs/motion-design.md](docs/motion-design.md) §14. Fix, then re-probe. Use `--at 1.2,3.4` to inspect exact moments, such as a hit or the middle of a transition.
+   - Key symbols (⌘ ⌥ ⇧ ⌃) are missing from most display fonts and fall back silently: draw them as paths or use a font that has them.
+5. **TTS:** `cv tts <project>`. Check `build/voice/<id>.json` to see how the words were tokenised.
+6. **Probe:** `cv still <project> --sheet --subs`, which renders 3 probes per scene (entering, middle, settled). **Open the contact sheet and review it** against the checklist in [docs/motion-design.md](docs/motion-design.md) §14. Fix, then re-probe. Use `--at 1.2,3.4` to inspect exact moments, such as a hit or the middle of a transition. With more than ~6 scenes the sheet gets small, so open the individual stills at the hits.
 7. For long pieces, render a draft first: `render --scale 0.5 --format jpeg`.
 
 ---
@@ -156,7 +162,7 @@ Write `<project>/BRIEF.md` using the director's-brief template in [docs/prompt-t
 ## Phase 5 — Render & verify
 
 ```bash
-node <skill-dir>/scripts/cv.mjs render <project> --subs burn        # or file | soft | burn+soft | none
+cv render <project> --subs burn        # or file | soft | burn+soft | none
 #   --motion-blur 5   (snappy moves)   --music bed.mp3 (licensed; auto-ducked)   --scale 2 (4K)
 ```
 
@@ -165,6 +171,7 @@ The render ends with an automatic `check`. Confirm and report:
 - the audio track is present when voiced, its duration matches the video (±0.1 s), and loudness is sane
 - captions: cue count, no overlaps, and the last cue ends before the video does
 - **A/V sync**: median speech-onset vs caption-onset offset (normally < 120 ms). The render warns above 300 ms.
+- **Voice sync**: every voice clip's onset vs where the timeline placed it, including lines with no caption (normally < 20 ms). The render warns above 150 ms.
 
 Then **extract 3–5 frames from the final MP4** (`ffmpeg -ss <t> -i out.mp4 -frames:v 1 f.png`) at key hits and look at them. The encode is what the user sees. Fix anything wrong and re-render. Never claim a check passed that you didn't run.
 
@@ -187,7 +194,7 @@ Clean up `.cv-previews/` after the user has picked a style.
 | File | Purpose | When to read |
 |---|---|---|
 | [STYLE_PRESETS.md](STYLE_PRESETS.md) | Index of the 5 presets: mood, palette, type, motion signature | Phase 2 |
-| `presets/<slug>/video.html` | The full design recipe for one preset (a working composition) | Phase 4, after the pick only |
+| `presets/<slug>/video.html` | The full design recipe for one preset (a working composition) | Phase 4, after the pick (for Phase 2 previews, only its `THEME` and first scene) |
 | `presets/<slug>/narration.json` | Example narration spec for that preset | Phase 4 |
 | [docs/motion-design.md](docs/motion-design.md) | Motion principles, timing tables, transitions, anti-patterns, QA checklist | Before building, and when reviewing probes |
 | [docs/runtime-api.md](docs/runtime-api.md) | `CV.create`, scenes, `s.at` / `s.when`, fx, text, transitions, captions | Phase 4 |

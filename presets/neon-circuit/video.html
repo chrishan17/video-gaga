@@ -140,7 +140,7 @@ CV.create({
   scenes: [
     // --- 1. 03:00 — the hook lands in the first second ----------------------
     {
-      id: 'three',
+      id: 'three', tail: 1.35,
       draw(ctx, s) {
         const { W, H, t } = s;
         skyline(ctx, W, H, t, ease.enter(clamp(t / 1.2)));
@@ -162,7 +162,7 @@ CV.create({
     },
     // --- 2. 48H / 100 / 1 — three hits, each on its word ------------------------
     {
-      id: 'count', tail: 0.8,
+      id: 'count', tail: 1.65,
       draw(ctx, s) {
         const { W, H, t } = s;
         floor(ctx, W, H, t, H * 0.7, s.at(0, 0.6));
@@ -189,7 +189,7 @@ CV.create({
     },
     // --- 3. The question: a terminal types, then the question fills the screen --
     {
-      id: 'ask', minDuration: 2.6, tail: 0.9,
+      id: 'ask', minDuration: 2.6, tail: 1.75,
       draw(ctx, s) {
         const { W, t } = s;
         const x = 90, y = 420, w = W - 180, h = 420;
@@ -229,7 +229,7 @@ CV.create({
     },
     // --- 4. Wordmark flickers on like a neon sign -----------------------------
     {
-      id: 'end', tail: 1.3,
+      id: 'end', tail: 2.15,
       draw(ctx, s) {
         const { W, H, t } = s;
         floor(ctx, W, H, t * 0.4, H * 0.66, 0.6);

@@ -64,6 +64,29 @@ test('en cues: long sentence splits into balanced chunks, no orphan', () => {
   assert.ok(cues[1].text.endsWith('?'));
 });
 
+test('zh cues: minChars counts spoken characters, not punctuation', () => {
+  const text = '中文、日文、韩文，也能读。';
+  const words = ['中文', '日文', '韩文', '也', '能', '读'].map((w, i) => ({ text: w, start: i * 0.4, end: i * 0.4 + 0.3 }));
+  const cues = CV.subtitles.build(text, words, { lang: 'zh-CN', minChars: 6 });
+  assert.deepEqual(Array.from(cues, (c) => c.text), ['中文 日文 韩文', '也能读']);
+});
+
+test('speech end is the last word, not the clip length', () => {
+  assert.equal(CV.speech.end({ duration: 2.86, words: [{ text: '读', start: 1.66, end: 1.99 }] }), 1.99);
+  assert.equal(CV.speech.end({ duration: 1.5, words: [] }), 1.5);
+  assert.equal(CV.speech.end({ duration: 1.0, words: [{ text: 'x', start: 0.2, end: 1.3 }] }), 1.0);
+});
+
+test('phrase lookup prefers exact words over substrings', () => {
+  const ws = ['Press', 'Option', 'S', 'to', 'listen'].map((w, i) => ({ text: w, start: i, end: i + 0.8 }));
+  assert.equal(CV.speech.find(ws, 'S'), 2, '"S" must not match inside "Press"');
+  assert.equal(CV.speech.find(ws, 'Option S'), 1, 'run of words');
+  assert.equal(CV.speech.find(ws, 'opt'), 1, 'substring fallback');
+  assert.equal(CV.speech.find(ws, 'nothing'), null);
+  const zh = [{ text: '这个', start: 0.1, end: 0.44 }, { text: '词', start: 0.44, end: 0.89 }];
+  assert.equal(CV.speech.find(zh, '这个词'), 0.1, 'phrase across CJK words');
+});
+
 test('speech estimate is plausible', () => {
   const zh = CV.subtitles.estimate('画布就是你的摄影棚。', 'zh-CN');
   assert.ok(zh.duration > 1.5 && zh.duration < 4, String(zh.duration));
