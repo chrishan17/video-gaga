@@ -207,7 +207,7 @@ Clean up `.cv-previews/` after the user has picked a style.
 
 | File | Purpose | When to read |
 |---|---|---|
-| [STYLE_PRESETS.md](STYLE_PRESETS.md) | Index of the 12 presets: mood, palette, type, motion signature | Phase 2 |
+| [STYLE_PRESETS.md](STYLE_PRESETS.md) | Index of the 13 presets: mood, palette, type, motion signature | Phase 2 |
 | `presets/<slug>/video.html` | One preset: its THEME and KIT (the style), plus an example video that shows its grammar (EXAMPLE sections, scenes, score) | Phase 4, after the pick (for Phase 2 previews, its first scene) |
 | `presets/<slug>/narration.json` | The example video's narration (a format reference, never reused) | Phase 4, for the format |
 | [docs/motion-design.md](docs/motion-design.md) | Motion principles, timing tables, transitions, anti-patterns, QA checklist | Before building, and when reviewing probes |

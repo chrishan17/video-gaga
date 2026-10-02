@@ -1,6 +1,6 @@
 # Style presets
 
-Twelve motion-design systems, each shipped as a working composition in `presets/<slug>/video.html` (with `narration.json` where voiced). A preset is a **visual style**: its palette and type (`THEME`), its reusable motion and drawing helpers (`KIT` sections), its transition vocabulary, caption style and pacing. Its example video (the `EXAMPLE` sections, the scenes, the narration and the score) only shows that grammar at work: `cv init` copies the style and leaves the example out, and each new video gets its own script, structure and score. **Read this index first. Read a preset's full `video.html` only after the user has picked it**, then treat that file as the design recipe: its palette, type, motion grammar, transitions and score. For a Phase 2 preview, read only its `THEME` object and first scene.
+Thirteen motion-design systems, each shipped as a working composition in `presets/<slug>/video.html` (with `narration.json` where voiced). A preset is a **visual style**: its palette and type (`THEME`), its reusable motion and drawing helpers (`KIT` sections), its transition vocabulary, caption style and pacing. Its example video (the `EXAMPLE` sections, the scenes, the narration and the score) only shows that grammar at work: `cv init` copies the style and leaves the example out, and each new video gets its own script, structure and score. **Read this index first. Read a preset's full `video.html` only after the user has picked it**, then treat that file as the design recipe: its palette, type, motion grammar, transitions and score. For a Phase 2 preview, read only its `THEME` object and first scene.
 
 Every preset exposes a `THEME` / `T` object at the top (colours and fonts) so it can be re-branded without touching the motion code. Two presets use three.js for 3D (see [docs/three-d.md](docs/three-d.md)).
 
@@ -10,7 +10,7 @@ Every preset exposes a `THEME` / `T` object at the top (colours and fonts) so it
 | Understand · learn · trust the numbers | Clear Explainer, Blueprint, Data Globe |
 | "Where in the world" · scale · global data | Data Globe |
 | How a thing works · technical · precise | Blueprint, Studio 3D (exploded view) |
-| Story · history · essay · gravitas | Editorial, Ink Wash |
+| Story · history · essay · gravitas | Editorial, Ink Wash, Cinematic Film |
 | Calm · contemplative · Chinese culture and poetry | Ink Wash |
 | Excited · hype · social | Pop Collage, Neon Circuit, Swiss Kinetic |
 | Warm · friendly · human | Paper Sketch, Pop Collage, Clear Explainer |
@@ -31,6 +31,7 @@ Every preset exposes a `THEME` / `T` object at the top (colours and fonts) so it
 | Pop Collage | 9:16 | ZH | `pop` 116 | — |
 | Pixel Retro | 16:9 | ZH | `chiptune` 126 | — |
 | Ink Wash | 16:9 | ZH | `D major` 76 | — |
+| Cinematic Film | 16:9 (2.39:1 scope) | ZH | 72, D major | — |
 
 ---
 
@@ -231,6 +232,23 @@ Every preset exposes a `THEME` / `T` object at the top (colours and fonts) so it
 - **Example's score:** 76 BPM, D major, two bars per chord: a soft sine drone, a plucked zither line that thickens with the energy, a low string, a tom heartbeat only in the music-only breath, a sparse plucked lead · energy 0.2 → 0.65 in the breath, 0.3 at the seal · paper on the scroll pans, a swell into the ending, one click for the seal
 - **Captions:** Noto Serif SC 500 40 px, ink on a translucent paper box, low (0.92 H); or `captions: 'file'` when the line is already on screen in calligraphy
 - **Pacing:** slow. The painting comes first and the voice after it (`voiceDelay` of a few beats), each column soaking in on its spoken words, a bloom or stroke on the beat, every column held ≥ 2 s, a music-only breath where the mist clears the page, a long ring-out under the seal.
+
+## 13. Cinematic Film — `cinematic-film`
+
+<img src="docs/media/cinematic-film.jpg" width="480" alt="Cinematic Film">
+
+- **Vibe:** a documentary shot on film and projected in a dark room. Patient, warm, a little nostalgic.
+- **Best for:** brand films and manifestos, documentary and memoir pieces, places and people, anniversaries, trailers and title sequences, anything that should feel *felt* rather than explained.
+- **Avoid for:** dense data, fast social hooks, UI walkthroughs, anything that must read as crisp and digital.
+- **Format:** 16:9 with a 2.39:1 scope letterbox (`T.aspect`; 1.85 for a flat frame) · 30–60 s · a slow documentary narration (ZH: YunyangNeural −6%, with a second voice for a quoted interviewee; EN: ChristopherNeural −4%) or music only. For 9:16, set `T.aspect` to 1 (no bars) and keep the gate.
+- **Palette:** `#0B0A08` film black, lifted to `#121A1B` teal · `#F1E6D0` cream titles · one warm accent `#E3A257` (timecodes, the light) · `#8A7F70` dim · the grade is a warm soft-light `#FFB46E` with red-orange halation `#FF6A2A`
+- **Type:** Noto Serif SC 500/600 (Chinese titles, supers) · Cormorant Garamond 500/600 (Latin titles in wide-tracked caps) · Courier Prime (timecodes and kickers)
+- **Motion signature:** the **film gate** over every frame (`filmGate`: gate weave, halation, a warm grade with lifted blacks, exposure flicker, dust, hairs and a scratch that lives for a few dozen frames, vignette, grain) · scope **letterbox** bars · slow **dollies** on every shot (`dolly`: a push or a lateral track over the whole shot, never a snap) · titles that **fade up out of focus and keep tracking open** while they hold (`trackTitle`) · a documentary **lower third**: mono timecode kicker, a hairline that draws, a serif line that resolves glyph by glyph (`lowerThird`) · an academy **countdown leader** (`leader`) · rack focus by blurring a half-size buffer
+- **Transitions:** long dissolves (`fade`, 1.4–1.8 s) by default · `dip` to black for chapter breaks · one custom **film burn** (`filmBurn`: the stock overexposes into orange and white and the next shot comes through) for the turn of the piece. No pushes, wipes or whips.
+- **Example's score:** 72 BPM, D major from the relative minor (`[5, 3, 0, 4]`): a sine pad alone under the leader, low strings and a bass as the city wakes, felt-piano eighths at first light, a heartbeat tom only under the sunrise, a sparse keys melody in the gaps; the leader, the sunrise and the title card are music only · ticks on the countdown, swells on the dissolve and the burn, one shimmer when the sun clears
+- **Captions:** in the lower letterbox bar like a film print's subtitles: Noto Serif SC 38 px cream with a thin dark stroke, no box
+- **Pacing:** slow. The narrator sets the shot lengths (6–10 beats each, a long `tail` after each line), every title held long enough to read twice, a dip to black before the title, a long fade to black at the end.
+- **Render tip:** the gate touches every pixel each frame, so draft with `--scale 0.5`; for the GIF use fewer frames and colours.
 
 ---
 

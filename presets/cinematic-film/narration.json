@@ -1,0 +1,11 @@
+{
+  "voice": "zh-CN-YunyangNeural",
+  "rate": "-6%",
+  "lang": "zh-CN",
+  "segments": [
+    { "id": "hour", "text": "凌晨四点五十二分，城市还没有醒。" },
+    { "id": "river", "text": "江北渡口，第一班渡轮离岸。船上只有六个人，和一筐刚摘的青菜。" },
+    { "id": "windows", "text": "然后，一扇窗，又一扇窗，亮了起来。" },
+    { "id": "voice", "text": "每天都一样。可每天的光，都不一样。", "voice": "zh-CN-YunjianNeural", "rate": "-12%" }
+  ]
+}
