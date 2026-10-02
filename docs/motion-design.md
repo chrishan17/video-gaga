@@ -4,7 +4,15 @@ This is the bar every video-gaga composition must clear. Read it before you writ
 
 > **Motion exists to direct attention and explain change.** If you can't say what a move tells the viewer, it doesn't belong in the video. A cool move that serves the content is great. A cool move that exists only to be cool is noise.
 >
-> **But don't be timid.** A video where every scene is "text fades in, holds, gets pushed off" is monotonous. Give each video one or two signature moves that make it memorable *and* explain something: a camera that follows the head of a growing line, an iris that opens from the key number, a match cut, a 3D turn that shows the back of the product, a list that lands on the beat.
+> **But don't be timid.** A video where every scene is "text fades in, holds, gets pushed off" is monotonous, and it looks cheap next to what people scroll past every day. Aim for full, designed motion:
+>
+> - **Every frame is alive.** During a hold the camera still travels (a 5–10% push, a slow pan, parallax across a foreground, the subject and a background) and the background has quiet life that belongs to the concept (light sweeping, paper fibres, drifting shapes, a slowly rotating grid). Nothing sits perfectly still for more than about a second, except the final poster frame.
+> - **Type with character.** Titles and key lines arrive per word or per character with masks, scale, blur and a little overshoot; numbers roll; underlines draw on; the payoff word gets its own move.
+> - **Layers.** Build each shot from 3+ layers (background texture, supporting shapes, the hero, small accents) that move at different speeds and arrive in a cascade, so a single beat reads as a rich moment.
+> - **Signature moves.** Give each video 3–5 moves that make it memorable *and* explain something: a camera that follows the head of a growing line, an iris that opens from the key number, a match cut, a 3D turn that shows the back of the product, a list that lands on the beat, a type burst on the payoff.
+> - **On the music.** Land entrances, cuts and accents on beats; let the energy of the motion follow the score's energy.
+>
+> Rich is not cluttered: there is still one focal point at a time, and the richness lives in the layers around it.
 
 ---
 
@@ -93,14 +101,15 @@ A virtual camera (`CV.draw.camera`) turns a flat layout into a shot:
 
 | Move | Meaning | How |
 |---|---|---|
-| **Push-in** (slow zoom 1.00→1.05 over a hold) | importance, intimacy, "look closer" | `zoom: lerp(1, 1.05, s.p)` |
+| **Push-in** (zoom 1.00→1.08 over a hold) | importance, intimacy, "look closer" | `zoom: lerp(1, 1.08, ease.inOutSine(s.p))` |
+| **Parallax drift** | depth and life during a hold | move background, mid and foreground layers at 0.3×, 0.6× and 1× of one slow camera offset |
 | **Arrive-push** (0.9→1 on entry) | the hero appears | `ease.enter`, 1–1.5 s |
 | **Pan / track** | move to the next item in space, show that items are related | translate the camera, not every element |
 | **Pull-out** | reveal context, "the bigger picture" | zoom < 1 at the end of a sequence |
 | **Match cut** | continuity: shape A becomes shape B | end A and start B with the same shape in the same place (Swiss: the square becomes the full stop) |
 | **Whip / push transition** | energy, sequence | `push` transition with `ease.swift` |
 
-Keep camera motion slow relative to content motion. Never shake the camera for "energy" unless the story is literally an impact.
+Keep camera motion slower than content motion, but keep it moving: a locked-off camera on a still layout reads as a slide. Never shake the camera for "energy" unless the story is literally an impact (a hit on the beat can earn a short, damped shake).
 
 ---
 
@@ -186,7 +195,8 @@ Use **one or two** transition types per video, plus at most one special for the 
 ## 13. Anti-patterns ("motion slop") — do not ship
 
 - ❌ Everything fades in at once from opacity 0 over 1 s, with the same ease and the same delay.
-- ❌ Constant floating/bobbing of every element "to feel alive".
+- ❌ Constant floating/bobbing of every element "to feel alive" (life comes from the camera, light and layered entrances, not from wobbling text).
+- ❌ Static frames: a layout that sits perfectly still for more than ~1 s with no camera drift, no background life and nothing arriving.
 - ❌ Particle bursts, lens flares, shockwave rings, RGB split, camera shake, used as decoration.
 - ❌ Bouncy or elastic easing on text, numbers or UI chrome.
 - ❌ Crossfades between every scene. Random transition types in one video.
@@ -209,6 +219,7 @@ Use **one or two** transition types per video, plus at most one special for the 
 - [ ] Every word on screen is readable at the probe's size and holds long enough.
 - [ ] Visual hits land on their spoken words (check `when()` targets).
 - [ ] Transitions are consistent, the cut lands on action, and the last frame is a resolved still.
+- [ ] The middle probe of every scene shows motion in progress (a drifting camera, background life or a layer arriving), and the video has 3–5 signature moves.
 - [ ] Secondary elements exit before the cut; nothing pops off abruptly.
 - [ ] At least one music-only moment; `cv music` shows energy rising and falling with the story.
 - [ ] The render reports the music 10–18 dB under the voice and sync < 120 ms median.
