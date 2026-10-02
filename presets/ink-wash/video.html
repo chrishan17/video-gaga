@@ -883,25 +883,28 @@ CV.create({
   width: 1920, height: 1080, fps: 30,
   background: T.paper,
   lang: 'zh-CN',
-  // the score designed for this video: a music box for the childhood memory, a
-  // clock that only ticks through the twenty careful years, a held breath for
-  // the drop, then a plucked zither that flows as the painting grows, and home
+  // the score designed for this video (tender, then hopeful, then free): a felt
+  // piano figure and a music box for the childhood memory, held chords while
+  // the drop hangs, then a koto line, strings and a brushed kit that open up
+  // as the painting grows, a bamboo-flute melody in the gaps, and home
   music: {
-    bpm: 80, seed: 7, key: 'A', mode: 'minor', progression: [0, 5, 2, 6], chordBars: 2,
+    bpm: 80, seed: 7, key: 'E', mode: 'major', progression: [0, 4, 5, 3], kit: 'brush',
     layers: [
-      { name: 'pad', inst: 'sinepad', notes: 'chord', pattern: 'X---', vel: [0.05, 0.08], attack: 1.4, release: 2 },
-      { name: 'music box', inst: 'bell', kind: 'celesta', notes: [0, 2, 1, 2], pattern: 'X.x.X.x.', vel: 0.08, verb: 0.4, from: 0.12, to: 0.3 },
-      { name: 'clock', inst: 'rim', pattern: 'x.x.x.x.', vel: 0.12, from: 0.3, to: 0.34 },
-      { name: 'zither', inst: 'pluck', notes: ['root_', 'fifth_', 1, 2, 'fifth', 1], pattern: 'X.x.x.x.X.x.x.x.', vel: [0.09, 0.14], bright: 0.35, decay: 0.998, echo: 0.3, verb: 0.35, from: 0.45 },
-      { name: 'low string', inst: 'bass', octave: -1, notes: ['root'], pattern: 'X---', vel: 0.2, from: 0.38 },
-      { name: 'heartbeat', inst: 'tom', pitch: 64, pattern: 'X..x............', vel: 0.2, from: 0.55 },
-      { name: 'shaker', inst: 'shaker', pattern: 'xXxXxXxX', vel: 0.06, from: 0.75 },
+      { name: 'felt piano', inst: 'felt', notes: [0, 2, 1, 2], pattern: 'X.x.X.x.', gate: 1.6, vel: [0.1, 0.14] },
+      { name: 'music box', inst: 'bell', kind: 'musicbox', notes: [2, 1, 3, 1], pattern: 'X...x...', vel: 0.07, verb: 0.35, to: 0.42 },
+      { name: 'strings', inst: 'strings', notes: 'chord', pattern: 'X---', vel: [0.025, 0.05], from: 0.42 },
+      { name: 'upright bass', inst: 'bass', kind: 'upright', octave: -1, notes: ['root', 'root', 'fifth'], pattern: 'X..x..X.', vel: 0.18, from: 0.45 },
+      { name: 'koto', inst: 'koto', notes: [0, 1, 2, 3, 2, 1, 2, 3], pattern: 'X.x.X.x.X.x.X.x.', vel: [0.08, 0.12], verb: 0.3, from: 0.6 },
+      { name: 'kick', inst: 'kick', pattern: 'X.......X.x.....', vel: 0.32, from: 0.48 },
+      { name: 'brush snare', inst: 'snare', pattern: '....X.......X...', vel: 0.18, from: 0.55 },
+      { name: 'shaker', inst: 'shaker', pattern: 'xXxXxXxXxXxXxXxX', vel: 0.05, from: 0.8 },
     ],
-    lead: { inst: 'bell', kind: 'celesta', range: [72, 88], rhythm: 'sparse', vel: 0.09, verb: 0.45 },
+    lead: { inst: 'flute', range: [72, 88], rhythm: 'melodic', vel: 0.075, verb: 0.35 },
     parts: {
-      held: { progression: [3, 4], chordBars: 2, seed: 3 },
-      flow: { key: 'C', mode: 'major', progression: [0, 4, 5, 3], chordBars: 1, seed: 11, lead: { rhythm: 'melodic' } },
-      home: { key: 'C', mode: 'major', progression: [3, 4, 0, 0], chordBars: 1, seed: 12 },
+      memory: { progression: [5, 3, 0, 4], seed: 3, lead: { inst: 'bell', kind: 'musicbox', rhythm: 'sparse' } },
+      held: { progression: [3, 4], chordBars: 2, seed: 5, lead: { rhythm: 'sparse' } },
+      flow: { progression: [0, 4, 5, 3], seed: 11 },
+      home: { progression: [3, 4, 0, 0], seed: 12 },
     },
   },
   transition: 'cut',
@@ -911,7 +914,7 @@ CV.create({
   scenes: [
     // --- 1. Eight years old: the drawing, then two red slashes ------------------
     {
-      id: 'cross', voiceDelay: 4 * 0.75, tail: 1.0, energy: 0.2,
+      id: 'cross', part: 'memory', voiceDelay: 4 * 0.75, tail: 1.0, energy: 0.38,
       sfx: [{ at: '打', type: 'swish', gain: 1.2 }, { at: '红叉', type: 'swish', gain: 1.4 }],
       draw(ctx, s) {
         const { W, H, t } = s;
@@ -926,7 +929,7 @@ CV.create({
     },
     // --- 2. The mist takes the drawing; the red cross is the last thing to go ---
     {
-      id: 'stop', tail: 1.6, energy: 0.1,
+      id: 'stop', tail: 1.6, energy: 0.3,
       draw(ctx, s) {
         const { W, H, t } = s;
         xuan(ctx, W, H);
@@ -941,7 +944,7 @@ CV.create({
     },
     // --- 3. Twenty years of copybooks: 正 after 正, then the camera pulls out ----
     {
-      id: 'grid', voiceDelay: 2 * 0.75, tail: 1.2, energy: 0.32,
+      id: 'grid', voiceDelay: 2 * 0.75, tail: 1.2, energy: 0.5,
       captionStyle: { box: color.rgba(T.paper, 0.95), stroke: null, radius: 4, padX: 22, padY: 10 },
       sfx: [{ at: '别', type: 'whoosh', gain: 0.8 }],
       draw(ctx, s) {
@@ -1000,7 +1003,7 @@ CV.create({
     },
     // --- 4. A new scroll: a brush comes down and a bead of ink gathers -----------
     {
-      id: 'brush', voiceDelay: 3 * 0.75, tail: 0.9, energy: 0.22, part: 'held', transition: unroll,
+      id: 'brush', voiceDelay: 3 * 0.75, tail: 0.9, energy: 0.32, part: 'held', transition: unroll,
       draw(ctx, s) {
         const cam = paintingShot(ctx, s);
         brushShot(ctx, s, cam);
@@ -1008,7 +1011,7 @@ CV.create({
     },
     // --- 5. The hand shakes; the drop falls and soaks into the paper -------------
     {
-      id: 'drop', voiceDelay: 0.25, tail: 1.3, energy: 0.35,
+      id: 'drop', voiceDelay: 0.25, tail: 1.3, energy: 0.46,
       sfx: [{ at: (s) => s.when('下去') + 0.32, type: 'pop', gain: 1.2 }, { at: '晕开', type: 'swell', gain: 0.9 }],
       draw(ctx, s) {
         const cam = paintingShot(ctx, s);
@@ -1017,7 +1020,7 @@ CV.create({
     },
     // --- 6. It won't come off: the old red cross flashes over the stain ----------
     {
-      id: 'stain', voiceDelay: 0.6, tail: 1.4, energy: 0.06,
+      id: 'stain', voiceDelay: 0.6, tail: 1.4, energy: 0.24,
       draw(ctx, s) {
         const { t } = s;
         const cam = paintingShot(ctx, s);
@@ -1036,13 +1039,13 @@ CV.create({
     },
     // --- 7. Looking at it for a long time: it is a mountain ----------------------
     {
-      id: 'ridge', part: 'flow', voiceDelay: 0.5, tail: 1.2, energy: 0.42,
+      id: 'ridge', part: 'flow', voiceDelay: 0.5, tail: 1.2, energy: 0.56,
       sfx: [{ at: '一座山', type: 'swell', gain: 0.8 }],
       draw(ctx, s) { paintingShot(ctx, s); },
     },
     // --- 8. Painting on from it: the near ridge, texture, a pine ----------------
     {
-      id: 'paint', voiceDelay: 0.25, tail: 0.8, energy: 0.62,
+      id: 'paint', voiceDelay: 0.25, tail: 0.8, energy: 0.7,
       draw(ctx, s) { paintingShot(ctx, s); },
     },
     // --- 9. Music only: a stroke on every beat while the camera pulls out --------
@@ -1052,7 +1055,7 @@ CV.create({
     },
     // --- 10. The inscription, in the empty paper on the right --------------------
     {
-      id: 'truth', captions: 'file', voiceDelay: 0.75, tail: 1.4, energy: 0.55,
+      id: 'truth', captions: 'file', voiceDelay: 0.75, tail: 1.4, energy: 0.66,
       draw(ctx, s) {
         paintingShot(ctx, s);
         const a = [...'原来画错的那一笔'], b = [...'也可以是一座山'];
@@ -1062,7 +1065,7 @@ CV.create({
     },
     // --- 11. The red comes back, and condenses into a seal -----------------------
     {
-      id: 'seal', part: 'home', voiceDelay: 0.5, tail: 1.3, energy: 0.6,
+      id: 'seal', part: 'home', voiceDelay: 0.5, tail: 1.3, energy: 0.75,
       sfx: [{ at: '红色', type: 'swish', gain: 0.9 }, { at: '印', type: 'hit', gain: 1 }],
       draw(ctx, s) {
         const { t } = s;
@@ -1086,7 +1089,7 @@ CV.create({
     },
     // --- 12. 别怕落笔 -------------------------------------------------------------
     {
-      id: 'end', captions: 'file', voiceDelay: 1.5, tail: 3.8, energy: 0.38,
+      id: 'end', captions: 'file', voiceDelay: 1.5, tail: 3.8, energy: 0.5,
       draw(ctx, s) {
         const { t } = s;
         paintingShot(ctx, s);
