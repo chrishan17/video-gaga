@@ -24,11 +24,12 @@ You are a senior motion designer, editor and engineer in one. Plan the storyboar
 
 ## Design aesthetics (avoid "motion slop")
 
-Your default instincts converge on generic output: everything fades in at once, crossfades everywhere, neon on dark, purple gradients, bouncy easing, particle bursts, text that never holds long enough to read. Resist all of it.
+Your default instincts converge on two kinds of cheap output. One is generic slop: everything fades in at once, crossfades everywhere, neon on dark, purple gradients, bouncy easing, random particle bursts, text that never holds long enough to read. The other is timid: text fades in and sits on a still frame, one move per scene, a slideshow with music. People compare your video with what they scroll past every day, where every frame is designed and moving. Avoid both.
 - Commit to one visual system per video: one field colour, one accent, a display + label font pair, one easing family, and 1–2 transition types.
 - Reveal in causal order and give each beat a hold. Keep one focal point at a time.
 - **Every scene has an entrance, a hold *and* an exit.** Secondary elements leave just before the cut (`s.out()`, `exit:` on reveals) so the cut happens on action. A frame that is only shoved off by the next scene feels like a slideshow.
-- **Calibrated flair.** Each video earns one or two signature moves (a camera that follows the data, a match cut, an iris from the key number, a 3D turn) that make it memorable. They must still explain something. Everything else stays quiet.
+- **Full motion, every frame alive.** A hold is not a freeze: the camera keeps travelling (a push, a pan, parallax across 2–3 depth layers), the background has quiet life that belongs to the concept (light moving, texture, drifting shapes), type arrives with kinetic character (per word or per character, masks, scale, blur, a little overshoot on titles), and accents land on the beat. Give each video **3–5 signature moves** that make it memorable and still explain something (a camera that follows the data, a match cut, an iris from the key number, a 3D turn, a type burst on the payoff). Keep one focal point at a time: the richness lives in the layers around the focus, never in competing with it.
+- **Music that sounds produced.** The score is played by real instrument samples; design it like a track (a groove, a bass, a hook, a build), not a drone. See [docs/music-and-sound.md](docs/music-and-sound.md) §2.1.
 - Use distinctive, fitting fonts from Google Fonts (never Arial, Inter or Roboto by default). For Chinese, Noto Sans/Serif SC or a display face that suits the tone.
 - Add atmosphere (grain, paper, light, grid) only if it belongs to the concept.
 - Read the full do/don't list in [docs/motion-design.md](docs/motion-design.md) §13 before building.
@@ -50,6 +51,7 @@ Your default instincts converge on generic output: everything fades in at once, 
 **Setup (first run).** The skill directory is where this SKILL.md lives. Below, `cv` is short for `node <skill-dir>/scripts/cv.mjs`. Run `cv doctor`. If something is missing:
 - `cd <skill-dir> && npm install` (Playwright). If no browser is found, run `npx playwright install chromium`.
 - ffmpeg: `brew install ffmpeg` on macOS, `apt install ffmpeg` on Linux.
+- Instrument samples for the score: `cv doctor` downloads them once (40 MB, MIT-licensed, into `~/.cache/video-gaga`); otherwise the first `cv music` or `cv render` does. Without them the score falls back to a much cheaper synth, so fix this before rendering.
 - Edge TTS: `uv` is recommended (the CLI runs `uv run --with edge-tts`). Otherwise `pip install edge-tts`.
 - **Sandboxed agents:** `cv doctor`, `still`, `moodboard`, `render`, `tts` and `voices` need permission. They launch Chromium, which creates a temp profile outside the workspace. They also fetch fonts and TTS over the network, and uv writes its cache to `~/.cache/uv`. `init`, `check` and `gif` run fine inside the sandbox. Ask once, up front, instead of discovering it one command at a time.
 
@@ -137,7 +139,7 @@ Write `<project>/BRIEF.md` using the director's-brief template in [docs/prompt-t
 | # | scene id | voice line (exact words, or — for music only) | visual — the one focal point | motion & sync (which word / beat) | exit | transition in | music energy · sfx | ≈ s |
 |---|---|---|---|---|---|---|---|---|
 
-Under the table, one line for the **score design**: feel in three words · BPM · key and mode · progression · the layers and at which energy each enters · the lead (or none). Example: *curious, bright, trustworthy · 100 BPM D major · I–vi–IV–V with sevenths · pad from 0, key stabs 0.25, bass 0.35, shaker 0.4, kick 0.5 · glockenspiel lead in the gaps.*
+Under the table, one line for the **score design**: feel in three words · BPM · key and mode · progression · the layers and at which energy each enters · the lead (or none). Example: *curious, bright, trustworthy · 104 BPM A major · I–V–vi–IV · piano arpeggio from 0, bass 0.3, strings 0.35, kick + clap 0.45, shaker 0.6, room kit · glockenspiel lead in the gaps.*
 
 - **The structure comes from the content.** Choose the number of scenes, their order and the signature moves from what this message needs, never from the preset's example video.
 
@@ -163,7 +165,7 @@ Under the table, one line for the **score design**: feel in three words · BPM �
 1. **Scaffold** in the user's working directory: `cv init <slug>-video --preset <chosen> [--ratio 9:16]`. This copies the runtime and only the preset's *style*: the `THEME` (palette, fonts), its `KIT` helpers (the style's reusable motion and drawing functions) and the look of `CV.create` (size, transition, captions, overlay). The example's scenes, score and narration are left out on purpose. For a custom wildcard, scaffold from the nearest preset and rewrite the THEME and KIT.
 2. **Read the chosen preset's `video.html`** (in the skill's `presets/`) to learn its design grammar: how its KIT helpers are used, its easing, holds, exits and transitions. Apply that grammar to *this* storyboard. Don't copy the example's scenes, structure, layouts or data. The KIT helpers are an optional toolbox, not a menu to fill: use the ones that serve this story, change or delete the rest, and **invent new helpers and moves** when the brief calls for something the preset never did. Generating what this video needs is the job; reusing the example is the shortcut to avoid.
 3. **Write `narration.json`** (segments = scene ids) with the chosen voice and rate. See [docs/narration-and-subtitles.md](docs/narration-and-subtitles.md).
-4. **Write the score** in `CV.create({ music: { … } })` from the score-design line: `bpm`, `key`, `mode`, `progression`, `layers` (each with its `from` energy), `lead`, `seed`, and give every scene an `energy` that follows the story ([docs/music-and-sound.md](docs/music-and-sound.md) §2). `cv music` refuses a spec that breaks a limit and lists what to fix; fix its warnings too.
+4. **Write the score** in `CV.create({ music: { … } })` from the score-design line: `bpm`, `key`, `mode`, `progression`, `layers` (each with its `from` energy), `lead`, `seed`, and give every scene an `energy` that follows the story ([docs/music-and-sound.md](docs/music-and-sound.md) §2). `cv music` refuses a spec that breaks a limit and lists what to fix; fix its warnings too, and read its `mix:` line (drums around −4 to −8 dB of the whole once the groove is in, reverb below −10).
 5. **Write the scenes.** API reference: [docs/runtime-api.md](docs/runtime-api.md). Patterns to use:
    - `s.at(start, dur, ease)` for every local move. `s.when('spoken words')` to land hits on the voice; `s.onBeat(i)` / `s.nextBeat(t)` for moves in music-only moments.
    - `fx.wordReveal({ sync: s })` / `fx.lineReveal` / `fx.charReveal` for type, `fx.countUp` / `fx.roll` for numbers, `draw.drawOn` / `draw.arrow` for lines and charts, `fx.highlight` for the key term.
@@ -226,5 +228,5 @@ Clean up `.cv-previews/` after the user has picked a style.
 | [docs/tech-selection.md](docs/tech-selection.md) | Why Canvas + Playwright + ffmpeg + Edge TTS | When asked about the stack |
 | `runtime/video-gaga.js` | The runtime (copied into each project by `cv init`) | When debugging |
 | `scripts/cv.mjs` | CLI: `doctor · init · tts · music · still · moodboard · render · check · gif · voices` | Always via the commands above |
-| `scripts/music.mjs` | The score spec validator (`LIMITS`) and deterministic synthesizer (called by the CLI) | When a spec is refused or sounds wrong |
+| `scripts/music.mjs` | The score spec validator (`LIMITS`) and deterministic arranger, played by sampled instruments (`scripts/soundfont.mjs`) | When a spec is refused or sounds wrong |
 | `scripts/tts.py` | Edge TTS with WordBoundary timings (called by the CLI) | Rarely |

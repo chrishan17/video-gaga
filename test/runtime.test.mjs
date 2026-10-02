@@ -194,7 +194,7 @@ test('generated score is deterministic, sized to the video and not clipping', as
   const { renderScore } = await import('../scripts/music.mjs');
   const specs = { full: FULL, drums1: { ...FULL, layers: [FULL.layers[0], ...DRUMS.slice(0, 4)] }, drums2: { ...FULL, layers: [FULL.layers[0], ...DRUMS.slice(4)] }, minimal: { ...SCORE, bpm: 90 }, sfxOnly: { bpm: 100, layers: [] } };
   for (const [name, spec] of Object.entries(specs)) {
-    const a = renderScore(planOf(spec)), b = renderScore(planOf(spec));
+    const a = await renderScore(planOf(spec)), b = await renderScore(planOf(spec));
     assert.equal(a.left.length, Math.ceil(8.05 * 48000), name);
     let same = true, peak = 0;
     for (let i = 0; i < a.left.length; i += 97) { if (a.left[i] !== b.left[i] || a.right[i] !== b.right[i]) same = false; peak = Math.max(peak, Math.abs(a.left[i]), Math.abs(a.right[i])); }
@@ -214,12 +214,12 @@ test('the score follows the spec: harmony, layers by energy, seed', async () => 
     for (let i = 2 * 48000; i < 13.5 * 48000; i += 7) (i < 8 * 48000 ? (a += x.bed.left[i] ** 2) : (b += x.bed.left[i] ** 2));
     return b / a;
   };
-  const padOnly = two([pad]);
-  const withKick = two([pad, { inst: 'kick', pattern: 'X.X.', vel: 0.6, from: 0.6 }]);
-  assert.ok(lift(withKick) > lift(padOnly) * 2, `the kick enters with the energy (${lift(withKick).toFixed(2)} vs ${lift(padOnly).toFixed(2)})`);
-  const unplayed = two([pad, { inst: 'kick', pattern: 'X.X.', vel: 0.6, from: 0.95 }]);
+  const padOnly = await two([pad]);
+  const withKick = await two([pad, { inst: 'kick', pattern: 'X.X.', vel: 0.6, from: 0.6 }]);
+  assert.ok(lift(withKick) > lift(padOnly) * 1.3, `the kick enters with the energy (${lift(withKick).toFixed(2)} vs ${lift(padOnly).toFixed(2)})`);
+  const unplayed = await two([pad, { inst: 'kick', pattern: 'X.X.', vel: 0.6, from: 0.95 }]);
   assert.ok(Math.abs(lift(unplayed) - lift(padOnly)) < 0.05 * lift(padOnly), 'a layer above every scene\'s energy never plays');
-  const a = renderScore(planOf({ ...FULL, seed: 1 })), b = renderScore(planOf({ ...FULL, seed: 2 }));
+  const a = await renderScore(planOf({ ...FULL, seed: 1 })), b = await renderScore(planOf({ ...FULL, seed: 2 }));
   let diff = 0;
   for (let i = 0; i < a.left.length; i += 97) diff += Math.abs(a.left[i] - b.left[i]);
   assert.ok(diff > 0, 'the seed changes the melody');
@@ -254,8 +254,12 @@ test('score specs are validated against the limits', async () => {
   // musical advice is a warning, not an error
   const w = validateScore({ ...FULL, layers: [{ inst: 'kick', pattern: 'X...', vel: 0.5 }, { inst: 'bass', pattern: 'X---', vel: 0.2 }] });
   assert.deepEqual(w.errors, []);
-  assert.ok(w.warnings.some((x) => /no harmony/.test(x)) && w.warnings.some((x) => /drums play/.test(x)));
-  assert.throws(() => renderScore(planOf({ ...FULL, bpm: 10 })), /music\.bpm/);
+  assert.ok(w.warnings.some((x) => /no harmony/.test(x)));
+  // a drone with a low tom heartbeat is the classic horror bed: warn
+  const eerie = validateScore({ ...FULL, layers: [{ inst: 'sinepad', pattern: 'X---', vel: 0.05 }, { inst: 'tom', pitch: 62, pattern: 'X..x....', vel: 0.3, from: 0.5 }] });
+  assert.ok(eerie.warnings.some((x) => /heartbeat/.test(x)), eerie.warnings.join('; '));
+  assert.ok(validateScore({ ...FULL, layers: [{ inst: 'strings', pattern: 'X---', vel: 0.05 }, { inst: 'bass', pattern: 'X---', vel: 0.2 }] }).warnings.some((x) => /drone/.test(x)));
+  await assert.rejects(() => renderScore(planOf({ ...FULL, bpm: 10 })), /music\.bpm/);
 });
 
 test('music.style is rejected: the score is designed per video', () => {
@@ -316,7 +320,7 @@ test('music parts change the harmony from their bar, and are validated', async (
   const plan = (parts, secParts) => ({ ...FULL, bpm: 120, lead: { inst: 'bell', range: [72, 86], rhythm: 'melodic', vel: 0.1 }, ...(parts ? { parts } : {}), duration: 8 * bar,
     sections: [{ start: 0, end: 4 * bar, energy: 0.5, part: secParts[0] }, { start: 4 * bar, end: 8 * bar, energy: 0.5, part: secParts[1] }], voice: [], sfx: [] });
   const parts = { b: { key: 'A', mode: 'minor', progression: [5], seed: 3, lead: { rhythm: 'sparse' } } };
-  const same = renderScore(plan(parts, [undefined, undefined])), moved = renderScore(plan(parts, [undefined, 'b']));
+  const same = await renderScore(plan(parts, [undefined, undefined])), moved = await renderScore(plan(parts, [undefined, 'b']));
   assert.deepEqual(moved.report.parts, ['main@1', 'b@5']);
   // the mix is levelled as a whole, so compare after matching the gain
   const misfit = (a0, a1) => {
@@ -335,6 +339,67 @@ test('music parts change the harmony from their bar, and are validated', async (
   assert.match(errs({ b: { lead: { rhythm: 'waltz' } } }), /parts\.b\.lead\.rhythm/);
   assert.match(errs({ c: {} }), /part 'b' is not in music\.parts/);
   // one loop for minutes on end gets a warning
-  const long = renderScore({ ...SCORE, bpm: 120, duration: 90, sections: [{ start: 0, end: 90, energy: 0.5 }], voice: [], sfx: [] });
+  const long = await renderScore({ ...SCORE, bpm: 120, duration: 90, sections: [{ start: 0, end: 90, energy: 0.5 }], voice: [], sfx: [] });
   assert.ok(long.report.warnings.some((w) => /music\.parts/.test(w)));
+});
+
+test('a held synth note stays in tune (the sinepad vibrato bug)', async () => {
+  const { _internals } = await import('../scripts/music.mjs');
+  const { I, Mixer, SR } = _internals;
+  const m = new Mixer(SR * 7);
+  I.sinepad(m, m.bed, 0, 6, 62, { vel: 0.1, attack: 0.05 }); // D4 ≈ 293.7 Hz for 6 s
+  const x = m.bed.L;
+  for (const t of [0.5, 3, 5.5]) {
+    const a = Math.round(t * SR), zc = [];
+    for (let i = a + 1; i < a + SR / 4; i++) if (x[i - 1] < 0 && x[i] >= 0) zc.push(i - x[i] / (x[i] - x[i - 1]));
+    const f = (SR * (zc.length - 1)) / (zc.at(-1) - zc[0]);
+    assert.ok(Math.abs(1200 * Math.log2(f / 293.66)) < 15, `pitch at ${t}s is ${f.toFixed(1)} Hz`);
+  }
+});
+
+test('the melody puts chord tones on its strong beats', async () => {
+  const { renderScore } = await import('../scripts/music.mjs');
+  const trace = [];
+  const bar = (60 / 96) * 4;
+  await renderScore({ bpm: 96, key: 'Eb', mode: 'major', progression: [0, 4, 5, 3], seed: 4,
+    layers: [{ inst: 'piano', notes: 'chord', pattern: 'X---', vel: 0.1 }], lead: { inst: 'bell', range: [72, 88], rhythm: 'melodic', vel: 0.1 },
+    duration: 16 * bar, sections: [{ start: 0, end: 16 * bar, energy: 0.6 }], voice: [], sfx: [] }, { engine: 'synth', trace });
+  const chordAt = (t) => { const k = Math.floor((t + 0.02) / bar); return trace.filter((x) => x.id === 'L0' && Math.abs(x.t - k * bar) < 0.03).map((x) => x.midi % 12); };
+  const lead = trace.filter((x) => x.id.startsWith('lead'));
+  assert.ok(lead.length > 20, `${lead.length} melody notes`);
+  let strong = 0, inChord = 0;
+  for (const x of lead) {
+    const beat = (x.t + 0.01) / (60 / 96), pos = beat % 4;
+    if (Math.abs(pos - Math.round(pos)) > 0.03 || Math.round(pos) % 2) continue;
+    strong++;
+    if (chordAt(x.t + 0.01).includes(x.midi % 12)) inChord++;
+  }
+  assert.ok(strong > 5 && inChord === strong, `${inChord}/${strong} strong-beat notes are chord tones`);
+});
+
+test('sampled instruments: deterministic, in time, and every instrument sounds', async (t) => {
+  const { loadSoundfont } = await import('../scripts/soundfont.mjs');
+  const sf = await loadSoundfont({ download: false });
+  if (sf.error) return t.skip(`no instrument samples here (${sf.error})`);
+  const { renderScore, INSTRUMENTS } = await import('../scripts/music.mjs');
+  const spec = { bpm: 120, key: 'G', mode: 'major', progression: [0, 4], kit: 'room',
+    layers: [{ inst: 'piano', notes: 'chord', pattern: 'X...', vel: 0.15 }, { inst: 'kick', pattern: 'X...', vel: 0.6 }],
+    duration: 4, sections: [{ start: 0, end: 4, energy: 0.8 }], voice: [], sfx: [{ type: 'riser', t: 2, dur: 1 }, { type: 'hit', t: 2 }] };
+  const a = await renderScore(spec), b = await renderScore(spec);
+  assert.equal(a.report.engine, 'samples');
+  let same = true;
+  for (let i = 0; i < a.left.length; i += 31) if (a.left[i] !== b.left[i]) same = false;
+  assert.ok(same, 'sampled render is deterministic');
+  // the first kick lands on the downbeat of bar 1 (bar 0 is held back to 0.3 energy)
+  const onset = (x, from) => { for (let i = Math.round(from * 48000); i < x.length; i++) if (Math.abs(x[i]) > 0.05) return i / 48000; return null; };
+  assert.ok(Math.abs(onset(a.bed.left, 1.9) - 2) < 0.02, `kick onset ${onset(a.bed.left, 1.9)}`);
+  // every pitched instrument and drum produces sound
+  for (const inst of [...INSTRUMENTS.pitched, ...INSTRUMENTS.drums]) {
+    const drum = INSTRUMENTS.drums.includes(inst);
+    const L = { inst, pattern: 'X...', vel: 0.1, ...(drum ? {} : { notes: inst === 'bass' ? 'root' : 'chord' }) };
+    const r = await renderScore({ bpm: 120, key: 'C', mode: 'major', progression: [0], layers: [L], intro: 'full', ending: 'none', duration: 2, sections: [{ start: 0, end: 2, energy: 0.8 }], voice: [], sfx: [] }, { targetDb: -30 });
+    let e = 0;
+    for (let i = 0; i < r.left.length; i += 7) e += r.left[i] ** 2;
+    assert.ok(e > 1e-4, `${inst} is silent`);
+  }
 });

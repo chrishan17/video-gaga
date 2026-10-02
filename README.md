@@ -11,7 +11,7 @@
 
 - **Canvas, deterministic.** Each frame is `draw(ctx, t)`, a pure function of time. It renders in parallel headless Chromium pages, is encoded with ffmpeg (H.264, BT.709) and comes out frame-exact.
 - **The voice is the clock.** Microsoft Edge neural voices (free, no API key, 300+ voices, strong Chinese) with **word-level timestamps**. Scene lengths come from the speech, and visuals land on the words (`s.when('forty')`, or `fx.wordReveal({ sync: s })` for a headline that appears as it is said).
-- **Music on the same beat.** Every video gets its own score, designed by the agent from the brief (tempo, key, mode, chords, instruments and how they build, within enforced limits; no preset styles) and arranged from the video's timeline. Cuts land on the beat, and every line starts on an eighth note. The bed dips under the voice, and its melody plays only in the pauses. Hits get a breath before them, and the last chord rings out with the final frame. Transitions whoosh and counters tick. All of it is synthesized locally and deterministically: no samples, no licences.
+- **Music on the same beat.** Every video gets its own score, designed by the agent from the brief (tempo, key, mode, chords, instruments and how they build, within enforced limits; no preset styles) and arranged from the video's timeline. Cuts land on the beat, and every line starts on an eighth note. The bed dips under the voice, and its melody plays only in the pauses. Hits get a breath before them, and the last chord rings out with the final frame. Transitions whoosh and counters tick. It is played by real instrument samples (piano, strings, guitars, mallets, bass, brass, eight drum kits) from an MIT-licensed General MIDI SoundFont, rendered offline and deterministically; the 40 MB bank downloads once on first use.
 - **Room to breathe.** Narration is not wall-to-wall: music-only pre-rolls, held beats before the payoff, end cards that ring out (`beats: 6`, `narration: false`).
 - **Real transitions and exits.** 22 transition types (whip, stripes, split, iris, ink, cube, light leak, …), each with its natural sound, plus exit choreography so cuts happen on action. A 3D bridge (`CV.three`) uses three.js for product turns, exploded views and globes, with deterministic WebGL.
 - **Subtitles done properly.** Cues are built from the same word timings. CJK line breaking follows kinsoku rules, and long lines split into balanced chunks. Captions are burned in with the video's own typography (or karaoke-highlighted) and also exported as `.srt`, `.vtt` or a soft track.
@@ -121,9 +121,9 @@ CV.create({
   music: {                                    // a score designed for this video + the beat grid
     bpm: 92, key: 'A', mode: 'minor', progression: [0, 5, 2, 6],
     layers: [
-      { inst: 'pad', pattern: 'X---', vel: 0.1 },
-      { inst: 'bass', synth: true, octave: -1, pattern: 'XxXxXxXx', vel: 0.2, from: 0.3 },
-      { inst: 'kick', pattern: 'X.........x.....', vel: 0.55, from: 0.55 },
+      { inst: 'epiano', notes: [0, 1, 2, 1], pattern: 'X.x.X.x.', vel: 0.12 },
+      { inst: 'bass', kind: 'synth', octave: -1, pattern: 'XxXxXxXx', vel: 0.2, from: 0.3 },
+      { inst: 'kick', pattern: 'X.........x.....', vel: 0.55, from: 0.4 },
     ],
   },
   subtitles: { style: { box: 'rgba(0,0,0,.6)' } },
@@ -151,7 +151,7 @@ Open it in a browser for a live preview player (Space, ←/→, scrubbing, narra
 - [docs/music-and-sound.md](docs/music-and-sound.md) — designing the score (spec, rules, limits), the beat grid, sound effects, pacing and silence
 - [docs/three-d.md](docs/three-d.md) — three.js in a composition: when 3D earns its place, the pattern, the rules
 - [docs/prompt-templates.md](docs/prompt-templates.md) — prompt patterns collected from X/GitHub (with sources) and ready-made templates
-- [docs/tech-selection.md](docs/tech-selection.md) — why Canvas + Playwright + ffmpeg + Edge TTS + a seeded synth + three.js (vs Remotion, HyperFrames, Motion Canvas, WebCodecs…)
+- [docs/tech-selection.md](docs/tech-selection.md) — why Canvas + Playwright + ffmpeg + Edge TTS + a sampled score + three.js (vs Remotion, HyperFrames, Motion Canvas, WebCodecs…)
 
 ## Credits
 
