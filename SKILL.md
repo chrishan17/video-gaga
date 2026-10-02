@@ -89,7 +89,7 @@ Ask **all questions in one round**. If a native structured-question UI exists, u
 
 | Dimension | Option A | Option B | Option C | Recommend when… |
 |---|---|---|---|---|
-| Length | 15 s | 30 s | 60 s | the shortest that fits the message (social 10–20 s, launch 15–30 s, explainer 30–90 s) |
+| Length | 15 s | 30 s | 60 s | the shortest that fits the message (social 10–20 s, launch 15–30 s, explainer 30–90 s). A personal story, talk, tutorial or lesson may need 2–5 min: offer e.g. 90 s · 3 min · 5 min, and plan it as chapters (Phase 3, *Long videos*) |
 | Format | 16:9 1920×1080 (YouTube, web, slides) | 9:16 1080×1920 (Reels, TikTok, Shorts, 视频号) | 1:1 1080×1080 (feeds, LinkedIn) | where it will be posted |
 | Vibe / tone | calm & premium | clear & friendly | bold & energetic | infer from the audience and stakes |
 | Pace | calm (a beat every ~2.5 s) | medium (~1.5 s) | punchy (~0.8 s, hits on beats) | social → punchy, explainer → medium, luxury → calm |
@@ -145,6 +145,13 @@ Under the table, one line for the **score design**: feel in three words · BPM �
 - **Plan the silence.** Include at least one music-only moment (pre-roll, a `beats: 4–8` breath before the payoff, or the end card). Aim for speech on roughly 65–80% of the runtime in explainers and 40–60% in teasers.
 - Give each scene an `energy` (0..1) so the score builds and resolves with the story, and choose sfx with restraint (one per transition, ticks for counted items, at most one `hit`).
 - Estimate duration at ≈ 4.3 CJK characters/s or ≈ 2.5 English words/s, plus pauses, **plus ~1 s per voiced scene** (voice delay, the last syllable's decay and the tail; with music, snapping to the beat adds up to half a beat more), plus the music-only moments. A sequence of short clips (accents, languages, a dialogue) costs about 1 s per clip, however few the words. If it is too long, **cut words**, then scenes.
+- **Long videos (over ~90 s)** are built as chapters, because attention and music both wear out on one flat run:
+  - Split the story into **3–6 chapters** with a clear arc (setup, low point, turn, payoff, invitation). Add a *chapter* column to the storyboard.
+  - **Show where the viewer is**: a small persistent chapter marker (a tag in a corner drawn by `overlay`, from a custom `chapter` field on each scene) or a short title card at each chapter start. Bring back one visual motif from the opening at the end (a callback) so the piece closes a loop.
+  - **Give the score chapters too**: one `music.parts` entry per chapter (its own progression, maybe a key or mode, a new melody seed) and `part` on each chapter's first scene ([docs/music-and-sound.md](docs/music-and-sound.md) §2.5). Shape `energy` per chapter, not per scene only: a dip for the low point, the peak in the second half.
+  - **Breathe at the seams**: a 4–8 beat music-only scene between chapters, and a recap beat before the ending. Keep speech to ~70–75% of the runtime.
+  - Still one sentence per scene: change the picture every 5–8 s. A 3 min story is ~25 scenes.
+  - Budget: per voiced scene ~1.2 s on top of the speech, plus the music-only beats, plus up to one bar per chapter (parts start on a bar line). Measured: 128 s of speech + 26 scenes → 182 s.
 - Captions carry the narrator. When a narrator line is already on screen as type (a title question, a tagline), or the picture already shows what is said, give that scene `captions: 'file'`. It stays in the .srt/.vtt but isn't burned in twice.
 - For data, show the numbers and how they were computed.
 - Confirm with one 3-option question: *Looks good, build it (Recommended)* · *Change the script* · *Change the visuals*.
@@ -167,8 +174,8 @@ Under the table, one line for the **score design**: feel in three words · BPM �
    - Scale with `s.u` if the ratio differs from the preset's.
    - Key symbols (⌘ ⌥ ⇧ ⌃) are missing from most display fonts and fall back silently: draw them as paths or use a font that has them.
 6. **TTS + music:** `cv tts <project>`, then `cv music <project>`, which prints the key, BPM, energy per bar, every cut time and every sfx (the preview player then plays the score). Check `build/voice/<id>.json` to see how the words were tokenised.
-7. **Probe:** `cv still <project> --sheet --subs`, which renders 3 probes per scene (entering, middle, settled). **Open the contact sheet and review it** against the checklist in [docs/motion-design.md](docs/motion-design.md) §14. Fix, then re-probe. Use `--at 1.2,3.4` to inspect exact moments, such as a hit or the middle of a transition. With more than ~6 scenes the sheet gets small, so open the individual stills at the hits.
-8. For long pieces, render a draft first: `render --scale 0.5 --format jpeg`.
+7. **Probe:** `cv still <project> --sheet --subs`, which renders 3 probes per scene (entering, middle, settled). **Open the contact sheet and review it** against the checklist in [docs/motion-design.md](docs/motion-design.md) §14. Fix, then re-probe. Use `--at 1.2,3.4` to inspect exact moments, such as a hit or the middle of a transition. With more than 6 scenes the sheet is split into pages (`contact-sheet-1.png`, `-2` …, six scenes each; `--rows` changes it): open every page. After a fix, re-probe only what changed with `--scenes day1,moods` or a range `--scenes rule..wonky`.
+8. For long pieces, render a draft first: `render --scale 0.5 --format jpeg`, and check one chapter at full size with `--from/--to`. A full 1080p render takes about 2× the video's length on 4 cores (3 min → ~6 min) and the progress line shows the time left; plan for it rather than re-rendering after every small fix.
 
 ---
 

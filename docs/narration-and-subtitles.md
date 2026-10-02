@@ -130,6 +130,8 @@ Why canvas burn-in instead of ffmpeg's `subtitles` filter: it needs a libass bui
 |---|---|
 | `403` / handshake errors | Update edge-tts (`uv` always fetches the latest; with pip, `pip install -U edge-tts`). Check that the system clock is correct (the DRM token is time-based). |
 | No network | Scenes still preview with *estimated* timing (`say:` text or estimates). The render warns `estimated speech timing`. Run TTS when you're back online. |
+| `CERTIFICATE_VERIFY_FAILED` / self-signed certificate | A TLS-inspecting proxy (company network, sandbox). edge-tts only trusts its own bundle; `scripts/tts.py` uses `SSL_CERT_FILE` (or `REQUESTS_CA_BUNDLE`) when set, so point that at the proxy's CA bundle. |
+| `403` on CONNECT through a proxy | The network policy blocks `speech.platform.bing.com`. Allow that host; in hosted sandboxes a changed policy may only apply to new sessions. |
 | `Failed to initialize cache at ~/.cache/uv` | A sandbox is blocking uv's home cache. `UV_CACHE_DIR=build/.uv-cache` clears that error, but uv still has to reach PyPI and the TTS service needs the network. Usually it's simpler to run `tts` / `voices` with permission. |
 | Voice sounds rushed | Lower `rate`, or cut words. Don't cram. |
 | Caption breaks mid-name | Put a space around the Latin term, or reduce `minChars`. |

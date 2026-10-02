@@ -44,7 +44,7 @@ Open the file in a browser to get a **preview player**: Space plays or pauses, �
 | `tail` | `0.55` | Seconds held after the voice ends. |
 | `subtitles` | — | `{ burn, maxChars, minChars, punctuation: 'strip'\|'keep', style: {...} }` |
 | `overlay(ctx, g)` | — | Drawn on top of every frame (chrome, grain, progress bar). `g = {T, frame, W, H, u, duration, p, scenes}` |
-| `music` | — | The soundtrack and the **beat grid**: `{ bpm, beatsPerBar: 4, offset: 0, snap: 'beat', voiceOnBeat: true, volume: 1, duck: -12, sfx: true, ending: 'resolve' }` plus the score designed for this video: `key, mode, progression, sevenths, chordBars, layers, lead, seed, fills` (see [music-and-sound.md](music-and-sound.md) §2; there are no preset styles, and `style` is an error). `layers: []` keeps only sound effects; `file: 'bed.mp3'` (or the old `music: 'bed.mp3'` string) uses a licensed track instead. |
+| `music` | — | The soundtrack and the **beat grid**: `{ bpm, beatsPerBar: 4, offset: 0, snap: 'beat', voiceOnBeat: true, volume: 1, duck: -12, sfx: true, ending: 'resolve' }` plus the score designed for this video: `key, mode, progression, sevenths, chordBars, layers, lead, seed, fills, parts` (see [music-and-sound.md](music-and-sound.md) §2; there are no preset styles, and `style` is an error). `layers: []` keeps only sound effects; `file: 'bed.mp3'` (or the old `music: 'bed.mp3'` string) uses a licensed track instead. |
 | `setup(api)` | — | Async hook awaited before the warm-up pass (load data, build three.js scenes, pre-render textures). Declared `fonts` are already loaded. |
 | `pixelRatio` | 1 | Supersampling factor (`--scale` on the CLI overrides it). |
 
@@ -61,6 +61,7 @@ Open the file in a browser to get a **preview player**: Space plays or pauses, �
   voiceDelay: 0.3, tail: 1.2,  // per-scene overrides
   beats: 6, bars: 1,           // music-only length on the beat grid (needs music.bpm)
   energy: 0.6,                 // 0..1: how full the score is under this scene
+  part: 'bridge',              // music.parts: this scene starts a chapter of the score (holds until the next part; the cut lands on a bar)
   snap: false | 'bar',         // per-scene override of music.snap for the cut into it
   voiceOnBeat: false,          // opt out of starting the voice on an eighth note
   sfx: [{ at: 1.2 | 'spoken words' | (s) => s.onBeat(2), type: 'tick', gain: 1, dur }],
