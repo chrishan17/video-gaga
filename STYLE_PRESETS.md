@@ -1,6 +1,6 @@
 # Style presets
 
-Ten motion-design systems, each shipped as a working composition in `presets/<slug>/video.html` (with `narration.json` where voiced). A preset is a **visual style**: its palette and type (`THEME`), its reusable motion and drawing helpers (`KIT` sections), its transition vocabulary, caption style and pacing. Its example video (the `EXAMPLE` sections, the scenes, the narration and the score) only shows that grammar at work: `cv init` copies the style and leaves the example out, and each new video gets its own script, structure and score. **Read this index first. Read a preset's full `video.html` only after the user has picked it**, then treat that file as the design recipe: its palette, type, motion grammar, transitions and score. For a Phase 2 preview, read only its `THEME` object and first scene.
+Eleven motion-design systems, each shipped as a working composition in `presets/<slug>/video.html` (with `narration.json` where voiced). A preset is a **visual style**: its palette and type (`THEME`), its reusable motion and drawing helpers (`KIT` sections), its transition vocabulary, caption style and pacing. Its example video (the `EXAMPLE` sections, the scenes, the narration and the score) only shows that grammar at work: `cv init` copies the style and leaves the example out, and each new video gets its own script, structure and score. **Read this index first. Read a preset's full `video.html` only after the user has picked it**, then treat that file as the design recipe: its palette, type, motion grammar, transitions and score. For a Phase 2 preview, read only its `THEME` object and first scene.
 
 Every preset exposes a `THEME` / `T` object at the top (colours and fonts) so it can be re-branded without touching the motion code. Two presets use three.js for 3D (see [docs/three-d.md](docs/three-d.md)).
 
@@ -14,6 +14,7 @@ Every preset exposes a `THEME` / `T` object at the top (colours and fonts) so it
 | Excited · hype · social | Pop Collage, Neon Circuit, Swiss Kinetic |
 | Warm · friendly · human | Paper Sketch, Pop Collage, Clear Explainer |
 | Bold · design-led · editorial | Swiss Kinetic, Editorial, Launch Keynote |
+| Playful · nostalgic · gamified | Pixel Retro, Pop Collage |
 
 | Preset | Format | Voice | Example's score | 3D |
 |---|---|---|---|---|
@@ -27,6 +28,7 @@ Every preset exposes a `THEME` / `T` object at the top (colours and fonts) so it
 | Swiss Kinetic | 1:1 | none | `kinetic` 104 | — |
 | Neon Circuit | 9:16 | ZH | `synthwave` 112 | — |
 | Pop Collage | 9:16 | ZH | `pop` 116 | — |
+| Pixel Retro | 16:9 | ZH | `chiptune` 126 | — |
 
 ---
 
@@ -193,6 +195,24 @@ Every preset exposes a `THEME` / `T` object at the top (colours and fonts) so it
 - **Example's score:** `pop` 116 BPM, C major: high energy, a dip on the last tip, one `hit` on the recap; pops and ticks on sticker landings, shimmer on the payoff
 - **Captions:** big (62 px), cream with an ink stroke, **karaoke highlight** in yellow, baseline at 80% height
 - **Pacing:** fast. A sticker lands on nearly every beat; `tail: 0.25` keeps ~0.5 s of air after each line.
+
+## 11. Pixel Retro — `pixel-retro`
+
+<img src="docs/media/pixel-retro.jpg" width="480" alt="Pixel Retro">
+
+- **Vibe:** an 8-bit console game, played straight. Cheerful, nostalgic, a little heroic; every frame could be a screenshot.
+- **Best for:** year-in-review and milestone videos, gaming and indie-dev content, gamified onboarding ("level up", quests, achievements), kids and community promos, playful product changelogs.
+- **Avoid for:** luxury, finance and healthcare, serious or sensitive topics, dense data, anything that needs fine detail or photographic realism.
+- **Format:** 16:9 (also 9:16 and 1:1) · 20–35 s · narration (ZH: YunxiaNeural +4% for the cartoon voice, or YunxiNeural; EN: GuyNeural) with dialogue-box captions, or music only
+- **Palette:** 12 colours and nothing else: `#16122B` night · `#2C2554` shade · `#4B3F86` dusk · `#8C85BD` dim · `#FFF3D6` ink · `#5FA8E8` sky · `#57C98A` mint · `#2E8A5C` leaf · gold `#FFC93C` = rewards and the point · coral `#F25F5C` = danger and the hero · `#A3473A` rust · `#E8B07A` sand
+- **Type:** Press Start 2P (Latin, numerals, HUD) on its 8 px grid · Noto Sans SC 700 thresholded to 1-bit for Chinese (12 grid px minimum, 16 for titles)
+- **The device:** `pixelFrame` paints each scene on a low-resolution buffer (one cell = 5 design px, 384×216 at 1080p), snaps every pixel to the palette (optionally with a 4×4 ordered dither, so gradients become dithered bands) and scales it up with nearest-neighbour sampling. Circles, gradients and rotated shapes drawn with the normal canvas API come out as pixel art. A faint LCD cell grid sits on top.
+- **Motion signature:** everything moves in whole cells and quantised steps (`steps`, `jump`), never eased glides · sprites from character art, animated on eighth notes (`sprite`, `cycle`) · RPG windows that open in four steps (`win`) · a dialogue box that types its line and blinks a ▼ on the beat (`dialogue`) · segmented meters for HP, EXP and loading (`meter`) · a jolt of a few whole-cell frames on impact (`jolt`) · blocks and letters dropping in on sixteenths · a parallax side-scroll with layers at whole-cell speeds
+- **Transitions:** `tileWipe` (a staircase of tiles closes along the diagonal and opens on the next screen, with a swish) · the runtime's `pixelate` into a battle or a new level · hard cuts on the beat for payoffs
+- **Example's score:** `chiptune` 126 BPM, D major: square-wave chords (`lead` with `saw: 0`), a hopping octave bass, a 16th square arp from energy 0.6, noise-kit drums, a square lead in the gaps · ticks as blocks land, pops on ? blocks (on the spoken numbers), clicks on hits (on 一刀 · 两刀 · 三刀), the one `hit` on the KO, shimmer on LEVEL UP, a chime when the cursor picks
+- **Captions:** Noto Sans SC 700, 46 px, ink on a square night box (no radius), low at 0.9 H, like a game's text box
+- **Pacing:** brisk and on the grid. Something reacts on every beat or half beat, text holds until it can be read at typing speed, and one music-only payoff gets a full bar.
+- **Render tip:** keep the grid size (`T.px`) a divisor of both sides; at 9:16 the grid is 216×384. GIF exports want few colours (16) and no dithering of their own.
 
 ---
 
