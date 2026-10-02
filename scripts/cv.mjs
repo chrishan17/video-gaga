@@ -3,6 +3,7 @@
 //
 //   node scripts/cv.mjs render <project|video.html> [options]
 //   node scripts/cv.mjs still  <project> [--at 1,2.5] [--sheet]
+//   node scripts/cv.mjs moodboard <preview> <preview> … [--wait]
 //   node scripts/cv.mjs tts    <project>
 //   node scripts/cv.mjs music  <project>
 //   node scripts/cv.mjs check  <video.mp4> [--srt file.srt]
@@ -616,6 +617,139 @@ async function init(opts) {
   log(`  render:   node ${path.relative(process.cwd(), path.join(ROOT, 'scripts', 'cv.mjs'))} render ${path.relative(process.cwd(), dir) || '.'}`);
 }
 
+// ---------------------------------------------------------------------------
+// moodboard — the style directions side by side on one page, for the user to pick
+// ---------------------------------------------------------------------------
+async function moodboard(opts) {
+  const dirs = opts._.slice(1).map((p) => resolveProject(p));
+  if (dirs.length < 2) die('give two or more preview projects: cv moodboard .cv-previews/style-a .cv-previews/style-b .cv-previews/style-c');
+  if (!has('ffmpeg')) die('ffmpeg not found (macOS: brew install ffmpeg)');
+  const { themeFromHtml, describeScore, buildMoodboardPage } = await import('./moodboard.mjs');
+  const out = path.resolve(opts.out || path.join(path.dirname(dirs[0].dir), 'moodboard.html'));
+  const outDir = path.dirname(out);
+  fs.mkdirSync(outDir, { recursive: true });
+  const clipMax = Number(opts.clip ?? 6);
+  const rel = (f) => path.relative(outDir, f).split(path.sep).join('/');
+  const directions = [], fontLinks = [];
+  let lang = opts.lang ? String(opts.lang) : null;
+  const browser = await launch();
+  for (const [i, { dir, html }] of dirs.entries()) {
+    const letter = String.fromCharCode(65 + i);
+    const metaFile = path.join(dir, 'moodboard.json');
+    const meta = fs.existsSync(metaFile) ? JSON.parse(fs.readFileSync(metaFile, 'utf8')) : {};
+    const theme = themeFromHtml(fs.readFileSync(html, 'utf8'));
+    fontLinks.push(...theme.fontLinks);
+    const mb = path.join(dir, 'build', 'moodboard');
+    fs.rmSync(mb, { recursive: true, force: true });
+    fs.mkdirSync(mb, { recursive: true });
+
+    // three frames (entering, middle, settled) from the preview, at half size
+    const { page, info, errors } = await openComposition(browser, html, { render: '1', scale: '0.5', subs: '0' });
+    if (errors.length) log(`  ⚠ ${letter} page errors:\n    ${errors.join('\n    ')}`);
+    if (info.missingFonts?.length) log(`  ⚠ ${letter} fonts not loaded: ${info.missingFonts.join(', ')}`);
+    lang ??= info.lang;
+    const len = Math.min(info.duration, clipMax);
+    const frames = [];
+    for (const [k, t] of [len * 0.2, len * 0.5, Math.max(0, len - 0.1)].entries()) {
+      const f = Math.min(info.totalFrames - 1, Math.round(t * info.fps));
+      const url = await page.evaluate(async (f) => { await window.__CV.renderFrame(f); return window.__CV.capture('image/jpeg', 0.88); }, f);
+      const file = path.join(mb, `frame-${k + 1}.jpg`);
+      fs.writeFileSync(file, Buffer.from(url.split(',')[1], 'base64'));
+      frames.push(file);
+    }
+    await page.close();
+
+    // a looping motion sample (with the draft score, if this direction has one)
+    let clip = null;
+    if (!opts.noClip) {
+      const scale = [0.5, 0.4, 0.25].find((s) => Math.round(info.width * s) % 2 === 0 && Math.round(info.height * s) % 2 === 0) || 1;
+      const file = path.join(mb, 'clip.mp4');
+      log(`▸ ${letter}: motion sample (${len.toFixed(1)}s)`);
+      const r = spawnSync(process.execPath, [fileURLToPath(import.meta.url), 'render', dir, '--out', file, '--to', len.toFixed(2), '--scale', String(scale), '--subs', 'none', '--no-tts', '--format', 'jpeg', '--crf', '23'], { encoding: 'utf8' });
+      if (fs.existsSync(file)) clip = file;
+      else log(`  ⚠ ${letter}: no motion sample (render failed):\n${(r.stderr || r.stdout || '').trim().split('\n').slice(-4).join('\n')}`);
+    }
+    const hasSound = !!(clip && ffprobe(clip).streams.some((s) => s.codec_type === 'audio'));
+
+    const palette = (meta.palette || theme.colors).slice(0, 8).map((c) => (typeof c === 'string' ? { hex: c } : { hex: c.hex, name: c.name ?? c.note ?? '' }));
+    const type = (meta.type || theme.fonts.map((f) => ({ family: f.family, stack: f.stack, role: f.name }))).slice(0, 4);
+    directions.push({
+      id: path.basename(dir), letter, name: meta.name || path.basename(dir), pitch: meta.pitch, recommended: !!meta.recommended,
+      keywords: meta.keywords, ratio: [info.width, info.height],
+      clip: clip && rel(clip), poster: rel(frames[2]), frames: frames.map(rel), hasSound,
+      palette, type: type.map((t) => ({ ...t, sample: t.sample ?? meta.title ?? opts.title })),
+      motion: meta.motion, music: meta.music || describeScore(info.score),
+    });
+    log(`  ${letter}  ${directions.at(-1).name}${meta.recommended ? '  (recommended)' : ''}${fs.existsSync(metaFile) ? '' : '  · no moodboard.json: name, pitch, motion and music are missing'}`);
+  }
+  await browser.close();
+  if (directions.filter((d) => d.recommended).length !== 1) log('  ⚠ mark exactly one direction "recommended": true in its moodboard.json');
+  const title = opts.title ? String(opts.title) : '';
+  // the page speaks the user's language: their title and the directions' names, else the composition's
+  if (!opts.lang && !/^(ja|ko)/.test(lang || '') && /[\u3400-\u9fff]/.test([title, ...directions.flatMap((d) => [d.name, d.pitch])].join(''))) lang = 'zh';
+  fs.writeFileSync(out, buildMoodboardPage({ title, lang: lang || 'en', directions, fontLinks }));
+  log(`✔ moodboard → ${path.relative(process.cwd(), out)}  (${directions.length} directions)`);
+  if (opts.wait) return waitForPick(out, dirs.map((d) => d.dir), opts);
+  if (opts.open) openInBrowser(pathToFileURL(out).href);
+}
+
+function openInBrowser(url) {
+  const [cmd, args] = process.platform === 'darwin' ? ['open', [url]] : process.platform === 'win32' ? ['cmd', ['/c', 'start', '', url]] : ['xdg-open', [url]];
+  try { spawn(cmd, args, { stdio: 'ignore', detached: true }).on('error', () => {}).unref(); } catch {}
+}
+
+// Serve the page on localhost and wait for the user's click; prints the pick.
+async function waitForPick(out, dirs, opts) {
+  const http = await import('node:http');
+  const root = [path.dirname(out), ...dirs].reduce((a, b) => { while (!(b + path.sep).startsWith(a + path.sep) && a !== path.dirname(a)) a = path.dirname(a); return a; });
+  const types = { '.html': 'text/html; charset=utf-8', '.mp4': 'video/mp4', '.jpg': 'image/jpeg', '.png': 'image/png' };
+  const page = '/' + path.relative(root, out).split(path.sep).map(encodeURIComponent).join('/');
+  const pickPath = page.replace(/[^/]*$/, 'pick');
+  const pickFile = path.join(path.dirname(out), 'pick.json');
+  const pick = await new Promise((resolve) => {
+    const server = http.createServer((req, res) => {
+      const url = new URL(req.url, 'http://x');
+      if (req.method === 'POST' && url.pathname === pickPath) {
+        let body = '';
+        req.on('data', (c) => { body += c; if (body.length > 1e5) req.destroy(); });
+        req.on('end', () => {
+          let p;
+          try { p = JSON.parse(body); } catch { res.writeHead(400).end(); return; }
+          res.writeHead(200, { 'content-type': 'application/json' }).end('{"ok":true}');
+          server.close();
+          resolve(p);
+        });
+        return;
+      }
+      const file = path.join(root, decodeURIComponent(url.pathname));
+      if (!file.startsWith(root + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) { res.writeHead(404).end(); return; }
+      const size = fs.statSync(file).size, type = types[path.extname(file).toLowerCase()] || 'application/octet-stream';
+      const range = req.headers.range?.match(/bytes=(\d*)-(\d*)/);
+      if (range) { // video seeking
+        const a = range[1] ? Number(range[1]) : Math.max(0, size - Number(range[2]));
+        const b = range[1] && range[2] ? Math.min(size - 1, Number(range[2])) : size - 1;
+        res.writeHead(206, { 'content-type': type, 'content-range': `bytes ${a}-${b}/${size}`, 'accept-ranges': 'bytes', 'content-length': b - a + 1 });
+        fs.createReadStream(file, { start: a, end: b }).pipe(res);
+      } else {
+        res.writeHead(200, { 'content-type': type, 'content-length': size, 'accept-ranges': 'bytes' });
+        fs.createReadStream(file).pipe(res);
+      }
+    });
+    server.listen(Number(opts.port || 0), '127.0.0.1', () => {
+      const url = `http://127.0.0.1:${server.address().port}${page}`;
+      log(`▸ waiting for a pick at ${url}`);
+      if (!opts.noOpen) openInBrowser(url);
+    });
+    const secs = Number(opts.timeout ?? 600);
+    if (secs > 0) setTimeout(() => { server.close(); resolve(null); }, secs * 1000).unref();
+  });
+  if (!pick) { log('✖ no pick before the timeout: ask the user in the chat which direction they want'); process.exitCode = 3; return; }
+  const dir = dirs.find((d) => path.basename(d) === pick.id);
+  fs.writeFileSync(pickFile, JSON.stringify({ ...pick, dir }, null, 1));
+  log(`✔ picked ${pick.letter}: ${pick.name}  (${dir ? path.relative(process.cwd(), dir) : pick.id})`);
+  if (pick.note) log(`  note: ${pick.note}`);
+}
+
 // music — render the score on its own (for previewing in the player, or listening)
 async function musicCmd(opts) {
   const { dir, html } = resolveProject(opts._[1]);
@@ -696,6 +830,13 @@ render <project|video.html>   render to MP4 (runs Edge TTS first if narration.js
     --keep-temp
 still <project>               export PNG probes (3 per scene) for review
     --at 1.2,3.4  --scenes a,b | a..c  --sheet [--rows 6]  --subs  --scale 0.5  --tts
+moodboard <preview> <preview> …   the style directions side by side on one HTML page (motion
+                              sample, frames, palette, type, music direction) for the user to pick
+    --out <file.html>         default moodboard.html next to the previews
+    --title "…"               type specimen text (the user's title)   --clip 6 (seconds)   --no-clip
+    --open                    open it in the browser
+    --wait                    serve it on localhost, open it, and wait for the click (prints the pick,
+                              writes pick.json)  [--timeout 600 --port 0 --no-open]
 tts <project>                 synthesize narration.json with Edge TTS (cached)
 music <project>               render the generated score to build/music.wav (the preview player plays it)
 check <video.mp4> [--srt f]   ffprobe summary + A/V + subtitle sanity checks
@@ -726,6 +867,6 @@ function checkCmd(o) {
   process.exitCode = issues.length ? 2 : 0;
 }
 
-const main = { doctor, render, still, music: musicCmd, tts: (o) => tts(resolveProject(o._[1]).dir), check: checkCmd, gif, init, voices }[cmd];
+const main = { doctor, render, still, moodboard, music: musicCmd, tts: (o) => tts(resolveProject(o._[1]).dir), check: checkCmd, gif, init, voices }[cmd];
 if (!main) { log(HELP); process.exit(cmd && cmd !== 'help' ? 1 : 0); }
 Promise.resolve(main(opts)).catch((e) => die(e.stack || e.message));

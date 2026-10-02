@@ -46,7 +46,8 @@ The presets show 15–30 s pieces. [`examples/hundred-days`](examples/hundred-da
  you: "make a 30-second video explaining compound interest"
    │
    ├─ 1. Questions ── 4–7 × three options (one recommended, with the reason)
-   ├─ 2. Style frames ─ 3 directions rendered with your real title → you pick
+   ├─ 2. Style frames ─ 3 directions rendered with your real title, side by side on one
+   │                    moodboard page (motion, palette, type, music direction) → you pick
    ├─ 3. Storyboard ── scene / voice line (or music only) / focal point / sync word /
    │                    exit / transition / music energy · sfx
    ├─ 4. Build ─────── video.html (Canvas or three.js scenes) + narration.json
@@ -97,6 +98,7 @@ node scripts/cv.mjs init my-video --preset clear-explainer [--ratio 9:16]
 node scripts/cv.mjs tts my-video                   # Edge TTS → build/narration.js (cached)
 node scripts/cv.mjs music my-video                 # the generated score → build/music.wav (the preview plays it)
 node scripts/cv.mjs still my-video --sheet --subs  # probe frames + contact sheet for review
+node scripts/cv.mjs moodboard .cv-previews/style-a .cv-previews/style-b .cv-previews/style-c --wait  # pick a style on one page
 node scripts/cv.mjs render my-video --subs burn    # → my-video/out/my-video.mp4 (+ .srt/.vtt)
 node scripts/cv.mjs check my-video/out/my-video.mp4 --srt my-video/out/my-video.srt
 node scripts/cv.mjs gif my-video/out/my-video.mp4 --width 480
