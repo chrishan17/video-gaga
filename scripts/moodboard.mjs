@@ -29,8 +29,12 @@ export function themeFromHtml(src) {
     const h = l.match(HEADER);
     if (h) { inTheme = /^THEME\b/.test(h[1]); continue; }
     if (!inTheme) continue;
-    const c = l.match(/^\s*([\w$]+)\s*:\s*['"](#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?)['"]\s*,?\s*(?:\/\/\s*(.*))?$/);
-    if (c && !colors.some((x) => x.hex.toLowerCase() === c[2].toLowerCase())) colors.push({ name: c[1], hex: c[2].toUpperCase(), note: (c[3] || '').trim() });
+    // one colour per line (`bg: '#000', // note`) or several packed on one line (`night: '#16122B', shade: '#2C2554',`)
+    const note = (l.match(/\/\/\s*(.*)$/)?.[1] || '').trim();
+    const cs = [...l.replace(/\/\/.*$/, '').matchAll(/(?:^|[{,])\s*([\w$]+)\s*:\s*['"](#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?)['"]\s*(?=,|}|$)/g)];
+    for (const c of cs) {
+      if (!colors.some((x) => x.hex.toLowerCase() === c[2].toLowerCase())) colors.push({ name: c[1], hex: c[2].toUpperCase(), note: cs.length === 1 ? note : '' });
+    }
     const f = l.match(/^\s*([\w$]+)\s*:\s*'("([^"]+)"[^']*)'\s*,?\s*(?:\/\/\s*(.*))?$/);
     if (f && !fonts.some((x) => x.family === f[3])) fonts.push({ name: f[1], family: f[3], stack: f[2], note: (f[4] || '').trim() });
   }
