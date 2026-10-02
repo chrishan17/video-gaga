@@ -36,7 +36,7 @@
 | <img src="docs/media/swiss-kinetic.gif" width="260"> | **Swiss Kinetic 极简排版** · 1:1 · 15 秒 · 纯音乐 · `kinetic` 配乐 · 运动模糊。12 栏网格、只用一种红色，每个动作都踩在 104 BPM 的拍子上，12 条百叶窗转场，红方块通过匹配剪辑变成句号。[▶ 视频](docs/media/swiss-kinetic.mp4) · [源码](presets/swiss-kinetic/video.html) |
 | <img src="docs/media/neon-circuit.gif" width="180"> | **Neon Circuit 赛博霓虹** · 9:16 竖屏 · 18 秒 · 中文旁白（云健）· `synthwave` 配乐。夜城与 HUD，RGB 分离只在命中点触发，终端光标随拍闪烁，一个纯音乐的"倒计时就绪"节拍，故障转场配故障音。[▶ 视频](docs/media/neon-circuit.mp4) · [源码](presets/neon-circuit/video.html) |
 | <img src="docs/media/pop-collage.gif" width="180"> | **Pop Collage 波普拼贴** · 9:16 竖屏 · 20 秒 · 中文旁白（晓伊）· `pop` 配乐。剪纸贴纸踩着拍子弹入，品牌色带转场，卡拉 OK 字幕，纯音乐回顾里三条要点一拍一条落下。[▶ 视频](docs/media/pop-collage.mp4) · [源码](presets/pop-collage/video.html) |
-| <img src="docs/media/ink-wash.gif" width="360"> | **Ink Wash 水墨** · 16:9 · 37 秒 · 纯音乐 · 拨弦配乐。墨滴在宣纸上晕开，三重山只画在左边三分之一，书法竖排逐字渗入纸面，云雾漫过把字收走，最后一方朱印踩在拍子上落下。[▶ 视频](docs/media/ink-wash.mp4) · [源码](presets/ink-wash/video.html) |
+| <img src="docs/media/ink-wash.gif" width="360"> | **Ink Wash 水墨** · 16:9 · 36 秒 · 中文旁白（晓晓）· 拨弦配乐。墨滴在宣纸上晕开，三重山只画在左边三分之一，书法竖排随旁白逐字渗入纸面，一段纯音乐里云雾漫过把字收走，最后一方朱印踩在拍子上落下。[▶ 视频](docs/media/ink-wash.mp4) · [源码](presets/ink-wash/video.html) |
 
 选风格时，Agent 每次都会额外给一个"野卡"方案：专门为你的需求设计一套新风格，并用你的真实标题出样帧。预设只决定视觉风格和动效语法（配色、字体、动效函数、转场、字幕样式）；文案、场景结构、具体动画和配乐都按每支视频的需求重新设计，`cv init` 也只复制风格，不复制示例内容。详见 [STYLE_PRESETS.md](STYLE_PRESETS.md)。
 

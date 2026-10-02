@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@500;700&display=block" rel="stylesheet">
 </head>
 <body>
+<script src="build/narration.js"></script>
 <script src="../../runtime/video-gaga.js"></script>
 <script>
 /* =============================================================================
@@ -424,9 +425,10 @@ CV.create({
   },
   transition: unroll,
   scenes: [
-    // --- 1. A drop of ink blooms; the title soaks in beside it -------------------
+    // --- 1. A drop of ink blooms; the title soaks in as it is spoken ------------
+    // every spoken word is also on the paper, so captions go to the .srt only
     {
-      id: 'title', beats: 9, energy: 0.2,
+      id: 'title', captions: 'file', voiceDelay: 4 * 60 / 76, tail: 1.4, energy: 0.2,
       draw(ctx, s) {
         const { W, H, t } = s;
         xuan(ctx, W, H);
@@ -434,13 +436,13 @@ CV.create({
         bloom(ctx, 760, 600, 360, (t - b(1)) / 3.2, { tone: 0.16, seed: 4, rough: 0.24, rim: 0.6 });
         bloom(ctx, 620, 470, 200, (t - b(0)) / 2.4, { tone: 0.82, seed: 2, rough: 0.2, rim: 0.45 });
         brush(ctx, curve([[300, 800], [560, 770], [860, 790], [1080, 752]]), ease.inOutSine(clamp((t - b(2.5)) / 0.9)), { width: 46, tone: 0.86, seed: 5, dry: 0.6, press: 0.08, lift: 0.4 });
-        inkText(ctx, '留白', 1380, 250, t - b(4), { size: 230, stagger: s.beatLen, dur: 1.1 });
-        inkText(ctx, '最难画的，是不画的地方', 1580, 270, t - b(6), { size: 38, font: T.serif, tone: 0.62, stagger: 0.06, dur: 0.6, gap: 1.18, bleed: 0 });
+        inkText(ctx, '留白', 1380, 250, t - s.when('留白', b(4)), { size: 230, stagger: s.beatLen, dur: 1.1 });
+        inkText(ctx, '最难画的，是不画的地方', 1580, 270, t - s.when('最难', b(6)), { size: 38, font: T.serif, tone: 0.62, stagger: 0.06, dur: 0.6, gap: 1.18, bleed: 0 });
       },
     },
     // --- 2. Three ridges, only in the left third ---------------------------------
     {
-      id: 'mountain', beats: 10, energy: 0.35,
+      id: 'mountain', captions: 'file', voiceDelay: 5 * 60 / 76, tail: 1.4, energy: 0.35, // the ridges first, then the words
       draw(ctx, s) {
         const { W, H, t } = s;
         xuan(ctx, W, H);
@@ -448,26 +450,28 @@ CV.create({
         landscape(ctx, s, [b(1), b(2), b(3)]);
         mist(ctx, drift(s, 22, -60), 880, 900, 160, { seed: 7, alpha: 0.85 * s.at(b(2), 2.5) });
         const q = s.out(0.9, ease.inOutSine, 0);
-        inkText(ctx, '一座山', 1640, 230, t - b(5), { size: 120, stagger: 0.3, exit: q });
-        inkText(ctx, '只画三分', 1470, 230, t - b(6.5), { size: 120, stagger: 0.3, exit: q });
+        inkText(ctx, '一座山', 1640, 230, t - s.when('一座山', b(5)), { size: 120, stagger: 0.3, exit: q });
+        inkText(ctx, '只画三分', 1470, 230, t - s.when('只画', b(6.5)), { size: 120, stagger: 0.3, exit: q });
       },
     },
     // --- 3. The other seven parts: cloud, water ----------------------------------
     {
-      id: 'seven', beats: 10, energy: 0.45, transition: 'cut',
+      id: 'seven', captions: 'file', tail: 2.0, energy: 0.45, transition: 'cut',
       draw(ctx, s) {
         const { W, H, t } = s;
         xuan(ctx, W, H);
         const b = (i) => s.onBeat(i);
         landscape(ctx, s, [-99, -99, -99]);
         mist(ctx, drift(s, 22, -60), 880, 900, 160, { seed: 7, alpha: 0.85 });
-        inkText(ctx, '余下七分', 1640, 230, t - b(0.5), { size: 120, stagger: 0.3 });
-        // 云: a wisp drifts in first, the word settles inside it
-        mist(ctx, lerp(1500, 1180, ease.outCubic(clamp((t - b(2)) / 3))), 330, 640, 200, { seed: 9, alpha: 0.9 * clamp((t - b(2)) / 1.2) });
-        inkText(ctx, '云', 1160, 250, t - b(3), { size: 150, tone: 0.42, dur: 1.2, bleed: 0.15 });
-        boat(ctx, s, 1150, 820, b(5));
-        ripples(ctx, s, 1160, 860, b(6));
-        inkText(ctx, '水', 1420, 690, t - b(6.5), { size: 150, tone: 0.42, dur: 1.2, bleed: 0.15 });
+        const yun = s.when('云', b(3)), shui = s.when('水', b(6.5));
+        inkText(ctx, '余下七分', 1640, 230, t - s.when('余下', b(0.5)), { size: 120, stagger: 0.25 });
+        // 云: a wisp drifts in first, the word settles inside it as it is said
+        mist(ctx, lerp(1500, 1180, ease.outCubic(clamp((t - yun + 1.2) / 3))), 330, 640, 200, { seed: 9, alpha: 0.9 * clamp((t - yun + 1.2) / 1.2) });
+        inkText(ctx, '云', 1160, 250, t - yun, { size: 150, tone: 0.42, dur: 1.2, bleed: 0.15 });
+        // 水: the boat glides in, its ripples open, and the word lands on them
+        boat(ctx, s, 1150, 820, yun + 0.4);
+        ripples(ctx, s, 1160, 860, shui - 0.3);
+        inkText(ctx, '水', 1420, 690, t - shui, { size: 150, tone: 0.42, dur: 1.2, bleed: 0.15 });
       },
     },
     // --- 4. Music only: the mist takes back the words ----------------------------
@@ -497,18 +501,18 @@ CV.create({
     },
     // --- 5. Ending: two columns, then the seal on the beat -----------------------
     {
-      id: 'end', beats: 12, energy: 0.3,
+      id: 'end', captions: 'file', voiceDelay: 2 * 60 / 76, tail: 3.6, energy: 0.3, // the seal after the last word, then a long ring-out
       transition: { type: 'ink', x: 0.58, y: 0.72, duration: 1.8, ease: ease.inOutSine, edgeColor: 'rgba(22,21,15,0.12)', softness: 0.1, sfx: 'swell' },
-      sfx: [{ at: (s) => s.onBeat(7), type: 'click', gain: 0.9 }],
+      sfx: [{ at: (s) => s.nextBeat(s.voiceEnd + 0.3), type: 'click', gain: 0.9 }],
       draw(ctx, s) {
         const { W, H, t } = s;
         xuan(ctx, W, H);
         const b = (i) => s.onBeat(i);
         bloom(ctx, 1260, 760, 420, (t - b(0)) / 4, { tone: 0.08, seed: 31, rough: 0.28, rim: 0.7, halo: 0.2 });
-        inkText(ctx, '空白处', 1040, 240, t - b(2), { size: 96, stagger: 0.32 });
-        const col = inkText(ctx, '是看画人的想象', 890, 240, t - b(3.5), { size: 96, stagger: 0.32 });
+        inkText(ctx, '空白处', 1040, 240, t - s.when('空白处', b(2)), { size: 96, stagger: 0.25 });
+        const col = inkText(ctx, '是看画人的想象', 890, 240, t - s.when('是看', b(3.5)), { size: 96, stagger: 0.22 });
         const last = col[col.length - 1];
-        seal(ctx, '留白', 760, last.y + 6, 92, (t - b(7)) / 0.6, { seed: 8 });
+        seal(ctx, '留白', 760, last.y + 6, 92, (t - s.nextBeat(s.voiceEnd + 0.3)) / 0.6, { seed: 8 });
       },
     },
   ],

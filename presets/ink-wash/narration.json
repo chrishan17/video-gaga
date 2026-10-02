@@ -1,0 +1,11 @@
+{
+  "voice": "zh-CN-XiaoxiaoNeural",
+  "rate": "-8%",
+  "lang": "zh-CN",
+  "segments": [
+    { "id": "title", "text": "留白。最难画的，是不画的地方。" },
+    { "id": "mountain", "text": "一座山，只画三分。" },
+    { "id": "seven", "text": "余下七分，交给云，交给水。" },
+    { "id": "end", "text": "空白处，是看画人的想象。" }
+  ]
+}
