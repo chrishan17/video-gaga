@@ -1,0 +1,568 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>2026 年度存档 · 像素回顾（video-gaga · Pixel Retro）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Noto+Sans+SC:wght@700&display=block" rel="stylesheet">
+</head>
+<body>
+<script src="build/narration.js"></script>
+<script src="../../runtime/video-gaga.js"></script>
+<script>
+/* =============================================================================
+   PIXEL RETRO — an 8-bit console game, played straight.
+   Every scene paints into a low-resolution buffer (one cell = T.px design px)
+   that is locked to a 12-colour palette, with an optional 4×4 ordered dither for
+   gradients, and blown up with nearest-neighbour sampling. Nothing is ever
+   smoother than a cell: positions snap to the grid, motion moves in whole cells,
+   sprites animate on eighth notes, and type is rasterised to 1-bit pixels (Latin
+   in Press Start 2P, Chinese thresholded from Noto Sans SC).
+   Rhythm: things happen on the beat the way a game reacts to a button press:
+   a hit, a bump, a +1, never a soft fade.
+   ============================================================================= */
+const { ease, clamp, lerp, fx, color, rand, text } = CV;
+
+// === THEME ===================================================================
+const T = {
+  px: 5, // one art pixel = 5 design px (a 384×216 grid at 1920×1080, 216×384 at 9:16)
+  // the whole frame is locked to these colours (lockPalette)
+  pal: {
+    night: '#16122B', shade: '#2C2554', dusk: '#4B3F86', dim: '#8C85BD',
+    ink: '#FFF3D6', sky: '#5FA8E8', mint: '#57C98A', leaf: '#2E8A5C',
+    gold: '#FFC93C', coral: '#F25F5C', rust: '#A3473A', sand: '#E8B07A',
+  },
+  bg: '#16122B',
+  latin: '"Press Start 2P"', // an 8 px grid font: use sizes 8, 16, 24 … (grid px)
+  cjk: '"Noto Sans SC"', // thresholded to 1-bit: 12 px minimum, 16 px for titles
+};
+// font at a size in GRID px (inside pixelFrame), e.g. F(8) or F(12, T.cjk)
+const F = (size, fam = T.latin) => `${fam === T.cjk ? 700 : 400} ${size}px ${fam}`;
+
+// === KIT: the pixel frame ====================================================
+// pixelFrame(ctx, s, paint, { dither, bg }): paint(g, w, h) draws in grid cells
+// on a w×h buffer. Anything drawn (circles, gradients, rotated shapes) is snapped
+// to the palette afterwards, so smooth drawing calls still come out as pixel art.
+let LO = null;
+const PAL = Object.values(T.pal).map((c) => color.parse(c));
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16 - 0.5);
+const NEAREST = new Map();
+function nearest(r, g, b) {
+  const key = ((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3);
+  let k = NEAREST.get(key);
+  if (k !== undefined) return k;
+  let best = 1e9;
+  PAL.forEach(([pr, pg, pb], i) => {
+    const d = 2 * (r - pr) ** 2 + 4 * (g - pg) ** 2 + 3 * (b - pb) ** 2;
+    if (d < best) { best = d; k = i; }
+  });
+  NEAREST.set(key, k);
+  return k;
+}
+function lockPalette(g, w, h, dither) {
+  const img = g.getImageData(0, 0, w, h), d = img.data;
+  const amt = dither === true ? 44 : dither || 0;
+  for (let y = 0, i = 0; y < h; y++) for (let x = 0; x < w; x++, i += 4) {
+    const o = amt ? BAYER[(y & 3) * 4 + (x & 3)] * amt : 0;
+    const c = PAL[nearest(clamp(d[i] + o, 0, 255) | 0, clamp(d[i + 1] + o, 0, 255) | 0, clamp(d[i + 2] + o, 0, 255) | 0)];
+    d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2]; d[i + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+}
+function pixelFrame(ctx, s, paint, { dither = false, bg = T.bg } = {}) {
+  const w = Math.round(s.W / T.px), h = Math.round(s.H / T.px);
+  if (!LO || LO.width !== w || LO.height !== h) {
+    LO = document.createElement('canvas');
+    LO.width = w; LO.height = h;
+  }
+  const g = LO.getContext('2d', { willReadFrequently: true });
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.globalAlpha = 1;
+  g.imageSmoothingEnabled = false;
+  g.fillStyle = bg;
+  g.fillRect(0, 0, w, h);
+  g.save();
+  paint(g, w, h);
+  g.restore();
+  lockPalette(g, w, h, dither);
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(LO, 0, 0, s.W, s.H);
+  ctx.restore();
+}
+
+// === KIT: pixel type =========================================================
+// Text rasterised once per (string, font) and thresholded to 1-bit, so glyph
+// edges are hard cells. Cached; the key includes whether the webfont is ready.
+const GLYPHS = new Map();
+function bits(str, font) {
+  const key = `${font}\u0001${str}\u0001${document.fonts.check(font, str) ? 1 : 0}`;
+  let e = GLYPHS.get(key);
+  if (e) return e;
+  const c = document.createElement('canvas');
+  let g = c.getContext('2d', { willReadFrequently: true });
+  g.font = font;
+  const m = g.measureText(str);
+  const asc = Math.ceil(m.fontBoundingBoxAscent), w = Math.max(1, Math.ceil(m.width)), h = Math.max(1, asc + Math.ceil(m.fontBoundingBoxDescent));
+  c.width = w; c.height = h;
+  g = c.getContext('2d', { willReadFrequently: true });
+  g.font = font;
+  g.fillStyle = '#fff';
+  g.fillText(str, 0, asc);
+  const a = g.getImageData(0, 0, w, h).data, on = new Uint8Array(w * h);
+  for (let i = 0; i < on.length; i++) on[i] = a[i * 4 + 3] >= 120 ? 1 : 0;
+  e = { w, h, asc, on, tint: new Map() };
+  GLYPHS.set(key, e);
+  return e;
+}
+function tinted(b, col) {
+  let c = b.tint.get(col);
+  if (c) return c;
+  c = document.createElement('canvas');
+  c.width = b.w; c.height = b.h;
+  const g = c.getContext('2d', { willReadFrequently: true });
+  const img = g.createImageData(b.w, b.h), [r, gg, bb] = color.parse(col);
+  for (let i = 0; i < b.on.length; i++) if (b.on[i]) img.data.set([r, gg, bb, 255], i * 4);
+  g.putImageData(img, 0, 0);
+  b.tint.set(col, c);
+  return c;
+}
+// Draws at (x, baseline y) in grid cells; returns the width. shadow: a colour
+// stamped one cell down-right first (the classic drop shadow).
+function pixelText(g, str, x, y, { font = F(8), color: col = T.pal.ink, align = 'left', shadow = null } = {}) {
+  if (!str) return 0;
+  const b = bits(str, font);
+  const x0 = Math.round(align === 'center' ? x - b.w / 2 : align === 'right' ? x - b.w : x), y0 = Math.round(y - b.asc);
+  if (shadow) g.drawImage(tinted(b, shadow), x0 + 1, y0 + 1);
+  g.drawImage(tinted(b, col), x0, y0);
+  return b.w;
+}
+// Wrap text to a width in cells (CJK-aware, via CV.text.wrap).
+function wrapCells(g, str, font, maxW) {
+  g.font = font;
+  return str.split('\n').flatMap((p) => text.wrap(g, p, maxW));
+}
+
+// === KIT: sprites ============================================================
+// Sprite art as rows of characters; `colours` maps a character to a colour
+// ('.' and unmapped characters are transparent). Cached per art and colours.
+const SPRITES = new Map();
+function sprite(g, art, x, y, colours, { flip = false, scale = 1 } = {}) {
+  const key = `${art.join('/')}|${JSON.stringify(colours)}|${flip}`;
+  let c = SPRITES.get(key);
+  if (!c) {
+    c = document.createElement('canvas');
+    c.width = art[0].length; c.height = art.length;
+    const sg = c.getContext('2d', { willReadFrequently: true });
+    art.forEach((row, j) => Array.from(row).forEach((ch, i) => {
+      if (!colours[ch]) return;
+      sg.fillStyle = colours[ch];
+      sg.fillRect(flip ? row.length - 1 - i : i, j, 1, 1);
+    }));
+    SPRITES.set(key, c);
+  }
+  g.imageSmoothingEnabled = false;
+  g.drawImage(c, Math.round(x), Math.round(y), c.width * scale, c.height * scale);
+}
+
+// === KIT: windows, meters, prompts ===========================================
+// An RPG window: a dark rim, a light edge, cut corners. open: 0..1 grows the
+// height in 4 steps from the top (a menu opening), the way consoles did it.
+function win(g, x, y, w, h, { open = 1, fill = T.pal.shade, edge = T.pal.ink, rim = T.pal.night } = {}) {
+  const hh = Math.max(4, Math.round(h * steps(open, 4)));
+  g.fillStyle = rim;
+  g.fillRect(x, y + 1, w, hh - 2); g.fillRect(x + 1, y, w - 2, hh);
+  g.fillStyle = edge;
+  g.fillRect(x + 1, y + 2, w - 2, hh - 4); g.fillRect(x + 2, y + 1, w - 4, hh - 2);
+  g.fillStyle = fill;
+  g.fillRect(x + 2, y + 2, w - 4, hh - 4);
+  return hh >= h;
+}
+// A segmented meter (HP, EXP, loading). value 0..1 is quantised to segments.
+function meter(g, x, y, w, h, value, { segments = 10, gap = 1, fill = T.pal.gold, empty = T.pal.night } = {}) {
+  const sw = (w - gap * (segments - 1)) / segments, on = Math.round(clamp(value) * segments);
+  for (let i = 0; i < segments; i++) {
+    g.fillStyle = i < on ? fill : empty;
+    g.fillRect(Math.round(x + i * (sw + gap)), y, Math.round(sw), h);
+  }
+}
+// The advance prompt: a ▼ that blinks on the beat (on for the first half).
+function prompt(g, s, x, y, col = T.pal.gold) {
+  if (s.beatLen && s.beat % 1 >= 0.5) return;
+  g.fillStyle = col;
+  [[0, 5], [1, 3], [2, 1]].forEach(([r, w]) => g.fillRect(x - (w >> 1), y + r, w, 1));
+}
+// A menu cursor: a solid triangle pointing right (or 'up'), drawn cell by cell.
+function cursor(g, x, y, col = T.pal.gold, dir = 'right') {
+  g.fillStyle = col;
+  for (let k = 0; k < 4; k++) dir === 'up' ? g.fillRect(x - k, y + k, 2 * k + 1, 1) : g.fillRect(x + k, y + k, 1, 7 - 2 * k);
+}
+// A dialogue box: `str` types at `cps` characters per second from local time
+// `t0`, wrapped to the box; the prompt blinks once the line is complete.
+// Returns the local time the line finishes typing.
+function dialogue(g, s, str, x, y, w, h, t0, { cps = 14, font = F(12, T.cjk), lineH = 16, open = 1 } = {}) {
+  if (!win(g, x, y, w, h, { open })) return t0 + Array.from(str).length / cps;
+  const lines = wrapCells(g, str, font, w - 16);
+  const total = lines.reduce((n, l) => n + Array.from(l).length, 0);
+  let left = Math.floor(clamp((s.t - t0) * cps, 0, total));
+  lines.forEach((l, i) => {
+    const n = Math.min(left, Array.from(l).length);
+    left -= n;
+    pixelText(g, fx.typewriter(l, n / Math.max(1, Array.from(l).length)), x + 8, y + 6 + lineH * (i + 1) - 4, { font });
+  });
+  const done = t0 + total / cps;
+  if (s.t >= done) prompt(g, s, x + w - 10, y + h - 8);
+  return done;
+}
+
+// === KIT: pixel motion =======================================================
+// Quantised progress: n equal steps (like CSS steps()). Moves hop, never glide.
+const steps = (p, n) => Math.floor(clamp(p) * n + 1e-6) / n;
+// A jump arc in whole cells: 0 → height → 0 over `dur` from `t0`.
+const jump = (t, t0, dur, height) => { const u = (t - t0) / dur; return u <= 0 || u >= 1 ? 0 : Math.round(4 * height * u * (1 - u)); };
+// An impact jolt in whole cells: a few frames of alternating offset, then still.
+const JOLT = [2, -2, 1, -1, 1, 0];
+const jolt = (s, at, amt = 1) => { const k = Math.floor((s.t - at) * s.fps); return k >= 0 && k < JOLT.length ? JOLT[k] * amt : 0; };
+// Two-frame cycles (walk, flicker) that advance on eighth notes.
+const cycle = (s, n = 2, per = 0.5) => Math.floor((s.beatLen ? s.beat : s.T * 4) / per) % n;
+
+// === KIT: tile-wipe transition ===============================================
+// A staircase of square tiles closes over the old frame along the diagonal,
+// then opens on the new one: the console screen change. cols: tiles across.
+function tileWipe(ctx, A, B, p, o = {}) {
+  const W = ctx.canvas.width, H = ctx.canvas.height;
+  const tile = W / (o.cols ?? 16), cols = Math.ceil(W / tile), rows = Math.ceil(H / tile);
+  const maxD = cols + rows - 2, cover = p < 0.5;
+  ctx.drawImage(cover ? A : B, 0, 0);
+  ctx.fillStyle = o.color ?? T.pal.dusk;
+  const q = cover ? p * 2 : (p - 0.5) * 2;
+  for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+    const d = (i + j) / maxD;
+    const k = cover ? steps((q - d * 0.6) / 0.4, 4) : 1 - steps((q - d * 0.6) / 0.4, 4);
+    if (k <= 0) continue;
+    const sz = Math.ceil(tile * k);
+    ctx.fillRect(Math.floor(i * tile + (tile - sz) / 2), Math.floor(j * tile + (tile - sz) / 2), sz, sz);
+  }
+}
+
+// === EXAMPLE: sprites of this video ==========================================
+const HERO = {
+  colours: { k: T.pal.night, c: T.pal.coral, s: T.pal.sand, b: T.pal.dusk },
+  top: [
+    '...kkkk...',
+    '..kcccck..',
+    '.kcccccckk',
+    '.kssssssk.',
+    '.ksskssk..',
+    '..kssssk..',
+    '.kccccccck',
+    'kscccccsk.',
+    '.kccccck..',
+    '.kbbbbbk..',
+  ],
+  legs: [['.kbk.kbk..', '.kkk.kkk..'], ['kbk...kbk.', 'kkk...kkk.']],
+};
+const heroArt = (frame) => [...HERO.top, ...HERO.legs[frame]];
+const ITEMS = [
+  { n: 12, what: '本书', art: ['........', '.kkkkkk.', 'kcccccck', 'kciiiick', 'kcccccck', 'kciiiick', 'kcccccck', '.kkkkkk.'] },
+  { n: 3, what: '座城市', art: ['...kk...', '..kssk..', '.kssssk.', 'ksgssgsk', 'kssssssk', 'ksgssgsk', 'kssssssk', 'kkkkkkkk'] },
+  { n: 1, what: '只猫', art: ['k.....k.', 'kg...gk.', 'kgggggk.', 'kgkgkgk.', 'kgggggk.', '.kgggk.k', '.kgggkgk', '.kkkkkk.'] },
+];
+const ITEM_COLOURS = { k: T.pal.night, c: T.pal.coral, i: T.pal.ink, s: T.pal.sand, g: T.pal.gold };
+const STARS = (() => { const r = rand(7); return Array.from({ length: 70 }, () => ({ x: r(), y: r() * 0.7, ph: r() })); })();
+function stars(g, w, h, s, col = T.pal.dim) {
+  STARS.forEach((st) => {
+    const on = (Math.floor(s.beat + st.ph * 4) % 4) !== 0; // each star blinks once every 4 beats
+    g.fillStyle = on ? col : T.pal.shade;
+    g.fillRect(Math.round(st.x * w), Math.round(st.y * h), 1, 1);
+  });
+}
+// The boss: drawn with plain circles; the palette lock turns them into pixel art.
+function boss(g, cx, cy, s, { hurt = false } = {}) {
+  const body = hurt ? T.pal.ink : T.pal.dusk, rim = hurt ? T.pal.ink : T.pal.night;
+  const blobs = [[0, 0, 30], [-26, 8, 20], [26, 8, 20], [-14, -18, 18], [16, -16, 16]];
+  g.fillStyle = rim;
+  blobs.forEach(([x, y, r]) => { g.beginPath(); g.arc(cx + x, cy + y, r + 2, 0, 7); g.fill(); });
+  g.fillStyle = body;
+  blobs.forEach(([x, y, r]) => { g.beginPath(); g.arc(cx + x, cy + y, r, 0, 7); g.fill(); });
+  if (hurt) return;
+  g.fillStyle = T.pal.dim;
+  g.fillRect(cx - 18, cy - 24, 10, 3);
+  g.fillStyle = T.pal.night; // brows, eyes, a sulking mouth
+  g.fillRect(cx - 16, cy - 6, 9, 2); g.fillRect(cx + 7, cy - 6, 9, 2);
+  g.fillStyle = T.pal.coral;
+  g.fillRect(cx - 13, cy - 3, 4, 4); g.fillRect(cx + 9, cy - 3, 4, 4);
+  g.fillStyle = T.pal.night;
+  g.fillRect(cx - 6, cy + 12, 12, 2); g.fillRect(cx - 8, cy + 14, 2, 2); g.fillRect(cx + 6, cy + 14, 2, 2);
+}
+
+// === VIDEO ===================================================================
+const wipe = { type: tileWipe, duration: 0.6, ease: ease.linear, sfx: 'swish' };
+
+CV.create({
+  width: 1920, height: 1080, fps: 30,
+  background: T.bg,
+  lang: 'zh-CN',
+  fonts: [F(8), F(12, T.cjk)],
+  // the score designed for this video: a year-in-review as a game: bright,
+  // bouncy, a little heroic. Square-wave chords and arps, a hopping bass, noise drums.
+  music: {
+    bpm: 126, seed: 26, key: 'D', mode: 'major', progression: [0, 5, 3, 4],
+    layers: [
+      { name: 'square chords', inst: 'lead', saw: 0, notes: 'chord', pattern: 'X.x.X.x.', gate: 0.45, vel: 0.05, cutoff: 2600 },
+      { name: 'hopping bass', inst: 'bass', notes: ['root', 'root^', 'fifth', 'root^'], pattern: 'X.X.X.X.', gate: 0.6, vel: 0.24, from: 0.3 },
+      { name: 'arp', inst: 'lead', saw: 0, octave: 1, notes: [0, 1, 2, 1], pattern: 'XXXXXXXXXXXXXXXX', gate: 0.5, vel: 0.045, cutoff: 5200, from: 0.6 },
+      { name: 'kick', inst: 'kick', pattern: 'X...X...', vel: 0.45, from: 0.45 },
+      { name: 'snare', inst: 'snare', pattern: '.X.X', vel: 0.22, from: 0.45 },
+      { name: 'hats', inst: 'hat', pattern: 'xXxXxXxX', vel: 0.06, from: 0.7 },
+    ],
+    lead: { inst: 'lead', range: [72, 86], rhythm: 'melodic', vel: 0.08, saw: 0.1, cutoff: 6000, echo: 0.15 },
+  },
+  transition: wipe,
+  subtitles: {
+    maxChars: 16,
+    style: { font: `700 46px ${T.cjk}`, color: T.pal.ink, highlight: T.pal.gold, box: T.pal.night, radius: 0, padX: 22, padY: 12, y: 0.9 },
+  },
+  scenes: [
+    // --- 1. Boot: the year assembles from falling blocks, then PRESS START ----
+    {
+      id: 'boot', narration: false, beats: 8, energy: 0.25,
+      sfx: [0, 1, 2, 3].map((k) => ({ at: (s) => s.onBeat(k), type: 'tick', gain: 0.5 })).concat([{ at: (s) => s.onBeat(4), type: 'pop' }]),
+      draw(ctx, s) {
+        pixelFrame(ctx, s, (g, w, h) => {
+          stars(g, w, h, s);
+          const b = bits('2026', F(16)), cell = 3;
+          const x0 = Math.round((w - b.w * cell) / 2), y0 = 62;
+          for (let j = 0; j < b.h; j++) for (let i = 0; i < b.w; i++) {
+            if (!b.on[j * b.w + i]) continue;
+            // columns land left to right over four beats, on sixteenths
+            const land = s.onBeat(steps(i / b.w, 16) * 4) + 0.06 * (b.h - j) / b.h;
+            const u = clamp((s.t - land + 0.3) / 0.3);
+            if (u <= 0) continue;
+            const y = y0 + j * cell - Math.round((1 - u * u) * (y0 + 40));
+            g.fillStyle = T.pal.rust;
+            g.fillRect(x0 + i * cell + 1, y + 1, cell, cell);
+            g.fillStyle = j < b.h * 0.45 ? T.pal.gold : T.pal.coral;
+            g.fillRect(x0 + i * cell, y, cell, cell);
+          }
+          if (s.t >= s.onBeat(4)) pixelText(g, '年 度 存 档', w / 2, 142, { font: F(12, T.cjk), color: T.pal.dim, align: 'center' });
+          if (s.t >= s.onBeat(5) && s.beat % 1 < 0.5) pixelText(g, 'PRESS START', w / 2, 176, { color: T.pal.ink, align: 'center', shadow: T.pal.dusk });
+        });
+      },
+    },
+    // --- 2. The save file opens; a dialogue line types under it ---------------
+    {
+      id: 'save', narration: false, beats: 12, energy: 0.4,
+      sfx: [{ at: (s) => s.onBeat(0.5), type: 'click' }, ...[2, 2.75, 3.5].map((k) => ({ at: (s) => s.onBeat(k), type: 'type', gain: 0.6 }))],
+      draw(ctx, s) {
+        pixelFrame(ctx, s, (g, w) => {
+          const b = (k) => s.onBeat(k);
+          const x = 72, y = 22, ww = w - 144;
+          if (win(g, x, y, ww, 104, { open: (s.t - b(0.5)) / (s.beatLen * 0.5) })) {
+            pixelText(g, 'FILE 01', x + 12, y + 20, { color: T.pal.dim });
+            pixelText(g, 'LV 26', x + ww - 12, y + 20, { color: T.pal.gold, align: 'right' });
+            pixelText(g, '小林的 2026', x + 12, y + 46, { font: F(16, T.cjk) });
+            pixelText(g, '冒险时长', x + 12, y + 70, { font: F(12, T.cjk), color: T.pal.dim });
+            pixelText(g, fx.countUp(steps((s.t - b(1)) / (s.beatLen * 3), 12), 0, 8760, { sep: '' }) + ':00', x + ww - 12, y + 70, { align: 'right' });
+            // the load bar fills one segment per half beat
+            meter(g, x + 12, y + 84, ww - 24, 6, steps((s.t - b(2)) / (s.beatLen * 4), 8), { segments: 8, fill: T.pal.mint });
+          }
+          dialogue(g, s, '读取存档中……\n这一年，你比想象中走得更远。', 16, 146, w - 32, 56, b(2), { cps: 9 });
+        });
+      },
+    },
+    // --- 3. Side-scroller: three ? blocks, three things the year gave ----------
+    {
+      id: 'run', narration: false, beats: 16, energy: 0.65, transition: 'cut',
+      sfx: [3, 7, 11].flatMap((k) => [{ at: (s) => s.onBeat(k), type: 'pop' }, { at: (s) => s.onBeat(k + 1.5), type: 'tick', gain: 0.5 }]),
+      draw(ctx, s) {
+        pixelFrame(ctx, s, (g, w, h) => {
+          const speed = 46, cam = Math.round(s.t * speed), heroX = 70, ground = 184;
+          // sunset sky: a smooth gradient, dithered into bands by the palette lock
+          const sky = g.createLinearGradient(0, 0, 0, ground);
+          sky.addColorStop(0, T.pal.dusk); sky.addColorStop(0.55, T.pal.sky); sky.addColorStop(1, T.pal.sand);
+          g.fillStyle = sky;
+          g.fillRect(0, 0, w, ground);
+          // parallax: clouds 1/5, hills 1/2, ground 1/1 (all in whole cells)
+          g.fillStyle = T.pal.ink;
+          [[40, 40], [190, 26], [330, 52], [470, 34]].forEach(([cx, cy]) => {
+            const x = ((cx - Math.round(cam / 5)) % 480 + 480) % 480 - 48;
+            [[0, 0, 9], [10, -4, 11], [21, 0, 8]].forEach(([dx, dy, r]) => { g.beginPath(); g.arc(x + dx, cy + dy, r, 0, 7); g.fill(); });
+          });
+          [[0, 50, T.pal.leaf], [130, 70, T.pal.mint], [250, 44, T.pal.leaf], [360, 64, T.pal.mint]].forEach(([hx, r, c]) => {
+            const x = ((hx - Math.round(cam / 2)) % 480 + 480) % 480 - 60;
+            g.fillStyle = T.pal.night; g.beginPath(); g.arc(x, ground + 6, r + 1, Math.PI, 0); g.fill();
+            g.fillStyle = c; g.beginPath(); g.arc(x, ground + 6, r, Math.PI, 0); g.fill();
+          });
+          g.fillStyle = T.pal.mint; g.fillRect(0, ground, w, 3);
+          g.fillStyle = T.pal.rust; g.fillRect(0, ground + 3, w, h - ground);
+          g.fillStyle = T.pal.sand;
+          for (let y = ground + 6, r = 0; y < h; y += 8, r++) for (let x = -((cam + r * 8) % 16); x < w; x += 16) g.fillRect(x, y, 14, 1);
+          // ? blocks sit where the hero will be on beats 3, 7 and 11
+          const hits = [3, 7, 11].map((k) => s.onBeat(k));
+          hits.forEach((tb, i) => {
+            const bx = heroX + 4 + Math.round(tb * speed) - cam - 1, by = 104;
+            if (bx < -20 || bx > w) return;
+            const bump = s.t >= tb && s.t < tb + 0.15 ? 3 : 0, used = s.t >= tb;
+            g.fillStyle = T.pal.night; g.fillRect(bx - 1, by - 1 - bump, 14, 14);
+            g.fillStyle = used ? T.pal.rust : T.pal.gold; g.fillRect(bx, by - bump, 12, 12);
+            if (!used) pixelText(g, '?', bx + 2, by + 10 - (cycle(s, 2, 1) ? 1 : 0), { color: T.pal.ink, shadow: T.pal.rust });
+            // the item pops out, hangs for a beat, then hops to its HUD slot
+            const it = ITEMS[i], up = steps((s.t - tb) / 0.25, 5), fly = steps((s.t - tb - s.beatLen) / (s.beatLen * 0.5), 6);
+            if (s.t >= tb && fly < 1) {
+              const ix = lerp(bx + 2, 12, fly), iy = lerp(by - 4 - up * 16, 14 + i * 14, fly);
+              sprite(g, it.art, ix - 2, iy - 8, ITEM_COLOURS, { scale: fly ? 1 : 2 });
+              if (fly === 0) pixelText(g, `+${it.n}`, ix + 18, iy + 7, { color: T.pal.ink, shadow: T.pal.night });
+            }
+          });
+          // the hero runs on eighths and jumps into each block
+          const air = hits.reduce((a, tb) => a + jump(s.t, tb - s.beatLen * 0.5, s.beatLen, 44), 0);
+          sprite(g, heroArt(air ? 1 : cycle(s, 2, 0.5)), heroX, ground - 24 - air, HERO.colours, { scale: 2 });
+          // HUD: the collected items, one row each
+          hits.forEach((tb, i) => {
+            if (s.t < tb + s.beatLen * 1.5) return;
+            const it = ITEMS[i];
+            win(g, 8, 10 + i * 14, 106, 13, { fill: T.pal.night, edge: T.pal.night });
+            sprite(g, it.art, 10, 12 + i * 14, ITEM_COLOURS);
+            pixelText(g, `×${it.n}`, 22, 20 + i * 14, { color: T.pal.gold });
+            pixelText(g, it.what, 52, 21 + i * 14, { font: F(12, T.cjk) });
+          });
+        }, { dither: true });
+      },
+    },
+    // --- 4. Boss battle: four hits on the beat, the last one is the KO --------
+    {
+      id: 'boss', narration: false, beats: 12, energy: 0.8,
+      transition: { type: 'pixelate', size: 60, duration: 0.5 },
+      sfx: [{ at: (s) => s.onBeat(0.5), type: 'type', gain: 0.6 }, ...[4, 6, 8].map((k) => ({ at: (s) => s.onBeat(k), type: 'click' })), { at: (s) => s.onBeat(10), type: 'hit' }],
+      draw(ctx, s) {
+        const b = (k) => s.onBeat(k), attacks = [4, 6, 8, 10].map(b);
+        const shake = attacks.reduce((a, at) => a + jolt(s, at, 2), 0);
+        pixelFrame(ctx, s, (g, w, h) => {
+          g.translate(shake, 0);
+          stars(g, w, h, s, T.pal.dusk);
+          g.fillStyle = T.pal.shade; g.fillRect(-4, 168, w + 8, h - 168);
+          for (let x = -4; x < w + 4; x += 24) { g.fillStyle = T.pal.dusk; g.fillRect(x + ((Math.floor(s.beat) % 2) * 12), 168, 12, 2); }
+          // HP drains a quarter on each hit
+          const hp = 1 - attacks.filter((at) => s.t >= at + 0.1).length / 4;
+          const ko = steps((s.t - b(10) - 0.15) / (s.beatLen * 1.5), 12);
+          const hurt = attacks.some((at) => s.t >= at && s.t < at + 2 / s.fps);
+          if (ko < 1) {
+            const bob = s.beat % 1 < 0.5 ? 0 : 1;
+            boss(g, 262, 110 + bob, s, { hurt });
+            // KO: the boss breaks up into cells, in a seeded order
+            if (ko > 0) {
+              const r = rand(99);
+              g.fillStyle = T.bg;
+              for (let y = 60; y < 150; y += 3) for (let x = 210; x < 316; x += 3) if (r() < ko) g.fillRect(x, y, 3, 3);
+            }
+          }
+          if (s.t >= b(11)) pixelText(g, 'WIN!', 262, 116, { font: F(16), color: T.pal.gold, align: 'center', shadow: T.pal.rust });
+          // the name plate and HP meter
+          if (win(g, 196, 14, 172, 30, { open: (s.t - b(0)) / (s.beatLen * 0.5) })) {
+            pixelText(g, '拖延怪', 206, 31, { font: F(12, T.cjk) });
+            pixelText(g, 'LV99', 360, 30, { color: T.pal.coral, align: 'right' });
+            meter(g, 206, 35, 152, 4, hp, { segments: 20, fill: hp > 0.3 ? T.pal.mint : T.pal.coral });
+          }
+          // the hero dashes in on each hit and steps back on the half beat
+          const dash = attacks.reduce((a, at) => a + (s.t >= at - 0.08 && s.t < at + s.beatLen * 0.5 ? 1 : 0), 0);
+          sprite(g, heroArt(dash ? 1 : cycle(s, 2, 1)), 60 + dash * 132, 144, HERO.colours, { scale: 2 });
+          attacks.forEach((at, i) => {
+            const k = Math.floor((s.t - at) * s.fps);
+            if (k >= 0 && k < 4) { // a three-line slash, for four frames
+              g.fillStyle = T.pal.ink;
+              for (let d = 0; d < 3; d++) for (let q = 0; q < 26; q++) g.fillRect(244 + q + d * 6, 86 + q - d * 4, 2, 1);
+            }
+            const up = steps((s.t - at) / 0.4, 4);
+            if (s.t >= at && s.t < at + s.beatLen * 1.5) pixelText(g, i === 3 ? 'KO' : '-25', 300, 70 - up * 12, { color: T.pal.gold, shadow: T.pal.night });
+          });
+          // the encounter line, then the box closes before the first hit
+          const closing = 1 - steps((s.t - b(3.25)) / (s.beatLen * 0.5), 4);
+          if (closing > 0) dialogue(g, s, '野生的拖延怪出现了！', 16, 174, w - 32, 32, b(0.5), { cps: 12, open: closing });
+        });
+      },
+    },
+    // --- 5. LEVEL UP: music-only payoff, stats land one per beat --------------
+    {
+      id: 'level', narration: false, beats: 8, energy: 0.9, transition: 'cut',
+      sfx: [{ at: (s) => s.onBeat(0), type: 'shimmer' }, ...[3, 4, 5].map((k) => ({ at: (s) => s.onBeat(k), type: 'tick' }))],
+      draw(ctx, s) {
+        pixelFrame(ctx, s, (g, w, h) => {
+          const b = (k) => s.onBeat(k);
+          // rays turning in whole steps, one step per beat
+          const turn = Math.floor(s.beat) * (Math.PI / 16);
+          g.fillStyle = T.pal.shade;
+          for (let i = 0; i < 12; i++) {
+            const a = turn + (i * Math.PI) / 6;
+            g.beginPath(); g.moveTo(w / 2, 50);
+            g.lineTo(w / 2 + Math.cos(a) * 400, 50 + Math.sin(a) * 400);
+            g.lineTo(w / 2 + Math.cos(a + 0.18) * 400, 50 + Math.sin(a + 0.18) * 400);
+            g.fill();
+          }
+          // the letters drop in on sixteenths
+          const word = 'LEVEL UP!';
+          const lw = bits(word, F(24)).w;
+          Array.from(word).forEach((ch, i) => {
+            const at = b(0) + i * s.beatLen / 4;
+            if (s.t < at) return;
+            const drop = Math.round((1 - steps((s.t - at) / 0.12, 3)) * 12);
+            pixelText(g, ch, w / 2 - lw / 2 + i * 24, 62 - drop, { font: F(24), color: T.pal.gold, shadow: T.pal.rust });
+          });
+          if (s.t >= b(2)) {
+            pixelText(g, 'LV', w / 2 - 44, 92, { color: T.pal.dim });
+            pixelText(g, s.t < b(2.5) ? '26' : '27', w / 2 - 20, 92, { font: F(16), color: s.t < b(2.5) ? T.pal.ink : T.pal.gold });
+            if (s.t >= b(2.5)) cursor(g, w / 2 + 22, 84 - (cycle(s, 2, 0.5) ? 1 : 0), T.pal.mint, 'up');
+          }
+          const stats = [['勇气', 5, 3], ['耐心', 3, 5], ['朋友', 4, 4]];
+          if (win(g, 92, 108, w - 184, 90, { open: (s.t - b(2.5)) / (s.beatLen * 0.5) })) {
+            stats.forEach(([name, base, gain], i) => {
+              const at = b(3 + i);
+              if (s.t < at) return;
+              const y = 130 + i * 24;
+              pixelText(g, name, 106, y, { font: F(12, T.cjk) });
+              const grown = steps((s.t - at) / (s.beatLen * 0.75), gain) * gain;
+              meter(g, 146, y - 9, 120, 8, (base + grown) / 12, { segments: 12, fill: T.pal.mint });
+              meter(g, 146, y - 9, 120, 8, base / 12, { segments: 12, fill: T.pal.dim, empty: 'rgba(0,0,0,0)' });
+              pixelText(g, `+${gain}`, w - 104, y, { color: T.pal.gold, align: 'right' });
+            });
+          }
+        });
+      },
+    },
+    // --- 6. CONTINUE? — the cursor picks the next year; the final chord rings -
+    {
+      id: 'end', narration: false, beats: 10, energy: 0.45,
+      sfx: [{ at: (s) => s.onBeat(4), type: 'chime' }, { at: (s) => s.onBeat(5), type: 'type', gain: 0.6 }],
+      draw(ctx, s) {
+        pixelFrame(ctx, s, (g, w, h) => {
+          const b = (k) => s.onBeat(k);
+          stars(g, w, h, s);
+          pixelText(g, 'CONTINUE?', w / 2, 46, { font: F(16), color: T.pal.ink, align: 'center', shadow: T.pal.dusk });
+          if (win(g, 110, 62, w - 220, 64, { open: (s.t - b(1)) / (s.beatLen * 0.5) })) {
+            const chosen = s.t >= b(4);
+            const flash = chosen && s.t < b(4) + 0.4 && Math.floor((s.t - b(4)) * 10) % 2 === 0;
+            pixelText(g, '2027  新的冒险', 142, 88, { font: F(12, T.cjk), color: chosen ? (flash ? T.pal.ink : T.pal.gold) : T.pal.ink });
+            pixelText(g, 'SAVE & QUIT', 142, 112, { color: T.pal.dim });
+            // the cursor hops between the options on the beat, then settles
+            const row = s.t < b(4) ? Math.floor(s.beat) % 2 : 0;
+            if (!(chosen && s.beat % 1 >= 0.5)) cursor(g, 126, 79 + row * 24);
+          }
+          dialogue(g, s, '新的一年，继续冒险。', 16, 160, w - 32, 34, b(5), { cps: 10, open: (s.t - b(4.5)) / (s.beatLen * 0.5) });
+        });
+      },
+    },
+  ],
+  // an LCD cell grid over everything: the pixels read as a screen, not a blur
+  overlay(ctx, g) {
+    const { W, H } = g;
+    ctx.save();
+    ctx.fillStyle = 'rgba(0,0,0,0.13)';
+    for (let x = T.px - 1; x < W; x += T.px) ctx.fillRect(x, 0, 1, H);
+    for (let y = T.px - 1; y < H; y += T.px) ctx.fillRect(0, y, W, 1);
+    ctx.restore();
+  },
+});
+</script>
+</body>
+</html>
