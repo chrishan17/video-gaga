@@ -30,7 +30,7 @@ Every preset exposes a `THEME` / `T` object at the top (colours and fonts) so it
 | Neon Circuit | 9:16 | ZH | `synthwave` 112 | — |
 | Pop Collage | 9:16 | ZH | `pop` 116 | — |
 | Pixel Retro | 16:9 | ZH | `chiptune` 126 | — |
-| Ink Wash | 16:9 | ZH | `D major` 76 | — |
+| Ink Wash | 16:9 | ZH | 80, E major | — |
 | Cinematic Film | 16:9 (2.39:1 scope) | ZH | 72, D major | — |
 
 ---
@@ -224,14 +224,14 @@ Every preset exposes a `THEME` / `T` object at the top (colours and fonts) so it
 - **Vibe:** a Chinese ink painting (水墨) that paints itself on rice paper. Still, spacious, literate; the empty paper is part of the picture.
 - **Best for:** Chinese culture, poetry and philosophy, tea, calligraphy and craft, festivals and the solar terms, brand stories with an Eastern voice, reflective essays and wellness.
 - **Avoid for:** dense data, tech launches, hype and fast social cuts.
-- **Format:** 16:9 · 20–40 s · a calm voice (ZH: XiaoxiaoNeural −8% as in the example, or YunyangNeural −6%; EN: ChristopherNeural) or music only
-- **Palette:** `#EEE7D7` 宣纸 rice paper (fibres, cloudy sizing, a warm edge) · one ink `#16150F` used at tones from 淡墨 0.15 to 浓墨 0.9 · `#F4EFE4` mist · one cinnabar `#B5342A`, for the seal and nothing else
+- **Format:** 16:9 · 30–90 s · a calm voice (ZH: XiaoxiaoNeural −6% as in the example, or YunyangNeural −6%; EN: ChristopherNeural) or music only
+- **Palette:** `#EEE7D7` 宣纸 rice paper (fibres, cloudy sizing, a warm edge) · one cool ink `#141419` used at tones from 淡墨 0.15 to 浓墨 0.9 · `#F4EFE4` mist · one cinnabar `#B5342A`, kept for the single thing that matters most (the example: a teacher's red cross that comes back as the seal)
 - **Type:** Ma Shan Zheng (brush 楷书 display, set in vertical columns read right to left) · Noto Serif SC 500/700 for small labels and captions
-- **Motion signature:** an ink drop **blooming** into the paper, paler inside with a darker wet edge · **brush strokes** that press in, run and lift, breaking into dry-brush bristles (飞白) at the tail · washes that soak in pale and settle, dark at the crest and fading into mist at the foot (远山淡、近山浓) · calligraphy that **soaks in** character by character, soft and slightly large, then sharp with a faint bleed · drifting **mist** that swallows what it passes, which is also how things exit · one **seal** pressed on the beat as the full stop
+- **Motion signature:** a drop of ink **seeping** into the paper (`seep`: a feathered water front, mottled pools of dense ink, a darker wet edge, capillary threads creeping out along the fibres) · an ink drop **blooming**, paler inside with a darker wet edge · **brush strokes** that press in, run and lift, breaking into dry-brush bristles (飞白) at the tail · washes that soak in pale and settle, dark at the crest and fading into mist at the foot, with no banding (远山淡、近山浓) · a painted **brush** that comes down, sways to rest and lets a bead of ink fall · one painting that keeps growing across cuts while the camera travels over it (strokes timed in global seconds with `spokenAt` / `startOf`) · calligraphy that **soaks in** character by character, soft and slightly large, then sharp with a faint bleed · drifting **mist** that swallows what it passes, which is also how things exit · one **seal** pressed on the beat as the full stop
 - **Transitions:** a custom **handscroll pan** (手卷: the next scene is the next stretch of the same scroll, the join hidden in mist, with a paper sound) · the runtime `ink` bloom with a faint ink edge into the ending · hard cuts on the beat when the painting stays and only the words change
-- **Example's score:** 76 BPM, D major, two bars per chord: a soft sine drone, a plucked zither line that thickens with the energy, a low string, a tom heartbeat only in the music-only breath, a sparse plucked lead · energy 0.2 → 0.65 in the breath, 0.3 at the seal · paper on the scroll pans, a swell into the ending, one click for the seal
-- **Captions:** Noto Serif SC 500 40 px, ink on a translucent paper box, low (0.92 H); or `captions: 'file'` when the line is already on screen in calligraphy
-- **Pacing:** slow. The painting comes first and the voice after it (`voiceDelay` of a few beats), each column soaking in on its spoken words, a bloom or stroke on the beat, every column held ≥ 2 s, a music-only breath where the mist clears the page, a long ring-out under the seal.
+- **Example's score:** 80 BPM, E major in four parts (vi–IV–I–V for the memory, IV–V held for the drop, I–V–vi–IV as the painting grows, IV–V–I–I home): a felt-piano figure and a music box for the childhood, then a koto line, strings, upright bass and a brushed kit, a bamboo-flute melody in the gaps · energy 0.24 at the stain, 0.9 in the music-only montage · two swishes for the red cross, a pop as the drop lands, one hit for the seal
+- **Captions:** Noto Serif SC 500 44 px, ink with a paper-coloured outline, low (0.935 H), a paper box over busy pages; or `captions: 'file'` when the line is already on screen in calligraphy
+- **Pacing:** washes and the camera are slow; strokes are quick and land on the beat. The picture comes first and the voice after it (`voiceDelay` of a few beats), each column soaking in on its spoken words, a music-only montage where a stroke lands on every beat, a long ring-out under the seal.
 
 ## 13. Cinematic Film — `cinematic-film`
 
