@@ -25,8 +25,21 @@ Results are cached by a hash of (text, voice, rate, pitch, volume).
 import asyncio
 import hashlib
 import json
+import os
 import sys
 from pathlib import Path
+
+# edge-tts pins certifi's CA bundle and ignores SSL_CERT_FILE, which breaks
+# behind TLS-intercepting proxies (corporate networks, cloud sandboxes).
+# Honor SSL_CERT_FILE when it is set; must run before edge_tts is imported.
+_ca_file = os.environ.get("SSL_CERT_FILE")
+if _ca_file and os.path.isfile(_ca_file):
+    try:
+        import certifi
+
+        certifi.where = lambda: _ca_file
+    except ImportError:
+        pass
 
 try:
     import edge_tts
