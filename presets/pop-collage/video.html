@@ -113,7 +113,7 @@ function tickOver(ctx, from, to, x, y, lt) {
   ctx.restore();
 }
 
-// === KIT: ribbons, halftone, tip cards =======================================
+// === KIT: ribbons and halftone ===============================================
 // A drawn-on wavy line (cut-paper ribbon).
 function squiggle(ctx, x, y, w, amp, waves, p, col, lw = 18) {
   const pts = [];
@@ -139,6 +139,7 @@ function halftone(ctx, x0, y0, cols, rows, gap, col, p, flip = 1) {
   }
 }
 
+// === EXAMPLE: numbered tip cards =============================================
 // Number badge for a tip: a sticker circle that lands on the scene's first beat.
 function badge(ctx, s, n, fill, ink) {
   const k = land(boing, s.t - s.onBeat(0) + 0.05) * (1 - s.out(0.25, ease.exit, 0.3));

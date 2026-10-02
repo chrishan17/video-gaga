@@ -35,12 +35,13 @@ const T = {
 const F = (w, px, fam = T.sans) => `${w} ${px}px ${fam}`;
 const L = 160; // left margin (grid column 1)
 
-// === KIT: highlighter and chapter kicker =====================================
+// === KIT: highlighter ========================================================
 // Highlighter pill that grows behind a word (drawn before the text).
 function pill(ctx, x, y, w, h, p, fill) {
   fx.highlight(ctx, x - 12, y - h * 0.82, w + 24, h * 1.08, p, { color: fill, radius: 14 });
 }
 
+// === EXAMPLE: chapter kicker =================================================
 // Kicker: chapter number + label. It slides in on the scene's first beat and
 // leaves just before the cut, so the push carries a clean frame.
 function kicker(ctx, s, label, index) {
@@ -358,10 +359,10 @@ CV.create({
       },
     },
   ],
-  // Chapter progress bar: a quiet orientation device (hidden in the breath)
+  // Paper grain; the example adds a chapter progress bar (hidden in the breath)
   overlay(ctx, g) {
+    // <example>
     const chapters = Math.max(0, ...g.scenes.map((sc) => (sc.chapter ?? -1) + 1)); // scenes carry `chapter: 0…n`
-    if (!chapters) { draw.grain(ctx, g.frame, 0.05, { blend: 'multiply' }); return; }
     const w = (g.W - L * 2 - (chapters - 1) * 12) / chapters;
     const dark = g.scenes.find((sc) => sc.id === 'breath');
     const inDark = dark ? clamp(Math.min((g.T - dark.start) / 0.5, (dark.end - g.T) / 0.4)) : 0;
@@ -378,6 +379,7 @@ CV.create({
       ctx.fillRect(x, 72, w * clamp((g.T - a) / (b - a)), 6);
     }
     ctx.globalAlpha = 1;
+    // </example>
     draw.grain(ctx, g.frame, 0.05, { blend: 'multiply' });
   },
 });

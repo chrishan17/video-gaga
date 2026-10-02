@@ -26,6 +26,13 @@ export function scaffoldFromPreset(src, { slug = 'preset' } = {}) {
   if ([first, video, create, scenes, scenesEnd].some((i) => i < 0)) throw new Error(`preset "${slug}" does not follow the preset layout (// === THEME … // === VIDEO, CV.create({ … scenes: [ … ] }))`);
 
   const out = lines.slice(0, first);
+  out.push(
+    '// Scaffolded by `cv init`: only this preset\'s STYLE was copied. THEME is the palette',
+    '// and type. KIT is an optional toolbox of the style\'s signature moves: use, change or',
+    '// delete any of it, and write the new helpers this video needs. The scenes, their',
+    '// structure, the choreography and the score are designed fresh for this brief.',
+    '',
+  );
   const kept = [], dropped = [];
   let keep = false;
   for (let i = first; i < video; i++) {
