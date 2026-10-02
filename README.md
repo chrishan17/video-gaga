@@ -17,7 +17,7 @@
 - **Subtitles done properly.** Cues are built from the same word timings. CJK line breaking follows kinsoku rules, and long lines split into balanced chunks. Captions are burned in with the video's own typography (or karaoke-highlighted) and also exported as `.srt`, `.vtt` or a soft track.
 - **Designed, not generated-looking.** Ten distinct motion-design presets, two of them in 3D, plus a written motion-design guide covering easing, timing, hierarchy, camera, transitions, sound and anti-patterns. The agent follows it and checks its own probe frames against it.
 - **Asks before it builds.** 4–7 questions tailored to the video type. Each has three concrete options, one marked *recommended*, with the reason.
-- **Verifies itself.** `cv check` reports duration, fps, the audio track, loudness, caption overlaps, **A/V sync** (speech onsets vs caption onsets, measured on the voice stem) and the **music/voice balance**.
+- **Verifies itself.** `cv check` reports duration, fps, the audio track, loudness, caption overlaps, **A/V sync** (speech onsets vs caption onsets, measured on the voice stem) and the **music/voice balance**. After a render it also checks that every voice clip starts where the timeline put it, including lines without a caption.
 - **Free & open.** MIT. The stack is Node, Playwright (Apache-2.0), ffmpeg and edge-tts. It needs no Remotion license, no build step, and no account.
 
 ## Style gallery

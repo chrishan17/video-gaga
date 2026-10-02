@@ -343,7 +343,7 @@ async function render(opts) {
   const secs = ((Date.now() - t0) / 1000).toFixed(1);
   log(`✔ ${path.relative(process.cwd(), out)}  (${secs}s)`);
   if (cues.length && subsMode !== 'none') log(`  subtitles: ${path.relative(process.cwd(), base)}.srt / .vtt (${cues.length} cues${burn ? ', burned in' : ''}${soft ? ', soft track' : ''})`);
-  report(out, cues.length ? `${base}.srt` : null, stems);
+  report(out, cues.length ? `${base}.srt` : null, stems, voice.map((v) => ({ ...v, file: path.resolve(dir, v.file) })));
   if (!opts.keepTemp) fs.rmSync(tmp, { recursive: true, force: true });
 }
 
@@ -393,13 +393,28 @@ const toVTT = (cues) => `WEBVTT\n\n${cues.map((c) => `${ts(c.start, '.')} --> ${
 // ---------------------------------------------------------------------------
 // check / report
 // ---------------------------------------------------------------------------
-function report(file, srt, stems = null) {
+// Speech onsets (s) in an audio/video file: the ends of silences.
+function speechOnsets(file, minSilence) {
+  const sd = spawnSync('ffmpeg', ['-hide_banner', '-i', file, '-map', '0:a', '-af', `silencedetect=noise=-38dB:d=${minSilence}`, '-f', 'null', '-'], { encoding: 'utf8' });
+  const onsets = [0, ...[...sd.stderr.matchAll(/silence_end: ([\d.]+)/g)].map((m) => Number(m[1]))];
+  const firstSilence = sd.stderr.match(/silence_start: ([\d.]+)/);
+  if (!firstSilence || Number(firstSilence[1]) > 0.05) return onsets; // audio did not start silent
+  return onsets.slice(1);
+}
+
+// stems: { voiceWav, music, voice, spans, noSync } from the renderer (speech
+// onsets can't be found under music, so they're measured on the voice stem).
+// voice: [{id, file, start}] from the renderer. Lets sync be checked for every
+// clip, including lines that have no caption cue.
+function report(file, srt, stems = null, voice = []) {
+  const speechSrc = stems?.voiceWav || file;
   const p = ffprobe(file);
   const v = p.streams.find((s) => s.codec_type === 'video');
   const a = p.streams.find((s) => s.codec_type === 'audio');
   const s = p.streams.find((x) => x.codec_type === 'subtitle');
   const dur = Number(p.format.duration);
-  const [n, d] = (v.avg_frame_rate || '0/1').split('/').map(Number);
+  // r_frame_rate is the stream's nominal rate; avg_frame_rate drifts (30.001) after concat
+  const [n, d] = (v.r_frame_rate || v.avg_frame_rate || '0/1').split('/').map(Number);
   const issues = [];
   log(`  video: ${v.codec_name} ${v.width}x${v.height} ${(n / d).toFixed(3)}fps ${v.pix_fmt}, ${v.nb_frames ?? '?'} frames, ${dur.toFixed(3)}s`);
   if (a) {
@@ -424,12 +439,7 @@ function report(file, srt, stems = null) {
     // A/V sync: every cue that follows a pause should start where speech starts.
     if (a && times.length && stems?.noSync) log('  a/v sync: n/a (the track has music; re-run `cv render` to measure on the voice stem)');
     else if (a && times.length) {
-      // detect speech onsets on the voice stem when we have it (music fills the silences)
-      const src = stems?.voiceWav ? ['-i', stems.voiceWav] : ['-i', file, '-map', '0:a'];
-      const sd = spawnSync('ffmpeg', ['-hide_banner', ...src, '-af', 'silencedetect=noise=-38dB:d=0.18', '-f', 'null', '-'], { encoding: 'utf8' });
-      const onsets = [0, ...[...sd.stderr.matchAll(/silence_end: ([\d.]+)/g)].map((m) => Number(m[1]))];
-      const firstSilence = sd.stderr.match(/silence_start: ([\d.]+)/);
-      if (firstSilence && Number(firstSilence[1]) > 0.05) onsets.shift(); // audio did not start silent
+      const onsets = speechOnsets(speechSrc, 0.18);
       const offs = [];
       let lastEnd = -1;
       for (const m of times) {
@@ -462,6 +472,21 @@ function report(file, srt, stems = null) {
     log(`  music: ${under.toFixed(1)} dB under the voice while it speaks${stems.ducked ? ' (before side-chain ducking)' : ''}, ${gaps >= 0 ? '+' : ''}${gaps.toFixed(1)} dB vs the voice in the gaps`);
     if (!stems.ducked && nv && under < 9) issues.push(`music is only ${under.toFixed(1)} dB under the voice (aim for 10–18 dB; lower music.volume or deepen music.duck)`);
     if (!stems.ducked && nv && under > 22) issues.push(`music is ${under.toFixed(1)} dB under the voice — probably inaudible (raise music.volume)`);
+  }
+  // Voice placement: each clip's own speech onset, shifted to where the timeline
+  // put it, should match an onset in the final mix (covers uncaptioned lines).
+  const clips = a ? voice.filter((c) => fs.existsSync(c.file) && c.start >= 0 && c.start < dur) : [];
+  if (clips.length) {
+    const onsets = speechOnsets(speechSrc, 0.1);
+    const offs = clips.map((c) => {
+      const expect = c.start + (speechOnsets(c.file, 0.05)[0] ?? 0);
+      const near = onsets.reduce((b, o) => (Math.abs(o - expect) < Math.abs(b - expect) ? o : b), Infinity);
+      return { id: c.id, off: near - expect };
+    });
+    const abs = offs.map((o) => Math.abs(o.off)).sort((x, y) => x - y);
+    const med = abs[Math.floor(abs.length / 2)], worst = offs.reduce((b, o) => (Math.abs(o.off) > Math.abs(b.off) ? o : b));
+    log(`  voice sync: ${clips.length} clips vs speech onsets — median ${(med * 1000).toFixed(0)} ms, worst ${(Math.abs(worst.off) * 1000).toFixed(0)} ms (${worst.id})`);
+    if (Math.abs(worst.off) > 0.15) issues.push(`voice clip "${worst.id}" starts ${(worst.off * 1000).toFixed(0)} ms off its timeline position`);
   }
   if (issues.length) log(`  ⚠ ${issues.join('\n  ⚠ ')}`);
   else log('  checks: ok');
@@ -546,7 +571,8 @@ function init(opts) {
   }
   fs.writeFileSync(path.join(dir, 'video.html'), htmlSrc);
   const narr = path.join(ROOT, 'presets', slug, 'narration.json');
-  if (fs.existsSync(narr) && !fs.existsSync(path.join(dir, 'narration.json'))) fs.copyFileSync(narr, path.join(dir, 'narration.json'));
+  // --no-narration: style previews and silent pieces don't want the preset's script
+  if (!opts.noNarration && fs.existsSync(narr) && !fs.existsSync(path.join(dir, 'narration.json'))) fs.copyFileSync(narr, path.join(dir, 'narration.json'));
   fs.writeFileSync(path.join(dir, '.gitignore'), 'build/\nout/\n');
   log(`✔ scaffolded ${path.relative(process.cwd(), dir) || '.'} from preset "${slug}"`);
   log(`  preview:  open ${path.join(dir, 'video.html')}`);
@@ -598,7 +624,10 @@ async function doctor() {
       await b.close();
       row(true, 'chromium', `headless ${v}`);
     } catch (e) {
-      row(false, 'chromium', `cannot launch (${e.message.split('\n')[0].slice(0, 80)}) — npx playwright install chromium; in sandboxed agents run with browser permission`);
+      const msg = e.message.split('\n')[0];
+      row(false, 'chromium', /EPERM|operation not permitted|sandbox/i.test(msg)
+        ? `blocked by a sandbox: ${msg}\n${' '.repeat(23)}→ run doctor, still, render and tts with browser/filesystem permission`
+        : `cannot launch: ${msg}\n${' '.repeat(23)}→ npx playwright install chromium`);
     }
   }
   const uv = has('uv');
@@ -632,8 +661,9 @@ still <project>               export PNG probes (3 per scene) for review
 tts <project>                 synthesize narration.json with Edge TTS (cached)
 music <project>               render the generated score to build/music.wav (the preview player plays it)
 check <video.mp4> [--srt f]   ffprobe summary + A/V + subtitle sanity checks
+                              (render runs it too, adding per-clip voice sync)
 gif <video.mp4>               palette GIF preview  [--out --width 480 --fps 12 --from --dur]
-init <dir> --preset <slug>    scaffold a project from a style preset [--ratio 9:16]
+init <dir> --preset <slug>    scaffold a project from a style preset [--ratio 9:16] [--no-narration]
 voices [--lang zh-CN]         list Edge TTS voices
 `;
 

@@ -5,6 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -12,7 +13,9 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let chromium;
 try { ({ chromium } = await import('playwright')); } catch { /* skipped below */ }
 
-const presets = fs.readdirSync(path.join(ROOT, 'presets')).filter((d) => fs.existsSync(path.join(ROOT, 'presets', d, 'video.html')));
+const compositions = (dir) => (fs.existsSync(path.join(ROOT, dir)) ? fs.readdirSync(path.join(ROOT, dir)) : [])
+  .filter((d) => fs.existsSync(path.join(ROOT, dir, d, 'video.html'))).map((d) => `${dir}/${d}`);
+const presets = [...compositions('presets'), ...compositions('examples')];
 
 test('frames are pure functions of time', { skip: !chromium && 'playwright not installed', timeout: 180000 }, async (t) => {
   let browser;
@@ -20,7 +23,7 @@ test('frames are pure functions of time', { skip: !chromium && 'playwright not i
   catch (e) { t.skip(`chromium unavailable: ${e.message.split('\n')[0]}`); return; }
   try {
     for (const slug of presets) {
-      const url = `${pathToFileURL(path.join(ROOT, 'presets', slug, 'video.html')).href}?render=1&scale=0.25`;
+      const url = `${pathToFileURL(path.join(ROOT, slug, 'video.html')).href}?render=1&scale=0.25`;
       const open = async () => {
         const p = await browser.newPage();
         const errors = [];
@@ -42,7 +45,17 @@ test('frames are pure functions of time', { skip: !chromium && 'playwright not i
       const fwd = {};
       for (const f of frames) fwd[f] = hash(await shot(a, f));
       const shuffled = [...frames].sort((x, y) => ((x * 7919) % 13) - ((y * 7919) % 13));
-      for (const f of shuffled) assert.equal(hash(await shot(b, f)), fwd[f], `${slug}: frame ${f} differs between pages/orders`);
+      for (const f of shuffled) {
+        const got = await shot(b, f);
+        if (hash(got) === fwd[f]) continue;
+        // keep the evidence: both frames and both pages' font state
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cv-determinism-'));
+        const png = (d) => Buffer.from(d.slice(d.indexOf(',') + 1), 'base64');
+        fs.writeFileSync(path.join(dir, `${path.basename(slug)}-${f}-forward.png`), png(await shot(a, f)));
+        fs.writeFileSync(path.join(dir, `${path.basename(slug)}-${f}-shuffled.png`), png(got));
+        const fonts = (p) => p.evaluate(() => ({ status: document.fonts.status, pending: Array.from(document.fonts).filter((x) => x.status !== 'loaded' && x.status !== 'unloaded').map((x) => `${x.family} ${x.status}`) }));
+        assert.fail(`${slug}: frame ${f} differs between pages/orders. Frames saved in ${dir}. Fonts: forward ${JSON.stringify(await fonts(a))}, shuffled ${JSON.stringify(await fonts(b))}`);
+      }
       await a.close();
       await b.close();
     }

@@ -1,6 +1,6 @@
 # Style presets
 
-Ten motion-design systems, each shipped as a working composition in `presets/<slug>/video.html` (with `narration.json` where voiced). Each also ships its own music style, transition vocabulary and pacing. **Read this index first. Open a preset's `video.html` only after the user has picked it**, then treat that file as the design recipe: its palette, type, motion grammar, transitions and score.
+Ten motion-design systems, each shipped as a working composition in `presets/<slug>/video.html` (with `narration.json` where voiced). Each also ships its own music style, transition vocabulary and pacing. **Read this index first. Read a preset's full `video.html` only after the user has picked it**, then treat that file as the design recipe: its palette, type, motion grammar, transitions and score. For a Phase 2 preview, read only its `THEME` object and first scene.
 
 Every preset exposes a `THEME` / `T` object at the top (colours and fonts) so it can be re-branded without touching the motion code. Two presets use three.js for 3D (see [docs/three-d.md](docs/three-d.md)).
 

@@ -56,6 +56,7 @@ Open the file in a browser to get a **preview player**: Space plays or pauses, �
   duration: 4,                 // fixed length (s) — or omit and let the voice decide
   minDuration: 3, maxDuration: 8,
   narration: 'specs' | false,  // which narration segment (defaults to id)
+  captions: true | 'file' | false, // burn + export (default) · export to .srt/.vtt only · no cue
   say: 'text',                 // inline narration text (estimated timing until TTS runs)
   voiceDelay: 0.3, tail: 1.2,  // per-scene overrides
   beats: 6, bars: 1,           // music-only length on the beat grid (needs music.bpm)
@@ -70,7 +71,7 @@ Open the file in a browser to get a **preview player**: Space plays or pauses, �
 }
 ```
 
-Timeline resolution: `scene.duration = duration ?? beats/bars ?? max(minDuration, voiceDelay + speech + tail)`. Consecutive scenes overlap by the transition's duration. With a music `bpm`:
+Timeline resolution: `scene.duration = duration ?? beats/bars ?? max(minDuration, voiceDelay + speech + tail)`, where `speech` runs to the **end of the last spoken word** plus 0.25 s for its final syllable to decay (`CV.speech.end`). It is not the clip length, because TTS clips end with up to a second of silence. Consecutive scenes overlap by the transition's duration. With a music `bpm`:
 - **cuts land on the grid**: the middle of each transition is moved to the next beat (`snap: 'beat' | 'half' | 'bar'`); the previous scene holds a little longer to get there,
 - **the voice starts on an eighth note**: `voiceDelay` is nudged so the first syllable lands on the grid,
 - **the video ends on a beat**, so the score's final chord and the last frame agree.
@@ -87,8 +88,8 @@ Timeline resolution: `scene.duration = duration ?? beats/bars ?? max(minDuration
 | `s.W`, `s.H`, `s.u` | design size. `u` = short side / 1080 (use it to scale for other aspect ratios) |
 | `s.enter`, `s.exit` | 0→1 progress of the incoming and outgoing transitions |
 | `s.at(start, dur, ease?)` | eased 0→1 progress of a local window. The workhorse. |
-| `s.when('phrase', fallback)` | **local time at which the phrase is spoken** (from TTS word boundaries). Use it for sync. |
-| `s.voiceStart`, `s.voiceEnd` | when the narration starts and ends (local) |
+| `s.when('phrase', fallback)` | **local time at which the phrase is spoken** (from TTS word boundaries). Use it for sync. An exact word or run of words wins over a substring, so `s.when('S')` finds the word "S", not "Press". |
+| `s.voiceStart`, `s.voiceEnd` | when the narration starts, and when its last word has ended and decayed (local; last word end + 0.25 s) |
 | `s.voice` | `{text, duration, words:[{text,start,end}]}` or null |
 | `s.out(d = 0.5, ease = exit, lead = 0)` | 0→1 over the scene's last `d` seconds (ending `lead` s before the end). Drive **exit choreography** with it so cuts happen on action. |
 | `s.syncTimes(units)` | local start time per on-screen unit, matched to the spoken words (what `fx.wordReveal({ sync: s })` uses) |
@@ -164,6 +165,7 @@ Custom: `type: (ctx, A, B, p, opts) => {…}`, where A and B are canvases of the
 - `color.rgba(c, a)`, `color.mix(a, b, p)`, `color.parse(c)`.
 - `CV.image(src)` preloads an image (the renderer waits for it). `CV.drawCover(ctx, img, x, y, w, h, fx, fy)` draws it cover-fit.
 - WebGL: create your own `<canvas>` or `OffscreenCanvas` with a `webgl2` context, render your shader for `s.t`, then `ctx.drawImage(glCanvas, 0, 0)`. Call `gl.finish()` before drawing it. SwiftShader is available headless.
+- Helper 2D canvases (blur buffers, pre-rendered textures): create them with `getContext('2d', { willReadFrequently: true })`, like the runtime's own, so Chromium keeps them on the CPU rasteriser and every frame rasterises the same way. Frosted glass has no backdrop-filter in canvas. Draw what's behind the pane into a half-size buffer, blur it once per frame with `ctx.filter = 'blur(…)'`, and paint it inside the pane's clip.
 
 ## three.js — `CV.three(THREE, {width, height, shadows, exposure, toneMapping, antialias})`
 
@@ -193,6 +195,8 @@ CV.create({ /* … */ scenes: [{ id: 'hero', draw(ctx, s) {
 - `subtitles.build(text, words, {maxChars, minChars, lang, punctuation, offset})` → cues `[{start, end, text, words}]`.
 - `subtitles.draw(ctx, cues, t, style)`. Style keys: `font, color, highlight` (karaoke colour), `box` (background colour or null), `stroke, strokeWidth, y` (baseline as a fraction of H), `maxWidth, padX, padY, radius, lineHeight, fadeIn`.
 - `subtitles.estimate(text, lang)` → an estimated `{duration, words}` before TTS exists.
+- `CV.speech.end(segment)` → when speech ends: the last word's end + 0.25 s of decay, capped at the clip length. `CV.speech.find(words, phrase)` → a phrase's start time, or `null` (what `s.when` uses).
+- `minChars` counts spoken characters, so punctuation doesn't make a clause long enough to break on.
 
 The renderer burns captions with `--subs burn` (the same cues become `.srt` and `.vtt`).
 

@@ -7,10 +7,10 @@ video-gaga narrates with Microsoft Edge's online neural voices through [rany2/ed
 1. You write `narration.json` next to `video.html`, with one segment per scene (`id` = scene id).
 2. `cv render` (or `cv tts`) runs `scripts/tts.py` for each segment via the edge-tts Python API with `boundary="WordBoundary"`.
    - edge-tts ≥ 7.0 defaults to **SentenceBoundary**, and its CLI has no switch for this, which is why we use the API.
-   - The audio is `audio-24khz-48kbitrate-mono-mp3` (CBR), so **duration = bytes × 8 / 48000**. That is exact, with no ffprobe needed.
+   - The audio is `audio-24khz-48kbitrate-mono-mp3` (CBR), so **duration = bytes × 8 / 48000**. That is the exact clip length, with no ffprobe needed. Clips end with 0.4–1.1 s of silence, so the timeline uses the **last word's end** (+0.25 s for the final syllable to decay) as the end of speech, not the clip length.
    - Word offsets and durations arrive in 100-ns ticks (÷ 10,000,000 for seconds).
    - Results are cached per segment by a hash of (text, voice, rate, pitch, volume).
-3. `build/narration.js` sets `window.CV_NARRATION`. The runtime places each scene: `start → +voiceDelay → speech → +tail`, with transitions overlapping.
+3. `build/narration.js` sets `window.CV_NARRATION`. The runtime places each scene: `start → +voiceDelay → speech (to the last word, +0.25 s for its final syllable to decay) → +tail`, with transitions overlapping. The clip's trailing silence simply plays under whatever comes next.
 4. The renderer mixes the clips at their exact start times (`adelay` + `amix`) with the generated score (already arranged around the voice, see [music-and-sound.md](music-and-sound.md)) or a side-chain-ducked licensed track, applies `loudnorm` to −16 LUFS, and muxes AAC.
 5. Captions are built from the same word timings: burned in on the canvas, and written as `.srt` and `.vtt`.
 
@@ -27,6 +27,8 @@ video-gaga narrates with Microsoft Edge's online neural voices through [rany2/ed
 ```
 
 Per-segment `voice`, `rate`, `pitch` and `volume` override the defaults, so you can alternate two voices for a dialogue.
+
+**Several voices in a row.** A scene has one clip. For a run of voices (a dialogue, the same word in six accents, one phrase per language), make one short scene per clip and join them with `cut` transitions over an identical layout. The cuts are invisible and every clip is pinned exactly. Keep `voiceDelay` and `tail` small (≈ 0.06–0.12 s) so the run keeps its rhythm.
 
 **Word granularity.** English gives one event per word. Chinese voices return **segmented words** (for example `画布 / 就 / 是 / 你 / 的 / 摄影棚`). Punctuation is never included, and the runtime re-aligns the words to your original text to recover it. `s.when('摄影棚')` works on any contiguous run of words, and on a substring inside a single word.
 
@@ -52,6 +54,11 @@ List them all with `node scripts/cv.mjs voices --lang zh-CN`. These are tested a
 | en-US | AriaNeural / JennyNeural / GuyNeural | F / F / M | News, General | Classic neutral narration |
 | en-US | *MultilingualNeural variants* | | same personas | Mixed-language scripts |
 | en-GB | SoniaNeural / RyanNeural | F / M | Friendly | British English |
+| en-AU | NatashaNeural / WilliamMultilingualNeural | F / M | Friendly | Australian English |
+| en-IN | NeerjaNeural / PrabhatNeural | F / M | Friendly | Indian English |
+| en-IE | EmilyNeural / ConnorNeural | F / M | Friendly | Irish English |
+| en-ZA | LeahNeural / LukeNeural | F / M | Friendly | South African English |
+| ko-KR | SunHiNeural / InJoonNeural | F / M | Friendly | Korean |
 | ja-JP | NanamiNeural / KeitaNeural | F / M | Friendly | Japanese |
 
 **Rate.** `+0%` is natural. Use `+4…+10%` for social and tight edits, and `−5…−10%` for calm, premium or keynote. Beyond ±15% it sounds processed, so cut words instead.
@@ -77,6 +84,14 @@ The cue builder (`CV.subtitles.build`) breaks captions like a subtitle editor wo
 5. Timing: cue start = first word start. End = last word end + 120 ms, at least 0.8 s long, and never overlapping the next cue.
 
 Defaults: CJK 18 characters (16:9) or 12 (9:16). English 42 or 28. Override them with `subtitles: { maxChars, minChars, punctuation }`.
+
+### Per scene (`scene.captions`)
+
+| Value | Result |
+|---|---|
+| `true` (default) | Cues are burned (with `--subs burn`) and written to .srt/.vtt |
+| `'file'` | In .srt/.vtt only, never burned. Use it when the line is already on screen as type (a title question, a tagline), or when the picture shows what is said |
+| `false` | No cue at all (sound effects, sung or non-verbal clips) |
 
 ### Styles (`subtitles.style`)
 
@@ -107,6 +122,7 @@ Why canvas burn-in instead of ffmpeg's `subtitles` filter: it needs a libass bui
 - **music balance**: dB under the voice while it speaks, and vs the voice in the gaps (see [music-and-sound.md](music-and-sound.md) §6)
 - cue count, overlaps, and whether the last cue fits
 - **A/V sync**: speech onsets found by `silencedetect` on the **voice stem** (music would fill every silence) compared against cue starts. `cv render` leaves the stem in `build/voice-stem.wav`, so a later `cv check out/<name>.mp4` measures the same way. The median is typically 50–90 ms (the detector fires slightly after the consonant attack). The check warns above 300 ms.
+- **Voice sync** (render only, since it needs the timeline): each clip's own speech onset, shifted to its place on the timeline, compared with the onsets on the voice stem. It covers lines that have no caption cue. It is typically < 20 ms and warns above 150 ms.
 
 ## 6. Troubleshooting
 
@@ -114,6 +130,7 @@ Why canvas burn-in instead of ffmpeg's `subtitles` filter: it needs a libass bui
 |---|---|
 | `403` / handshake errors | Update edge-tts (`uv` always fetches the latest; with pip, `pip install -U edge-tts`). Check that the system clock is correct (the DRM token is time-based). |
 | No network | Scenes still preview with *estimated* timing (`say:` text or estimates). The render warns `estimated speech timing`. Run TTS when you're back online. |
+| `Failed to initialize cache at ~/.cache/uv` | A sandbox is blocking uv's home cache. `UV_CACHE_DIR=build/.uv-cache` clears that error, but uv still has to reach PyPI and the TTS service needs the network. Usually it's simpler to run `tts` / `voices` with permission. |
 | Voice sounds rushed | Lower `rate`, or cut words. Don't cram. |
 | Caption breaks mid-name | Put a space around the Latin term, or reduce `minChars`. |
 | Visual hit misses the word | Use `s.when('exact words as spoken')`, and check `build/voice/<id>.json` for how the voice tokenised them. |
