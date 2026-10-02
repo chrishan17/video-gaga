@@ -1,7 +1,7 @@
 /*!
- * canvas-video runtime — deterministic Canvas motion graphics for video.
+ * video-gaga runtime — deterministic Canvas motion graphics for video.
  * MIT License. Zero dependencies. Works in any modern browser and in the
- * canvas-video renderer (headless Chromium → ffmpeg).
+ * video-gaga renderer (headless Chromium → ffmpeg).
  *
  * The one rule: every pixel of frame N must be a pure function of time
  * t = N / fps. No Date.now(), no Math.random(), no setTimeout, no state
@@ -454,7 +454,42 @@
     return c;
   }
 
-  const draw = { roundRect, drawOn, sketchLine, sketchCircle, grain, vignette, camera };
+  // Arrow that draws on from (x1,y1) to (x2,y2); the head appears at the end.
+  // opts: { head=18, bend (perpendicular offset of the midpoint, px), width }
+  function arrow(ctx, x1, y1, x2, y2, p, opts = {}) {
+    if (p <= 0) return;
+    const bend = opts.bend ?? 0, n = bend ? 24 : 1;
+    const mx = (x1 + x2) / 2 - (y2 - y1) * 0, my = (y1 + y2) / 2;
+    const len = Math.hypot(x2 - x1, y2 - y1) || 1;
+    const cx = mx + (-(y2 - y1) / len) * bend, cy = my + ((x2 - x1) / len) * bend;
+    const pts = [];
+    for (let i = 0; i <= n; i++) {
+      const k = i / n;
+      pts.push(bend ? [(1 - k) ** 2 * x1 + 2 * (1 - k) * k * cx + k * k * x2, (1 - k) ** 2 * y1 + 2 * (1 - k) * k * cy + k * k * y2] : [lerp(x1, x2, k), lerp(y1, y2, k)]);
+    }
+    if (opts.width) ctx.lineWidth = opts.width;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    drawOn(ctx, pts, p);
+    const hp = clamp((p - 0.8) / 0.2);
+    if (hp <= 0) return;
+    const tip = along(pts, p), h = (opts.head ?? 18) * ease.outCubic(hp);
+    ctx.beginPath();
+    ctx.moveTo(tip.x - Math.cos(tip.angle - 0.5) * h, tip.y - Math.sin(tip.angle - 0.5) * h);
+    ctx.lineTo(tip.x, tip.y);
+    ctx.lineTo(tip.x - Math.cos(tip.angle + 0.5) * h, tip.y - Math.sin(tip.angle + 0.5) * h);
+    ctx.stroke();
+  }
+
+  // Arc stroked from a0 toward a1 (radians, 0 = 3 o'clock) by progress p.
+  function arcOn(ctx, cx, cy, r, a0, a1, p) {
+    if (p <= 0) return;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, a0, lerp(a0, a1, clamp(p)), a1 < a0);
+    ctx.stroke();
+  }
+
+  const draw = { roundRect, drawOn, sketchLine, sketchCircle, grain, vignette, camera, arrow, arc: arcOn };
 
   // ===========================================================================
   // Motion primitives (fx) — the reusable "moves" of motion design
@@ -487,20 +522,22 @@
   }
 
   // Per-character reveal (fade + rise + optional blur), staggered.
+  // `exit` (0..1) sends the characters out again with the same stagger.
   function charReveal(ctx, str, x, y, t, opts = {}) {
     const g = glyphs(ctx, str, x, y, opts);
     const e = opts.ease || ease.enter, dur = opts.dur ?? 0.5, st = opts.stagger ?? 0.035;
-    const rise = opts.rise ?? 0.35;
+    const rise = opts.rise ?? 0.35, exit = opts.exit ?? 0;
     const size = parseFloat(ctx.font.match(/(\d+(?:\.\d+)?)px/)?.[1] || 40);
     ctx.save();
     const align = ctx.textAlign;
     ctx.textAlign = 'left';
     for (const c of g) {
       const p = e(clamp((t - c.i * st) / dur));
-      if (p <= 0) continue;
-      ctx.globalAlpha = p * (opts.alpha ?? 1);
-      if (opts.blur) ctx.filter = `blur(${((1 - p) * opts.blur).toFixed(2)}px)`;
-      ctx.fillText(c.ch, c.x, c.y + (1 - p) * size * rise);
+      const q = ease.exit(clamp(exit * 1.4 - (c.i / Math.max(1, g.length - 1)) * 0.4));
+      if (p <= 0 || q >= 1) continue;
+      ctx.globalAlpha = p * (1 - q) * (opts.alpha ?? 1);
+      if (opts.blur) ctx.filter = `blur(${((1 - p + q) * opts.blur).toFixed(2)}px)`;
+      ctx.fillText(c.ch, c.x, c.y + (1 - p) * size * rise - q * size * rise);
     }
     ctx.filter = 'none';
     ctx.textAlign = align;
@@ -542,7 +579,137 @@
   // "On twos/threes": quantize time to animate at a lower rate (hand-made feel).
   const onTwos = (t, fps = 30, n = 2) => Math.floor((t * fps) / n) * (n / fps);
 
-  const fx = { lineReveal, charReveal, countUp, typewriter, mask, onTwos };
+  const fontPx = (ctx) => parseFloat(ctx.font.match(/(\d+(?:\.\d+)?)px/)?.[1] || 40);
+
+  // Word-by-word reveal (rise + fade + optional unblur). CJK reveals per
+  // character. Timing: `times` (local seconds per unit), or `sync: s` to land
+  // every word exactly when the voice says it, else a plain `stagger`.
+  // `exit` (0..1) sends the words out again, staggered, in reading order.
+  // opts: { stagger=0.06, dur=0.45, rise=0.3, blur, ghost (alpha before reveal), align, maxWidth, lineHeight, colorFor(unit, i) }
+  function wordReveal(ctx, str, x, y, t, opts = {}) {
+    const ws = words(ctx, str, x, y, opts);
+    const e = opts.ease || ease.enter, dur = opts.dur ?? 0.45, st = opts.stagger ?? 0.06;
+    const size = fontPx(ctx), rise = opts.rise ?? 0.3, ghost = opts.ghost ?? 0;
+    const times = opts.times || (opts.sync ? opts.sync.syncTimes(ws.map((w) => w.text), opts.stagger ?? 0.12) : null);
+    const exit = opts.exit ?? 0, n = ws.length;
+    ctx.save();
+    const base = ctx.fillStyle;
+    ctx.textAlign = 'left';
+    ws.forEach((w, i) => {
+      const t0 = times ? times[Math.min(i, times.length - 1)] ?? 0 : i * st;
+      const p = e(clamp((t - t0) / dur));
+      const q = ease.exit(clamp(exit * (1 + 0.4) - (i / Math.max(1, n - 1)) * 0.4));
+      const a = (ghost + (1 - ghost) * p) * (1 - q);
+      if (a <= 0.001) return;
+      ctx.globalAlpha = a * (opts.alpha ?? 1);
+      if (opts.blur && p < 1) ctx.filter = `blur(${((1 - p) * opts.blur).toFixed(2)}px)`;
+      ctx.fillStyle = opts.colorFor ? opts.colorFor(w, i, p) || base : base;
+      ctx.fillText(w.text, w.x, w.y + (1 - p) * size * rise - q * size * rise);
+      ctx.filter = 'none';
+    });
+    ctx.restore();
+    return ws;
+  }
+
+  // Decode / scramble text: resolved characters left→right, the rest cycle
+  // through `chars` (deterministic for a given p and seed).
+  function scramble(str, p, opts = {}) {
+    const chars = Array.from(str);
+    const pool = Array.from(opts.chars || '01<>/#%&*+=?ABCDEFGHJKLMNPQRSTUVWXYZ');
+    const n = Math.floor(clamp(p) * chars.length + 1e-6);
+    const r = rand((opts.seed ?? 1) * 7919 + Math.floor(clamp(p) * (opts.rate ?? 40)));
+    // spaces and punctuation (":", ".", "-") stay put: only letters and digits scramble
+    return chars.map((c, i) => (i < n || /[\s\p{P}\p{S}]/u.test(c) ? c : pool[Math.floor(r() * pool.length)])).join('');
+  }
+
+  // Odometer: each digit rolls up into place inside its own mask, rightmost
+  // digits spin further (like a real counter). Non-digits fade in.
+  // opts: { stagger=0.06, dur (fraction of p each digit uses)=0.75, spins=1, align, ease }
+  function roll(ctx, str, x, y, p, opts = {}) {
+    const chars = Array.from(String(str));
+    const size = fontPx(ctx), lh = opts.lineHeight ?? size * 1.05;
+    const e = opts.ease || ease.outQuart;
+    const widths = chars.map((c) => ctx.measureText(c).width);
+    const total = widths.reduce((a, b) => a + b, 0);
+    const align = opts.align || ctx.textAlign;
+    let cx = align === 'center' ? x - total / 2 : align === 'right' || align === 'end' ? x - total : x;
+    const digits = chars.filter((c) => /\d/.test(c)).length;
+    const span = opts.dur ?? 0.75, st = digits > 1 ? (1 - span) / (digits - 1) : 0;
+    let k = 0;
+    ctx.save();
+    ctx.textAlign = 'left';
+    chars.forEach((c, i) => {
+      if (/\d/.test(c)) {
+        const d = Number(c), spins = (opts.spins ?? 1) + Math.floor((digits - 1 - k) / 2);
+        const q = e(clamp((clamp(p) - k * st) / span));
+        const pos = (d + 10 * spins) * q; // distance rolled, in digits
+        const lo = Math.floor(pos), frac = pos - lo;
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(cx - 2, y - size * 0.92, widths[i] + 4, size * 1.12);
+        ctx.clip();
+        ctx.fillText(String(lo % 10), cx, y - frac * lh);
+        if (frac > 0.001) ctx.fillText(String((lo + 1) % 10), cx, y + (1 - frac) * lh);
+        ctx.restore();
+        k++;
+      } else {
+        const a0 = ctx.globalAlpha;
+        ctx.globalAlpha = a0 * clamp(p * 3);
+        ctx.fillText(c, cx, y);
+        ctx.globalAlpha = a0;
+      }
+      cx += widths[i];
+    });
+    ctx.restore();
+    return total;
+  }
+
+  // Marker swipe behind a term: a rounded bar grows left→right (draw before the text).
+  function highlight(ctx, x, y, w, h, p, opts = {}) {
+    if (p <= 0) return;
+    ctx.save();
+    ctx.fillStyle = opts.color || 'rgba(255,216,77,.75)';
+    if (opts.blend) ctx.globalCompositeOperation = opts.blend;
+    const skew = opts.skew ?? 0;
+    ctx.transform(1, 0, skew, 1, -skew * y, 0);
+    roundRect(ctx, x, y, w * clamp(p), h, opts.radius ?? h * 0.18);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Point + tangent angle at progress p along a polyline (motion paths).
+  function along(pts, p) {
+    let total = 0;
+    const seg = [];
+    for (let i = 1; i < pts.length; i++) { const d = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); seg.push(d); total += d; }
+    let left = total * clamp(p);
+    for (let i = 1; i < pts.length; i++) {
+      const d = seg[i - 1];
+      if (left <= d || i === pts.length - 1) {
+        const k = d ? Math.min(1, left / d) : 0;
+        const [x0, y0] = pts[i - 1], [x1, y1] = pts[i];
+        return { x: lerp(x0, x1, k), y: lerp(y0, y1, k), angle: Math.atan2(y1 - y0, x1 - x0) };
+      }
+      left -= d;
+    }
+    return { x: pts[0][0], y: pts[0][1], angle: 0 };
+  }
+
+  // Eased progress of item i in a staggered group: stagger(t, i, {each, dur, start, ease}).
+  function staggerP(t, i, opts = {}) {
+    return (opts.ease || ease.enter)(clamp((t - (opts.start ?? 0) - i * (opts.each ?? 0.08)) / (opts.dur ?? 0.5)));
+  }
+
+  // Impact jitter that decays after `start` (only for literal impacts).
+  function shake(t, start, amount = 10, opts = {}) {
+    const dt = t - start;
+    if (dt < 0) return { x: 0, y: 0, r: 0 };
+    const k = Math.exp(-dt / (opts.decay ?? 0.18)) * amount;
+    const f = opts.freq ?? 24, sd = opts.seed ?? 5;
+    return { x: noise(dt * f, sd) * k, y: noise(dt * f, sd + 9) * k, r: noise(dt * f, sd + 17) * k * 0.002 };
+  }
+
+  const fx = { lineReveal, charReveal, wordReveal, countUp, roll, typewriter, scramble, highlight, along, stagger: staggerP, shake, mask, onTwos };
 
   // ===========================================================================
   // Images (preloaded; the renderer waits for them)
@@ -553,7 +720,7 @@
     img.decoding = 'sync';
     const p = new Promise((res) => {
       img.onload = () => res(img);
-      img.onerror = () => { console.warn('[canvas-video] image failed', src); res(img); };
+      img.onerror = () => { console.warn('[video-gaga] image failed', src); res(img); };
     });
     img.src = src;
     imagePromises.push(p);
@@ -678,9 +845,280 @@
         ctx.fillRect(0, 0, W, H);
       }
     },
+    // Whip pan: a push with motion blur that peaks mid-move (energy, "next").
+    whip(ctx, A, B, p, o) {
+      const W = ctx.canvas.width, H = ctx.canvas.height;
+      const [dx, dy] = dirVec(o.direction || 'left');
+      const n = o.samples ?? 9, spread = (o.blur ?? 0.16) * Math.sin(Math.PI * p);
+      for (let i = 0; i < n; i++) {
+        const q = clamp(p + (n > 1 ? i / (n - 1) - 0.5 : 0) * spread);
+        ctx.globalAlpha = 1 / (i + 1); // running average → equal weights
+        ctx.drawImage(A, -dx * W * q, -dy * H * q);
+        ctx.drawImage(B, dx * W * (1 - q), dy * H * (1 - q));
+      }
+      ctx.globalAlpha = 1;
+    },
+    // Split: the old frame opens like doors onto the new one.
+    split(ctx, A, B, p, o) {
+      const W = ctx.canvas.width, H = ctx.canvas.height;
+      const vert = (o.direction || 'horizontal') === 'vertical';
+      const s = lerp(o.zoom ?? 1.06, 1, p);
+      ctx.save();
+      ctx.translate(W / 2, H / 2); ctx.scale(s, s); ctx.translate(-W / 2, -H / 2);
+      ctx.drawImage(B, 0, 0);
+      ctx.restore();
+      ctx.fillStyle = color.rgba('#000', 0.3 * (1 - p));
+      ctx.fillRect(0, 0, W, H);
+      if (vert) {
+        const off = (H / 2) * p;
+        ctx.drawImage(A, 0, 0, W, H / 2, 0, -off, W, H / 2);
+        ctx.drawImage(A, 0, H / 2, W, H / 2, 0, H / 2 + off, W, H / 2);
+      } else {
+        const off = (W / 2) * p;
+        ctx.drawImage(A, 0, 0, W / 2, H, -off, 0, W / 2, H);
+        ctx.drawImage(A, W / 2, 0, W / 2, H, W / 2 + off, 0, W / 2, H);
+      }
+    },
+    // Blinds: the new frame opens strip by strip (staggered).
+    blinds(ctx, A, B, p, o) {
+      const W = ctx.canvas.width, H = ctx.canvas.height;
+      const n = o.count ?? 8, st = o.stagger ?? 0.5, vert = (o.direction || 'vertical') === 'vertical';
+      ctx.drawImage(A, 0, 0);
+      const size = (vert ? W : H) / n;
+      for (let i = 0; i < n; i++) {
+        const q = ease.standard(clamp(p * (1 + st) - (i / Math.max(1, n - 1)) * st));
+        if (q <= 0) continue;
+        const a = i * size, w = size * q, c = a + (size - w) / 2;
+        ctx.save();
+        ctx.beginPath();
+        if (vert) ctx.rect(Math.floor(c), 0, Math.ceil(w) + 1, H); else ctx.rect(0, Math.floor(c), W, Math.ceil(w) + 1);
+        ctx.clip();
+        ctx.drawImage(B, 0, 0);
+        ctx.restore();
+      }
+    },
+    // Stripes: brand-coloured bands sweep across, covering the old frame and
+    // uncovering the new one behind them. opts: { colors:[…], count=4, direction, stagger }
+    stripes(ctx, A, B, p, o) {
+      const W = ctx.canvas.width, H = ctx.canvas.height;
+      const cols = o.colors || ['#111'], n = o.count ?? cols.length ?? 4, st = o.stagger ?? 0.25;
+      const d = o.direction || 'right'; // the way the bands travel
+      const horiz = d === 'left' || d === 'right';
+      const L = horiz ? W : H, band = (horiz ? H : W) / n;
+      for (let i = 0; i < n; i++) {
+        const q = clamp(p * (1 + st) - (i / Math.max(1, n - 1)) * st);
+        let a = L * Math.max(0, q * 2 - 1), b = L * Math.min(1, q * 2); // [a,b] covered by the band
+        if (d === 'left' || d === 'up') [a, b] = [L - b, L - a];
+        const lo = Math.floor(i * band), hi = Math.ceil((i + 1) * band);
+        const rect = (s0, s1) => (horiz ? [s0, lo, s1 - s0, hi - lo] : [lo, s0, hi - lo, s1 - s0]);
+        const paint = (src, s0, s1) => {
+          if (s1 - s0 <= 0) return;
+          const [x, y, w, h] = rect(s0, s1);
+          ctx.drawImage(src, x, y, w, h, x, y, w, h);
+        };
+        const fwd = d === 'right' || d === 'down';
+        paint(fwd ? B : A, 0, a);
+        paint(fwd ? A : B, b, L);
+        if (b > a) {
+          const [x, y, w, h] = rect(Math.floor(a), Math.ceil(b));
+          ctx.fillStyle = cols[i % cols.length];
+          ctx.fillRect(x, y, w, h);
+        }
+      }
+    },
+    // Clock wipe: the new frame sweeps in around the centre.
+    clock(ctx, A, B, p, o) {
+      const W = ctx.canvas.width, H = ctx.canvas.height;
+      const cx = (o.x ?? 0.5) * W, cy = (o.y ?? 0.5) * H, R = Math.hypot(W, H);
+      const a0 = -Math.PI / 2;
+      ctx.drawImage(A, 0, 0);
+      if (p <= 0) return;
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, R, a0, a0 + Math.PI * 2 * p, !!o.reverse);
+      ctx.closePath();
+      ctx.clip();
+      ctx.drawImage(B, 0, 0);
+      ctx.restore();
+    },
+    // Light leak: a warm bloom passes across while the frames cross.
+    flash(ctx, A, B, p, o) {
+      const W = ctx.canvas.width, H = ctx.canvas.height;
+      ctx.drawImage(A, 0, 0);
+      ctx.globalAlpha = ease.inOutSine(clamp((p - 0.25) / 0.5));
+      ctx.drawImage(B, 0, 0);
+      ctx.globalAlpha = 1;
+      const k = Math.sin(Math.PI * p) * (o.strength ?? 0.85);
+      const x = lerp(-0.2, 1.2, p) * W;
+      const g = ctx.createRadialGradient(x, H * 0.45, 0, x, H * 0.45, W * 0.75);
+      g.addColorStop(0, color.rgba(o.color || '#fff4e0', k));
+      g.addColorStop(0.45, color.rgba(o.color || '#ffb36b', k * 0.45));
+      g.addColorStop(1, color.rgba(o.color || '#ffb36b', 0));
+      ctx.globalCompositeOperation = 'screen';
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+      ctx.globalCompositeOperation = 'source-over';
+    },
+    // Mosaic: blocks grow to a peak, the frames swap, blocks resolve.
+    pixelate(ctx, A, B, p, o) {
+      const W = ctx.canvas.width, H = ctx.canvas.height;
+      const k = Math.sin(Math.PI * p), block = Math.max(1, Math.round(1 + k * (o.size ?? 64) * (W / 1920)));
+      const src = p < 0.5 ? A : B;
+      if (block <= 1) { ctx.drawImage(src, 0, 0); return; }
+      const w = Math.max(1, Math.round(W / block)), h = Math.max(1, Math.round(H / block));
+      const tmp = scratch('px', w, h);
+      const g = tmp.getContext('2d');
+      g.imageSmoothingEnabled = true;
+      g.clearRect(0, 0, w, h);
+      g.drawImage(src, 0, 0, w, h);
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(tmp, 0, 0, w, h, 0, 0, W, H);
+      ctx.imageSmoothingEnabled = true;
+    },
+    // Noise dissolve: organic grain-level reveal (film, memory, soft change).
+    dissolve(ctx, A, B, p, o) {
+      // fine, film-like grain: two octaves of noise (aspect-corrected) plus per-pixel jitter
+      const sd = o.seed ?? 3, f = o.scale ?? 1;
+      maskReveal(ctx, A, B, p, o, `dissolve${f}`, (x, y, r, aspect) => clamp(0.5 + 0.3 * noise2(x * aspect * 16 * f, y * 16 * f, sd) + 0.17 * noise2(x * aspect * 47 * f, y * 47 * f, sd + 1) + (r() - 0.5) * 0.12));
+    },
+    // Ink bloom: the new frame spreads from a point with an organic edge.
+    ink(ctx, A, B, p, o) {
+      const ox = o.x ?? 0.5, oy = o.y ?? 0.5, sd = o.seed ?? 7;
+      maskReveal(ctx, A, B, p, o, `ink${ox},${oy}`, (x, y, r, aspect) => {
+        const d = Math.hypot((x - ox) * aspect, y - oy) / Math.hypot(Math.max(ox, 1 - ox) * aspect, Math.max(oy, 1 - oy));
+        return clamp(d * 0.82 + 0.18 * (noise2(x * 5, y * 5, sd) * 0.7 + noise2(x * 17, y * 17, sd + 1) * 0.3) + 0.09);
+      });
+    },
+    // Zoom through with radial streaks: going "into" the idea.
+    zoomBlur(ctx, A, B, p, o) {
+      const W = ctx.canvas.width, H = ctx.canvas.height;
+      const n = o.samples ?? 7, k = Math.sin(Math.PI * p);
+      const scaled = (src, s, a) => {
+        ctx.save();
+        ctx.globalAlpha = a;
+        ctx.translate(W / 2, H / 2); ctx.scale(s, s); ctx.translate(-W / 2, -H / 2);
+        ctx.drawImage(src, 0, 0);
+        ctx.restore();
+      };
+      const q = ease.inOutSine(clamp((p - 0.3) / 0.4));
+      // outgoing rushes toward the viewer, smeared into radial streaks
+      if (q < 1) for (let i = 0; i < n; i++) scaled(A, (1 + p * 0.6) * (1 + (i / n) * 0.12 * k * (o.strength ?? 1)), 1 / (i + 1));
+      // incoming arrives from slightly large and settles at 1
+      if (q > 0) scaled(B, lerp(1.25, 1, ease.outCubic(p)), q);
+      ctx.globalAlpha = 1;
+    },
+    // Cube: rotate to the next face (sequential topics, "turn the page" in 3D).
+    cube(ctx, A, B, p, o) {
+      const W = ctx.canvas.width, H = ctx.canvas.height;
+      ctx.fillStyle = o.color || '#000';
+      ctx.fillRect(0, 0, W, H);
+      const dir = (o.direction || 'left') === 'right' ? -1 : 1;
+      const a = p * (Math.PI / 2) * dir, h = W / 2;
+      // face A: front face; face B: the adjacent side face
+      const faceA = (u) => [u * Math.cos(a) - h * Math.sin(a), -u * Math.sin(a) - h * Math.cos(a)];
+      const faceB = (w) => [dir * h * Math.cos(a) + w * Math.sin(a) * dir, -dir * h * Math.sin(a) + w * Math.cos(a)];
+      const shade = (k) => color.rgba('#000', clamp(k) * 0.6);
+      facet(ctx, A, (s) => faceA(lerp(-h, h, s)), h, W, H, shade(p));
+      facet(ctx, B, (s) => faceB(lerp(-h, h, s)), h, W, H, shade(1 - p));
+    },
+    // Card flip around the vertical axis.
+    flip(ctx, A, B, p, o) {
+      const W = ctx.canvas.width, H = ctx.canvas.height;
+      ctx.fillStyle = o.color || '#000';
+      ctx.fillRect(0, 0, W, H);
+      const a = p * Math.PI, h = W / 2;
+      const src = p < 0.5 ? A : B, ang = p < 0.5 ? a : a - Math.PI;
+      facet(ctx, src, (s) => { const u = lerp(-h, h, s); return [u * Math.cos(ang), -u * Math.sin(ang)]; }, 0, W, H, color.rgba('#000', Math.sin(a) * 0.35));
+    },
   };
   function dirVec(d) {
     return { left: [1, 0], right: [-1, 0], up: [0, 1], down: [0, -1] }[d] || [1, 0];
+  }
+
+  // Reusable scratch canvases for transitions (pure: contents are fully
+  // rewritten on every use).
+  const scratchMap = new Map();
+  function scratch(key, w, h) {
+    const k = `${key}:${w}x${h}`;
+    let c = scratchMap.get(k);
+    if (!c) { c = makeCanvas(w, h); scratchMap.set(k, c); }
+    return c;
+  }
+
+  // 2D value noise in [-1, 1].
+  function noise2(x, y, seed = 0) {
+    const h = (i, j) => { const r = Math.sin(i * 127.1 + j * 311.7 + seed * 74.7) * 43758.5453; return (r - Math.floor(r)) * 2 - 1; };
+    const i = Math.floor(x), j = Math.floor(y), fx_ = x - i, fy = y - j;
+    const u = fx_ * fx_ * (3 - 2 * fx_), v = fy * fy * (3 - 2 * fy);
+    return lerp(lerp(h(i, j), h(i + 1, j), u), lerp(h(i, j + 1), h(i + 1, j + 1), u), v);
+  }
+
+  // Threshold reveal through a cached scalar field (0..1 per pixel, low-res).
+  const fieldCache = new Map();
+  function maskReveal(ctx, A, B, p, o, key, field) {
+    const W = ctx.canvas.width, H = ctx.canvas.height;
+    const fw = 480, fh = Math.max(1, Math.round((480 * H) / W));
+    const ck = `${key}:${fw}x${fh}:${o.seed ?? ''}`;
+    let f = fieldCache.get(ck);
+    if (!f) {
+      f = new Float32Array(fw * fh);
+      const r = rand(o.seed ?? 3);
+      for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) f[y * fw + x] = field(x / fw, y / fh, r, W / H);
+      fieldCache.set(ck, f);
+    }
+    const soft = o.softness ?? 0.06;
+    const m = scratch('mask', fw, fh), mg = m.getContext('2d');
+    const img = mg.createImageData(fw, fh);
+    const th = lerp(-soft, 1 + soft, p);
+    for (let i = 0; i < f.length; i++) img.data[i * 4 + 3] = 255 * clamp((th - f[i]) / soft + 0.5);
+    mg.putImageData(img, 0, 0);
+    const layer = scratch('layer', W, H), lg = layer.getContext('2d');
+    lg.globalCompositeOperation = 'source-over';
+    lg.clearRect(0, 0, W, H);
+    lg.drawImage(B, 0, 0);
+    lg.globalCompositeOperation = 'destination-in';
+    lg.imageSmoothingEnabled = true;
+    lg.drawImage(m, 0, 0, W, H);
+    lg.globalCompositeOperation = 'source-over';
+    ctx.drawImage(A, 0, 0);
+    if (o.edgeColor) {
+      // a thin coloured rim just ahead of the reveal (ink edge)
+      for (let i = 0; i < f.length; i++) img.data[i * 4 + 3] = 255 * clamp(1 - Math.abs(th + soft * 1.5 - f[i]) / (soft * 0.9));
+      mg.putImageData(img, 0, 0);
+      const e = scratch('edge', W, H), eg = e.getContext('2d');
+      eg.globalCompositeOperation = 'source-over';
+      eg.clearRect(0, 0, W, H);
+      eg.fillStyle = o.edgeColor;
+      eg.fillRect(0, 0, W, H);
+      eg.globalCompositeOperation = 'destination-in';
+      eg.drawImage(m, 0, 0, W, H);
+      eg.globalCompositeOperation = 'source-over';
+      ctx.drawImage(e, 0, 0);
+    }
+    ctx.drawImage(layer, 0, 0);
+  }
+
+  // Draw a source image as a plane rotated about the vertical axis, in
+  // vertical strips with perspective. pos(s) → [x, z] (relative to the cube
+  // centre, z toward the viewer is negative) for s in 0..1 across the image.
+  function facet(ctx, src, pos, depth, W, H, shadeCol) {
+    const n = 72, f = W * 1.6; // strips, focal length
+    const cols = [];
+    for (let i = 0; i <= n; i++) {
+      const [x, z] = pos(i / n);
+      const k = f / (f + z + depth); // the front plane (z = -depth) has scale 1
+      cols.push([W / 2 + x * k, k]);
+    }
+    for (let i = 0; i < n; i++) {
+      const [x0, k0] = cols[i], [x1, k1] = cols[i + 1];
+      if (x1 - x0 <= 0.05) continue; // back-facing or edge-on
+      const h = H * (k0 + k1) / 2;
+      const sx = (i / n) * src.width, sw = src.width / n;
+      const dx = Math.floor(x0), dw = Math.ceil(x1 - x0) + 1;
+      ctx.drawImage(src, sx, 0, sw, src.height, dx, H / 2 - h / 2, dw, h);
+      if (shadeCol) { ctx.fillStyle = shadeCol; ctx.fillRect(dx, H / 2 - h / 2, dw, h); }
+    }
   }
 
   // ===========================================================================
@@ -871,8 +1309,50 @@
   // ===========================================================================
   // Video composition
   // ===========================================================================
+  const fail = (msg) => { throw new Error(`[video-gaga] ${msg}`); };
+
+  // Default tempo per generated music style (scripts/music.mjs renders them).
+  const STYLE_BPM = { keynote: 92, explainer: 100, kinetic: 104, synthwave: 112, acoustic: 96, ambient: 76, pop: 116, documentary: 84 };
+  // The sound a transition naturally makes (only when music/sfx are enabled).
+  const TRANSITION_SFX = {
+    push: 'whoosh', slide: 'whoosh', whip: 'whoosh', wipe: 'swish', stripes: 'swish', split: 'whoosh', blinds: 'swish',
+    clock: 'swish', zoom: 'whoosh', zoomBlur: 'whoosh', cube: 'whoosh', flip: 'swish', iris: 'swish',
+    glitch: 'glitch', flash: 'shimmer', pixelate: 'glitch', ink: 'swell', dissolve: 'swell',
+  };
+
+  // How long a line is actually *spoken*: TTS clips carry 0.4–0.9 s of silence
+  // after the last word, so timing uses the last word's end plus the decay of
+  // its final syllable. (The audio clip itself plays in full.)
+  function speechLen(seg) {
+    const last = seg.words && seg.words.length ? seg.words[seg.words.length - 1].end : null;
+    return last != null && !seg.estimated ? Math.min(seg.duration, last + 0.25) : seg.duration;
+  }
+
+  // Local time (s) at which a phrase is spoken in a voice segment.
+  function phraseTime(voice, voiceDelay, phrase, fallback = 0) {
+    if (!voice || !voice.words) return fallback;
+    const ws = voice.words;
+    const n = (x) => String(x).replace(/[\s\p{P}]/gu, '').toLowerCase();
+    const want = n(phrase);
+    if (!want) return fallback;
+    for (let i = 0; i < ws.length; i++) {
+      const wi = n(ws[i].text);
+      if (!wi) continue;
+      if (wi.includes(want)) return voiceDelay + ws[i].start;
+      // phrase spans several words starting at word i
+      let acc = '';
+      for (let j = i; j < ws.length; j++) {
+        acc += n(ws[j].text);
+        if (acc.startsWith(want)) return voiceDelay + ws[i].start;
+        if (!want.startsWith(acc)) break;
+      }
+    }
+    return fallback;
+  }
+
   const params = typeof location !== 'undefined' ? new URLSearchParams(location.search) : new URLSearchParams();
   const RENDER = params.get('render') === '1' || !!root.__CV_RENDER__;
+  let fontEpoch = 0; // bumped once webfonts are ready (invalidates text caches)
 
   function create(config) {
     const W = config.width ?? 1920, H = config.height ?? 1080, fps = config.fps ?? 30;
@@ -882,6 +1362,18 @@
     const burnSubs = params.has('subs') ? params.get('subs') === '1' : config.subtitles?.burn ?? false;
     const bg = config.background ?? '#000';
 
+    // ---- music & beat grid ----------------------------------------------------
+    // music: 'bed.mp3' | { style, bpm, beatsPerBar, offset, snap, voiceOnBeat, seed, volume, sfx, file }
+    const mus = typeof config.music === 'string' ? { file: config.music } : config.music ? { ...config.music } : null;
+    const bpm = mus?.bpm ?? (mus?.style && mus.style !== 'none' ? STYLE_BPM[mus.style] ?? 96 : null);
+    const beatsPerBar = mus?.beatsPerBar ?? 4;
+    const beatLen = bpm ? 60 / bpm : 0, barLen = beatLen * beatsPerBar;
+    const gridOffset = mus?.offset ?? 0;
+    const unitOf = (u) => ({ beat: beatLen, half: beatLen / 2, bar: barLen }[u] ?? 0);
+    const snapUnit = bpm ? unitOf(mus.snap ?? 'beat') : 0;
+    // smallest grid time ≥ x (x itself when it is already on the grid)
+    const snapUp = (x, unit) => (unit ? gridOffset + Math.ceil((x - gridOffset) / unit - 1e-6) * unit : x);
+
     // ---- timeline resolution (voice drives duration) -------------------------
     const scenes = config.scenes.map((s, i) => ({ ...s, index: i }));
     let cursor = 0;
@@ -890,6 +1382,15 @@
       const overlap = tr && tr.type !== 'cut' ? tr.duration : 0;
       s._tr = tr;
       s.start = Math.max(0, cursor - overlap);
+      // cut on the beat: the middle of the transition lands on the grid; the
+      // previous scene holds a little longer to get there
+      if (s.index > 0 && snapUnit && s.snap !== false) {
+        const prev = scenes[s.index - 1];
+        const unit = s.snap ? unitOf(s.snap) || snapUnit : snapUnit;
+        s.start = snapUp(s.start + overlap / 2, unit) - overlap / 2;
+        prev.end = s.start + overlap;
+        prev.dur = prev.end - prev.start;
+      }
       const segId = s.narration === false ? null : s.narration ?? s.id;
       let seg = null;
       if (segId && narr?.segments?.[segId]) seg = narr.segments[segId];
@@ -897,15 +1398,51 @@
       else if (segId && config.script?.[segId]) seg = { text: config.script[segId], ...estimateSpeech(config.script[segId], lang) };
       s.voice = seg;
       s.voiceDelay = s.voiceDelay ?? config.voiceDelay ?? overlap * 0.5 + 0.25;
+      // the first spoken syllable starts on an eighth note of the music grid
+      if (seg && bpm && (s.voiceOnBeat ?? mus.voiceOnBeat ?? true)) {
+        const lead = seg.words?.[0]?.start ?? 0;
+        s.voiceDelay = snapUp(s.start + s.voiceDelay + lead, beatLen / 2) - s.start - lead;
+      }
       const tail = s.tail ?? config.tail ?? 0.55;
-      const need = seg ? s.voiceDelay + seg.duration + tail : 0;
-      s.dur = s.duration ?? Math.max(s.minDuration ?? (seg ? 0 : 3), need);
+      const need = seg ? s.voiceDelay + speechLen(seg) + tail : 0;
+      const fixed = s.duration ?? (s.bars != null || s.beats != null
+        // counted from the cut into the scene (the middle of its transition)
+        ? (bpm ? (s.bars ?? 0) * barLen + (s.beats ?? 0) * beatLen + overlap / 2 : fail(`scene "${s.id}" uses beats/bars but no music bpm is set`))
+        : null);
+      s.dur = fixed ?? Math.max(s.minDuration ?? (seg ? 0 : 3), need);
       if (s.maxDuration) s.dur = Math.min(s.dur, s.maxDuration);
       s.end = s.start + s.dur;
       cursor = s.end;
     }
-    const duration = config.duration ?? cursor + (config.outro ?? 0);
+    let duration = config.duration ?? cursor + (config.outro ?? 0);
+    // end on a beat too, so the music's last note and the last frame agree
+    if (config.duration == null && snapUnit) {
+      const last = scenes[scenes.length - 1];
+      duration = snapUp(duration, beatLen);
+      last.end = duration;
+      last.dur = last.end - last.start;
+    }
     const totalFrames = Math.round(duration * fps);
+
+    // ---- sound effects (absolute time) -----------------------------------------
+    // scene.sfx: [{ at: seconds | 'spoken phrase', type, gain, dur }]; transitions
+    // add their natural sound unless `sfx: false`.
+    const sfx = [];
+    const sfxOn = mus ? mus.sfx ?? true : false;
+    for (const s of scenes) {
+      for (const e of s.sfx || []) {
+        const local = typeof e.at === 'string' ? phraseTime(s.voice, s.voiceDelay, e.at, null)
+          : typeof e.at === 'function' ? e.at(sceneInfo(s, s.start, 0)) : e.at ?? 0;
+        if (local == null) { console.warn(`[video-gaga] sfx phrase not found in "${s.id}": ${e.at}`); continue; }
+        sfx.push({ ...e, t: s.start + local + (e.offset ?? 0), scene: s.id });
+      }
+      const tr = s._tr;
+      if (sfxOn && tr && tr.sfx !== false) {
+        const type = tr.sfx ?? (typeof tr.type === 'string' ? TRANSITION_SFX[tr.type] : null);
+        if (type) sfx.push({ type, t: s.start + (tr.type === 'cut' ? 0 : tr.duration / 2), dur: tr.duration, gain: tr.sfxGain ?? 1, scene: s.id, transition: true });
+      }
+    }
+    sfx.sort((x, y) => x.t - y.t);
 
     // ---- subtitle cues (absolute time) ---------------------------------------
     let cues = [];
@@ -945,31 +1482,64 @@
         isRender: RENDER, lang,
         voice: s.voice,
         voiceStart: s.voice ? s.voiceDelay : 0,
-        voiceEnd: s.voice ? s.voiceDelay + s.voice.duration : 0,
+        voiceEnd: s.voice ? s.voiceDelay + speechLen(s.voice) : 0,
         scene: s,
       };
       // eased local progress helper: s.at(start, dur, ease)
       info.at = (start, dur, e) => progress(t, start, dur, e);
       // local time when a phrase is spoken (falls back if not found)
-      info.when = (phrase, fallback = 0) => {
-        if (!s.voice || !s.voice.words) return fallback;
-        const ws = s.voice.words;
-        const n = (x) => String(x).replace(/[\s\p{P}]/gu, '').toLowerCase();
-        const want = n(phrase);
-        if (!want) return fallback;
-        for (let i = 0; i < ws.length; i++) {
-          const wi = n(ws[i].text);
-          if (!wi) continue;
-          if (wi.includes(want)) return s.voiceDelay + ws[i].start;
-          // phrase spans several words starting at word i
-          let acc = '';
-          for (let j = i; j < ws.length; j++) {
-            acc += n(ws[j].text);
-            if (acc.startsWith(want)) return s.voiceDelay + ws[i].start;
-            if (!want.startsWith(acc)) break;
+      info.when = (phrase, fallback = 0) => phraseTime(s.voice, s.voiceDelay, phrase, fallback);
+      // the last moments of the scene: 0→1 over [dur - lead - d, dur - lead].
+      // Use it for exit choreography so the cut happens on action.
+      info.out = (d = 0.5, e = ease.exit, lead = 0) => progress(t, s.dur - lead - d, d, e);
+      // local start time for each on-screen unit, matched against the spoken
+      // text in order (units that are never spoken follow the previous one)
+      info.syncTimes = (units, step = 0.12) => {
+        if (!s._sync) s._sync = new Map();
+        const key = units.join('\u0001');
+        if (s._sync.has(key)) return s._sync.get(key);
+        const out = [];
+        if (s.voice && s.voice.words) {
+          const aligned = alignWords(s.voice.text, s.voice.words);
+          const norm = (x) => x.replace(/[\s\p{P}]/gu, '').toLowerCase();
+          // map normalised voice-text characters to word start times
+          const map = [];
+          let flat = '';
+          aligned.forEach((w) => {
+            const seg = norm(s.voice.text.slice(w.i0, w.i1) || w.text);
+            for (const ch of Array.from(seg)) { flat += ch; map.push(w.start); }
+          });
+          let cur = 0;
+          for (const u of units) {
+            const nu = norm(u);
+            const idx = nu ? flat.indexOf(nu, cur) : -1;
+            if (idx >= 0 && idx - cur < 24) { out.push(s.voiceDelay + map[Array.from(flat.slice(0, idx)).length] - 0.06); cur = idx + nu.length; }
+            else out.push(null);
           }
-        }
-        return fallback;
+          // units that are shown but said differently ("30" / "三十") appear
+          // with the next spoken unit, else just after the previous one
+          for (let i = out.length - 1, next = null; i >= 0; i--) {
+            if (out[i] != null) next = out[i];
+            else if (next != null) out[i] = next;
+          }
+          for (let i = 0; i < out.length; i++) if (out[i] == null) out[i] = (i ? out[i - 1] : s.voiceDelay) + step;
+        } else units.forEach((_, i) => out.push(0.3 + i * step));
+        s._sync.set(key, out);
+        return out;
+      };
+      // beat grid (NaN without music bpm)
+      info.beatLen = beatLen;
+      info.beat = bpm ? (T - gridOffset) / beatLen : NaN;
+      info.bar = bpm ? (T - gridOffset) / barLen : NaN;
+      // local time of the i-th grid point at or after the scene start
+      info.onBeat = (i = 0, unit = 'beat') => (bpm ? snapUp(s.start, unitOf(unit)) + i * unitOf(unit) - s.start : i * 0.5);
+      // local time of the next grid point at or after local time lt
+      info.nextBeat = (lt = t, unit = 'beat') => (bpm ? snapUp(s.start + lt, unitOf(unit)) - s.start : lt);
+      // 1 on each beat, decaying exponentially (subtle beat-synced accents)
+      info.pulse = (decay = 0.16, unit = 'beat') => {
+        if (!bpm) return 0;
+        const u = unitOf(unit), since = (T - gridOffset) - Math.floor((T - gridOffset) / u + 1e-6) * u;
+        return Math.exp(-since / decay);
       };
       return info;
     }
@@ -1011,8 +1581,17 @@
       ctx.restore();
       ctx.save();
       ctx.setTransform(scale, 0, 0, scale, 0, 0);
-      if (config.overlay) config.overlay(ctx, { T, frame, fps, W, H, u: Math.min(W, H) / 1080, duration, p: T / duration, scenes, isRender: RENDER });
-      if (burnSubs && cues.length) drawSubtitles(ctx, cues, T, config.subtitles?.style);
+      if (config.overlay) {
+        const beat = bpm ? (T - gridOffset) / beatLen : NaN;
+        const pulse = (decay = 0.16) => (bpm ? Math.exp(-((beat - Math.floor(beat + 1e-6)) * beatLen) / decay) : 0);
+        config.overlay(ctx, { T, frame, fps, W, H, u: Math.min(W, H) / 1080, duration, p: T / duration, scenes, isRender: RENDER, beat, bar: beat / beatsPerBar, pulse });
+      }
+      if (burnSubs && cues.length) {
+        // a scene may restyle captions over its own field (e.g. a highlight that contrasts with it)
+        const cur = scenes.filter((x) => T >= x.start && T < x.end).pop();
+        const style = cur && cur.captionStyle ? Object.assign({}, config.subtitles?.style, cur.captionStyle) : config.subtitles?.style;
+        drawSubtitles(ctx, cues, T, style);
+      }
       ctx.restore();
     }
 
@@ -1037,6 +1616,9 @@
       }
       for (const f of config.fonts || []) seen.set(f, (seen.get(f) || '') + 'AaBb0123');
       await Promise.all(imagePromises);
+      // Declared fonts first, so setup() can already rasterise text (3D textures).
+      await Promise.all((config.fonts || []).map((f) => document.fonts.load(f).catch(() => [])));
+      if (config.setup) await config.setup(api);
       // Warm-up pass: sample the timeline so every font+glyph combo gets requested.
       try {
         const step = Math.max(1, Math.round(fps / 6));
@@ -1056,26 +1638,53 @@
         const fam = font.match(/"([^"]+)"/)?.[1];
         if (!fam) continue;
         const faces = Array.from(document.fonts).filter((f) => f.family.replace(/"/g, '') === fam);
+        const uniq = Array.from(new Set(Array.from(txt))).join('').slice(0, 4000);
+        // every glyph drawn must be covered by a loaded face: a unicode-range
+        // subset that failed to download would otherwise fall back silently
         if (faces.length && !faces.some((f) => f.status === 'loaded')) missing.push(fam);
-        else if (!faces.length && !document.fonts.check(font, txt.slice(0, 50))) missing.push(fam);
+        else if (uniq && !document.fonts.check(font, uniq)) missing.push(fam);
       }
       api.missingFonts = Array.from(new Set(missing));
-      if (config.setup) await config.setup();
+      // Anything rasterised from text before the fonts arrived is stale now.
+      fontEpoch++;
+      scenes.forEach((s) => { s._sync = null; });
     }
 
     const api = {
-      W, H, fps, duration, totalFrames, canvas, ctx, scenes, cues, scale, missingFonts: [],
+      W, H, fps, duration, totalFrames, canvas, ctx, scenes, cues, scale, bpm, sfx, missingFonts: [],
       drawFrame: (f, sub = 0) => drawAt((f + sub) / fps, f),
+      // What the renderer calls: if drawing the frame started a webfont download
+      // (a glyph subset the warm-up never saw), wait for it and draw again, so the
+      // captured pixels never depend on download timing or render order.
+      renderFrame: async (f, sub = 0) => {
+        drawAt((f + sub) / fps, f);
+        for (let k = 0; k < 4 && typeof document !== 'undefined' && document.fonts && document.fonts.status === 'loading'; k++) {
+          await document.fonts.ready;
+          fontEpoch++;
+          drawAt((f + sub) / fps, f);
+        }
+      },
       drawAt,
       ready,
       info: () => ({
         width: W, height: H, fps, duration, totalFrames, scale, lang,
         pixelWidth: canvas.width, pixelHeight: canvas.height,
         scenes: scenes.map((s) => ({ id: s.id, start: s.start, dur: s.dur, voiceStart: s.voice ? s.start + s.voiceDelay : null, voiceDuration: s.voice?.duration ?? null, estimated: !!s.voice?.estimated })),
-        voice: scenes.filter((s) => s.voice && s.voice.file && !s.voice.estimated).map((s) => ({ id: s.id, file: s.voice.file, start: s.start + s.voiceDelay, duration: s.voice.duration })),
+        voice: scenes.filter((s) => s.voice && s.voice.file && !s.voice.estimated).map((s) => ({ id: s.id, file: s.voice.file, start: s.start + s.voiceDelay, duration: s.voice.duration, speech: speechLen(s.voice) })),
         cues: cues.map((c) => ({ start: c.start, end: c.end, text: c.text })),
         missingFonts: api.missingFonts,
-        music: config.music || null,
+        music: mus?.file || null,
+        // beat grid + arrangement plan for the generated score (scripts/music.mjs)
+        bpm, beatsPerBar, gridOffset,
+        score: mus && mus.style && !mus.file ? {
+          style: mus.style, bpm, beatsPerBar, offset: gridOffset, seed: mus.seed ?? 1, key: mus.key ?? null,
+          volume: mus.volume ?? 1, duck: mus.duck ?? null, gap: mus.gap ?? null, duration, fps,
+          intro: mus.intro ?? null, ending: mus.ending ?? 'resolve',
+          sections: scenes.map((s) => ({ id: s.id, start: s.start, end: s.end, energy: s.energy ?? null, voiced: !!s.voice })),
+          voice: scenes.filter((s) => s.voice).map((s) => ({ start: s.start + s.voiceDelay, end: s.start + s.voiceDelay + speechLen(s.voice) })),
+          sfx: sfx.map((e) => ({ ...e })),
+        } : null,
+        sfx: sfx.map((e) => ({ ...e })),
       }),
       capture: (type = 'image/png', q) => canvas.toDataURL(type, q),
     };
@@ -1114,7 +1723,12 @@
         m.style.cssText = `position:absolute;top:6px;left:${(s.start / duration) * 100}%;width:1px;height:10px;background:#888`;
         track.appendChild(m);
       }
-      const audios = api.info().voice.map((v) => { const a = new Audio(v.file); a.preload = 'auto'; return { ...v, a }; });
+      const inf = api.info();
+      const tracks = inf.voice.slice();
+      // background music: a licensed file, or the score rendered by `cv music`
+      const bed = inf.music || (inf.score ? 'build/music.wav' : null);
+      if (bed) tracks.push({ id: 'music', file: bed, start: 0, duration });
+      const audios = tracks.map((v) => { const a = new Audio(v.file); a.preload = 'auto'; a.onerror = () => { v.dead = true; }; return Object.assign(v, { a }); });
       let t = 0, playing = false, last = 0;
       const head = bar.querySelector('#cvhead'), time = bar.querySelector('#cvtime'), btn = bar.querySelector('#cvp');
       const paint = () => {
@@ -1125,6 +1739,7 @@
       };
       const syncAudio = () => {
         for (const v of audios) {
+          if (v.dead) continue;
           const local = t - v.start;
           if (playing && local >= 0 && local < v.duration) {
             if (v.a.paused) { v.a.currentTime = local; v.a.play().catch(() => {}); }
@@ -1170,11 +1785,84 @@
     else start();
   }
 
+  // ===========================================================================
+  // three.js bridge (optional). The composition imports three itself:
+  //   <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.min.js"}}</script>
+  //   <script type="module">import * as THREE from 'three'; const gl = CV.three(THREE, { width, height }); … CV.create({…})</script>
+  // One WebGLRenderer is shared by every scene: scenes render one after the
+  // other (also inside transitions), so the WebGL context limit is never hit.
+  // ===========================================================================
+  function three(THREE, opts = {}) {
+    const W = opts.width ?? 1920, H = opts.height ?? 1080;
+    const scale = Number(params.get('scale') || opts.pixelRatio || 1);
+    const canvas = document.createElement('canvas');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: opts.antialias ?? true, alpha: true, preserveDrawingBuffer: true });
+    renderer.setPixelRatio(1);
+    renderer.setSize(Math.round(W * scale), Math.round(H * scale), false);
+    renderer.setClearColor(0x000000, 0);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    if (opts.toneMapping !== false) {
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = opts.exposure ?? 1;
+    }
+    if (opts.shadows) {
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    }
+    const textures = new Map();
+    return {
+      THREE, renderer, canvas, W, H,
+      // Render a scene and composite it onto the 2D frame (transparent where
+      // the 3D scene has no background). rect = [x, y, w, h] in design px
+      // renders into a region; set the camera aspect to match.
+      render(ctx, scene, camera, rect) {
+        const pw = canvas.width, ph = canvas.height;
+        if (rect) {
+          const [x, y, w, h] = rect.map((v) => Math.round(v * scale));
+          renderer.setScissorTest(true);
+          renderer.setViewport(x, ph - y - h, w, h);
+          renderer.setScissor(x, ph - y - h, w, h);
+          renderer.clear();
+          renderer.render(scene, camera);
+          ctx.drawImage(canvas, x, y, w, h, rect[0], rect[1], rect[2], rect[3]);
+        } else {
+          renderer.setScissorTest(false);
+          renderer.setViewport(0, 0, pw, ph);
+          renderer.clear();
+          renderer.render(scene, camera);
+          ctx.drawImage(canvas, 0, 0, W, H);
+        }
+      },
+      // A CanvasTexture painted with the 2D API (text and labels in 3D). Cached
+      // per key and repainted once webfonts are ready. paint(g, w, h) must be pure.
+      texture(key, w, h, paint) {
+        let e = textures.get(key);
+        if (!e || e.epoch !== fontEpoch) {
+          const c = e?.canvas || document.createElement('canvas');
+          c.width = w;
+          c.height = h;
+          const g = c.getContext('2d');
+          g.clearRect(0, 0, w, h);
+          paint(g, w, h);
+          if (e) { e.tex.needsUpdate = true; e.epoch = fontEpoch; }
+          else {
+            const tex = new THREE.CanvasTexture(c);
+            tex.colorSpace = THREE.SRGBColorSpace;
+            tex.anisotropy = 4;
+            e = { canvas: c, tex, epoch: fontEpoch };
+            textures.set(key, e);
+          }
+        }
+        return e.tex;
+      },
+    };
+  }
+
   const CV = {
     create, ease, spring, progress, tween, springTrack, stagger, clamp, lerp, invLerp, remap,
-    rand, noise, color, text, draw, fx, transitions, image, drawCover,
-    subtitles: { build: buildCues, draw: drawSubtitles, estimate: estimateSpeech, align: alignWords },
-    RENDER, version: '0.1.0',
+    rand, noise, noise2, color, text, draw, fx, transitions, image, drawCover, three,
+    subtitles: { build: buildCues, draw: drawSubtitles, estimate: estimateSpeech, align: alignWords, speechLen },
+    RENDER, version: '0.2.0',
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = CV;
   root.CV = CV;

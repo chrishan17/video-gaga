@@ -4,7 +4,7 @@ These patterns are distilled from public prompts people used with Claude (Opus 5
 
 ## What the best prompts have in common
 
-| Pattern | Seen in | canvas-video equivalent |
+| Pattern | Seen in | video-gaga equivalent |
 |---|---|---|
 | **Direct, don't describe.** State the length, scene count, what each scene says, and the pace | Alex Prompter's 30-s explainer | Phase 1 questions + the storyboard table |
 | **Storyboard before code**, then revise per shot | Danny Stuart, om_patel5, zero | Phase 3: storyboard approval before building |
@@ -44,7 +44,7 @@ Prompt copyright belongs to the original authors. The templates below are our ow
 ## Template A — Product launch teaser (16:9, 15–25 s)
 
 ```text
-Use the canvas-video skill.
+Use the video-gaga skill.
 Make a {15–20}-second launch teaser for {PRODUCT}: {ONE-LINE PROMISE}.
 Audience: {WHO}. Tone: confident, premium, calm — Apple-keynote restraint.
 Structure (one idea per scene):
@@ -55,13 +55,13 @@ Structure (one idea per scene):
 Narration: English, en-US-AndrewNeural, rate -4%. Burn captions (boxed, small).
 Style: Launch Keynote preset, accent {BRAND HEX}. One accent only.
 Banned: bouncy easing, particle bursts, lens flares, crossfades between every scene.
-Storyboard first (table: scene / voice line / visual / motion / transition), then build, probe, render.
+Storyboard first (table: scene / voice line or music-only / visual / motion / exit / transition / music energy · sfx), then build, probe, render.
 ```
 
 ## Template B — Knowledge explainer / infographic (16:9, 20–60 s, ZH)
 
 ```text
-用 canvas-video 做一个 {时长} 秒的知识讲解视频，主题：{主题}。
+用 video-gaga 做一个 {时长} 秒的知识讲解视频，主题：{主题}。
 观众：{谁}，看完要记住一句话：{核心结论}。
 结构：问题钩子 → 概念/公式（逐项出现，和旁白同步）→ 数据图表（坐标轴先画，曲线按时间方向画，关键点落在读到它的那个词上）→ 结论。
 旁白：zh-CN-YunxiNeural，语速 +6%，每个场景一句话；字幕烧录，中文每行 ≤ 18 字，去掉句末标点。
@@ -72,7 +72,7 @@ Storyboard first (table: scene / voice line / visual / motion / transition), the
 ## Template C — Kinetic typography (1:1 or 9:16, 8–15 s, no voice)
 
 ```text
-Use canvas-video. A {10}-second kinetic typography piece of the line: "{QUOTE}" — {AUTHOR}.
+Use video-gaga. A {10}-second kinetic typography piece of the line: "{QUOTE}" — {AUTHOR}.
 Swiss / International Typographic Style: 12-column grid, one red, Archivo, hard cuts on a {100} BPM beat grid,
 masked reveals, tracking that closes in on the key word, a match cut (a shape becomes punctuation).
 No fades, no glow, no bounce. End on a resolved still, held 1 s. Square 1080×1080. Add motion blur (5 sub-frames).
@@ -81,7 +81,7 @@ No fades, no glow, no bounce. End on a resolved still, held 1 s. Square 1080×10
 ## Template D — Social vertical short (9:16, 12–20 s, ZH/EN)
 
 ```text
-用 canvas-video 做一个 9:16 竖屏短视频，{时长} 秒，主题：{活动/产品}。
+用 video-gaga 做一个 9:16 竖屏短视频，{时长} 秒，主题：{活动/产品}。
 第一秒就要有钩子（大号数字或反常识的一句话）。节奏快：每 1–2 秒一个“命中”，命中时才用故障/RGB 分离，6 帧内衰减。
 旁白 zh-CN-YunjianNeural（有冲劲），卡拉 OK 高亮字幕，字幕在画面 78–80% 高度，避开平台 UI 区域。
 风格：Neon Circuit（品红=能量，青色=信息，扫描线 + HUD 角标），结尾霓虹灯牌亮起 + 日期/行动号召。
@@ -90,7 +90,7 @@ No fades, no glow, no bounce. End on a resolved still, held 1 s. Square 1080×10
 ## Template E — Hand-drawn explainer (16:9, 15–40 s)
 
 ```text
-用 canvas-video 做一段手绘风讲解：{主题}。
+用 video-gaga 做一段手绘风讲解：{主题}。
 纸张质感背景，线条按“手会怎么画”的方向逐笔画出，并以每 3 帧抖动一次（boiling lines）营造手绘动画感；
 只用铅笔黑 + 一支荧光笔 + 1–2 个水彩色块；每一页像纸片一样滑入。
 旁白 zh-CN-XiaoxiaoNeural，温暖、慢一点；每个图形在旁白说到它时画出来。先出分镜。
@@ -103,7 +103,7 @@ No fades, no glow, no bounce. End on a resolved still, held 1 s. Square 1080×10
 <direction>{style in 3 sentences}. Banned: {ban list}.</direction>
 <structure>{duration}, {beat grid or narration}, scene-by-scene beats.</structure>
 <build>
-1. One HTML file using runtime/canvas-video.js; every pixel is a pure function of t inside draw(ctx, s).
+1. One HTML file using runtime/video-gaga.js; every pixel is a pure function of t inside draw(ctx, s).
 2. Narration in narration.json (Edge TTS, WordBoundary); pin hits with s.when('word').
 3. Probe with `cv still --sheet` before rendering; fix overlaps, clutter, unreadable text.
 4. Render with `cv render --subs burn --motion-blur 5`; verify with `cv check`.
@@ -124,11 +124,13 @@ After the discovery questions, write a brief like this into `<project>/BRIEF.md`
 - Audience / goal: {…} — the one thing they must remember: "{…}"
 - Style: {preset or custom}; accent {hex}; fonts {display + label}
 - Voice: {voice id}, rate {±%}; captions: {burn/soft/file}, style {box/outline/karaoke}
-- Pace: {calm | medium | punchy}; transitions: {1–2 types}
-- Assets: {logo.svg, screenshots/…}; music: {none | file + license}
+- Pace: {calm | medium | punchy}; transitions: {1–2 types} + at most one special; signature move: {…}
+- Music: {style} at {bpm} BPM, seed {n} (or: licensed file + its BPM); music-only moments: {pre-roll, breath before …, end card}
+- Assets: {logo.svg, screenshots/…}
 - Banned: {…}
 
-| # | Scene id | Voice line | Visual (focus) | Motion & sync | Transition in | ~s |
-|---|---|---|---|---|---|---|
-| 1 | hook | … | … | … on "word" | — | 3 |
+| # | Scene id | Voice line (or — music only) | Visual (focus) | Motion & sync (word / beat) | Exit | Transition in | Energy · sfx | ~s |
+|---|---|---|---|---|---|---|---|---|
+| 1 | hook | … (after 1 bar of music) | … | … on "word" | kicker leaves before the cut | — | 0.35 · — | 4 |
+| 4 | breath | — | the result alone | lands on beat 2 | — | iris from the number | 0.8 · shimmer | 3.6 |
 ```

@@ -23,15 +23,21 @@ test('frames are pure functions of time', { skip: !chromium && 'playwright not i
       const url = `${pathToFileURL(path.join(ROOT, 'presets', slug, 'video.html')).href}?render=1&scale=0.25`;
       const open = async () => {
         const p = await browser.newPage();
+        const errors = [];
+        p.on('pageerror', (e) => errors.push(e.message));
+        p.on('requestfailed', (r) => errors.push(`request failed: ${r.url()} (${r.failure()?.errorText})`));
         await p.goto(url);
-        await p.waitForFunction(() => !!window.__CV);
+        await p.waitForFunction(() => !!window.__CV, null, { timeout: 60000 }).catch(() => { throw new Error(`${slug}: CV.create never ran — ${errors.join('; ') || 'no page errors'}`); });
         await p.evaluate(() => window.__CV.ready());
+        // a font that failed to download falls back in one page only: report it as the cause
+        const missing = await p.evaluate(() => window.__CV.missingFonts);
+        assert.deepEqual(missing, [], `${slug}: fonts fell back (${missing.join(', ')}) ${errors.join('; ')}`);
         return p;
       };
       const [a, b] = [await open(), await open()];
       const total = await a.evaluate(() => window.__CV.totalFrames);
       const frames = Array.from({ length: 12 }, (_, i) => Math.floor((i * (total - 1)) / 11));
-      const shot = (p, f) => p.evaluate((f) => { window.__CV.drawFrame(f); return window.__CV.capture('image/png'); }, f);
+      const shot = (p, f) => p.evaluate(async (f) => { await window.__CV.renderFrame(f); return window.__CV.capture('image/png'); }, f);
       const hash = (s) => crypto.createHash('sha1').update(s).digest('hex');
       const fwd = {};
       for (const f of frames) fwd[f] = hash(await shot(a, f));
