@@ -32,6 +32,7 @@ const T = {
 };
 const F = (w, px, fam = T.latin) => `${w} ${px}px ${fam}`;
 
+// === KIT: neon, RGB split, night city ========================================
 // Draw text with an RGB split whose strength decays after a hit time.
 function splitText(ctx, str, x, y, t, hitAt, col = T.ink) {
   const k = Math.exp(-Math.max(0, t - hitAt) * 9) * (t >= hitAt ? 1 : 0);
@@ -132,7 +133,21 @@ CV.create({
   width: 1080, height: 1920, fps: 30,
   background: T.bg,
   lang: 'zh-CN',
-  music: { style: 'synthwave', bpm: 112, seed: 5, duck: -14 }, // dense style: the bed dips a little deeper under the voice
+  // the score designed for this video: night drive: a minor key, sixteenth-note synth bass, an arpeggiated pluck, a big backbeat
+  // a dense score: the bed dips a little deeper under the voice
+  music: {
+    bpm: 112, seed: 5, duck: -14, key: 'F#', mode: 'minor', progression: [0, 5, 2, 6],
+    layers: [
+      { name: 'pad', inst: 'pad', notes: 'chord', pattern: 'X---', vel: 0.07, cutoff: [1100, 2300], attack: 0.25 },
+      { name: 'bass', inst: 'bass', synth: true, octave: -1, notes: ['root', 'root', 'root^', 'root'], pattern: 'XXXXXXXXXXXXXXXX', gate: 0.8, vel: 0.17, cutoff: [220, 500], envDecay: 0.05, from: 0.3 },
+      { name: 'arp', inst: 'pluck', octave: 1, notes: [0, 1, 2, 1, 2, 3, 2, 1], pattern: 'XXXXXXXX', gate: 0.8, vel: 0.08, bright: 0.85, echo: 0.3, from: 0.45 },
+      { name: 'kick', inst: 'kick', pattern: 'X.X.', vel: 0.6, from: 0.5 },
+      { name: 'snare', inst: 'snare', pattern: '.X.X', vel: 0.3, from: 0.5 },
+      { name: 'hats', inst: 'hat', pattern: 'xXxXxXxX', vel: 0.06, from: 0.6 },
+      { name: 'four on the floor', inst: 'kick', pattern: '.X.X', vel: 0.5, from: 0.85 },
+    ],
+    lead: { inst: 'lead', range: [66, 81], rhythm: 'melodic', vel: 0.08, saw: 0.7, cutoff: 3200, echo: 0.4 },
+  },
   transition: { type: 'glitch', duration: 0.4, tint: T.mag, ease: ease.linear },
   subtitles: {
     maxChars: 10,
@@ -328,7 +343,9 @@ CV.create({
     ctx.fillStyle = Math.floor(g.beat) % 2 ? color.rgba(T.mag, 0.25) : T.mag; // blinks with the beat (≈1 Hz)
     ctx.beginPath(); ctx.arc(m + 22, m + 50, 10, 0, 7); ctx.fill();
     ctx.fillStyle = T.ink;
+    // <example>
     ctx.fillText('REC  NIGHT/SHIFT', m + 44, m + 60);
+    // </example>
     ctx.textAlign = 'right';
     ctx.fillStyle = T.dim;
     const tc = (f) => `${String(Math.floor(f / 30 / 60)).padStart(2, '0')}:${String(Math.floor(f / 30) % 60).padStart(2, '0')}:${String(f % 30).padStart(2, '0')}`;

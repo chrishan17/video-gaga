@@ -40,7 +40,7 @@ const snap = CV.spring(CV.spring.presets.snappy);
 const boing = CV.spring({ stiffness: 260, damping: 15 });
 const land = (sp, dt) => (dt <= 0 ? 0 : sp(dt));
 
-// === CUT-PAPER KIT =============================================================
+// === KIT: cut paper ==========================================================
 // A sticker: hard ink shadow, flat fill, ink outline. k = scale (spring), rot = tilt.
 function sticker(ctx, x, y, k, rot, shape, fill, o = {}) {
   if (k <= 0.001) return;
@@ -89,6 +89,7 @@ const bookmark = (w, h) => (c) => {
   c.lineTo(0, h / 2 - w * 0.4); c.lineTo(-w / 2, h / 2); c.closePath();
 };
 
+// === EXAMPLE: flip clock =====================================================
 // A clock ticking over (6:59 → 7:00): each changed digit rolls up one step in
 // its own mask, rightmost first — like a flip clock, centred on x.
 function tickOver(ctx, from, to, x, y, lt) {
@@ -112,6 +113,7 @@ function tickOver(ctx, from, to, x, y, lt) {
   ctx.restore();
 }
 
+// === KIT: ribbons and halftone ===============================================
 // A drawn-on wavy line (cut-paper ribbon).
 function squiggle(ctx, x, y, w, amp, waves, p, col, lw = 18) {
   const pts = [];
@@ -137,6 +139,7 @@ function halftone(ctx, x0, y0, cols, rows, gap, col, p, flip = 1) {
   }
 }
 
+// === EXAMPLE: numbered tip cards =============================================
 // Number badge for a tip: a sticker circle that lands on the scene's first beat.
 function badge(ctx, s, n, fill, ink) {
   const k = land(boing, s.t - s.onBeat(0) + 0.05) * (1 - s.out(0.25, ease.exit, 0.3));
@@ -174,7 +177,21 @@ CV.create({
   background: T.yellow,
   lang: 'zh-CN',
   tail: 0.25, // ≈0.5 s of air after each line's last syllable: social pace
-  music: { style: 'pop', bpm: 116, seed: 7 },
+  // the score designed for this video: upbeat and colourful: a vi-IV-I-V loop, syncopated pluck chords, claps, a bouncing bass
+  music: {
+    bpm: 116, seed: 7, key: 'C', mode: 'major', progression: [5, 3, 0, 4],
+    layers: [
+      { name: 'pad', inst: 'pad', notes: 'chord', pattern: 'X---', vel: 0.04, cutoff: 1300, attack: 0.3 },
+      { name: 'chops', inst: 'pluck', notes: 'chord', pattern: 'X..x..x...x..x..', gate: 2, vel: 0.075, bright: 0.75, decay: 0.99, from: 0.2 },
+      { name: 'bass', inst: 'bass', octave: -1, pattern: 'XXXXXXXX', gate: 0.8, vel: 0.24, from: 0.35, to: 0.65 },
+      { name: 'bounce bass', inst: 'bass', octave: -1, notes: ['root', 'root^'], pattern: 'XXXXXXXX', gate: 0.8, vel: 0.24, from: 0.65 },
+      { name: 'kick (half)', inst: 'kick', pattern: 'X.X.', vel: 0.55, from: 0.5, to: 0.7 },
+      { name: 'kick', inst: 'kick', pattern: 'XXXX', vel: 0.55, from: 0.7 },
+      { name: 'clap', inst: 'clap', pattern: '.X.X', vel: 0.22, from: 0.5 },
+      { name: 'open hat', inst: 'openhat', pattern: '.X.X.X.X', vel: 0.05, from: 0.6 },
+    ],
+    lead: { inst: 'pluck', range: [72, 86], rhythm: 'rhythmic', vel: 0.15, bright: 0.9, decay: 0.993, echo: 0.3 },
+  },
   transition: { type: 'stripes', colors: [T.red, T.cream, T.blue], count: 3, direction: 'right', stagger: 0.3, duration: 0.5, ease: ease.inOutCubic },
   subtitles: {
     maxChars: 11,

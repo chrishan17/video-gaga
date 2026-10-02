@@ -41,7 +41,7 @@ const T = {
 const F = (w, px, fam = T.display) => `${w} ${px}px ${fam}`;
 const M = (w, px) => F(w, px, T.mono);
 
-// === GEOMETRY (design px; 1 mm ≈ 2.09 px — a square 86 × 86 mm cylinder) =====
+// === EXAMPLE: engine geometry (design px; 1 mm ≈ 2.09 px) ====================
 const EX = 620, EY = 700;            // crank centre
 const R = 90, LR = 300;              // crank radius (stroke = 2R), con-rod length (rod ratio 3.3)
 const PIN = 45, PH = 115;            // crown above the gudgeon pin, piston height
@@ -75,7 +75,7 @@ const EX_FLOW = mirror(IN_FLOW).reverse();
 // mixture particles: fixed seeds, mapped into whatever volume the chamber has
 const DOTS = (() => { const r = CV.rand(9); return Array.from({ length: 64 }, () => [r(), r()]); })();
 
-// === SHEET ===================================================================
+// === KIT: drafting sheet =====================================================
 function sheet(ctx, W, H) {
   const g = ctx.createRadialGradient(W * 0.42, H * 0.45, 80, W * 0.5, H * 0.5, W * 0.78);
   g.addColorStop(0, '#11457C');
@@ -120,6 +120,7 @@ function poly(ctx, pts, close) {
   if (close) ctx.closePath();
 }
 const rectPts = (x0, y0, x1, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]];
+// === EXAMPLE: crankcase outline ==============================================
 // crankcase: a U with rounded bottom corners, as points (so it can draw on)
 const CASE_PTS = (() => {
   const pts = [[470, 580], [470, CC_BOT - 70]];
@@ -130,6 +131,7 @@ const CASE_PTS = (() => {
   return pts;
 })();
 
+// === KIT: hatching and arrowheads ============================================
 function hatchIn(ctx, clipPath, x0, y0, x1, y1, gap = 11) {
   ctx.save();
   clipPath();
@@ -154,7 +156,7 @@ function arrowHead(ctx, x, y, ang, s = 14) {
   ctx.fill();
 }
 
-// === CONSTRUCTION LINES (dash-dot, the first thing a draftsman lays down) ====
+// === EXAMPLE: construction lines =============================================
 function construction(ctx, k, alpha = 1) {
   ctx.save();
   ctx.strokeStyle = T.cyan;
@@ -175,7 +177,7 @@ function construction(ctx, k, alpha = 1) {
   ctx.restore();
 }
 
-// === VALVE GEAR above the head (same in elevation and section) ================
+// === EXAMPLE: valve gear =====================================================
 function valveTop(ctx, x, lift, a = 1) {
   const L = lift * MAXLIFT, top = 118 + L;
   ctx.save();
@@ -205,7 +207,7 @@ function plugTop(ctx, a = 1) {
   ctx.restore();
 }
 
-// === ELEVATION (outside view) ===================================================
+// === EXAMPLE: elevation (outside view) =======================================
 // prog: { block, head, case, top } each 0..1 (draw-on order of a draftsman)
 function elevation(ctx, prog, lifts = [0, 0]) {
   ctx.save();
@@ -231,7 +233,7 @@ function elevation(ctx, prog, lifts = [0, 0]) {
   plugTop(ctx, prog.top);
 }
 
-// === SECTION A–A (the cut view: everything that moves) ========================
+// === EXAMPLE: section A–A (the cut view) =====================================
 function section(ctx, phi, t, o = {}) {
   const cyc = ((phi % 720) + 720) % 720;
   const th = rad(phi);
@@ -412,6 +414,7 @@ function engine(ctx, o) {
   return info;
 }
 
+// === KIT: callouts ===========================================================
 // Callout: dot on the part → leader → numbered balloon → name.
 function callout(ctx, p, n, name, px, py, ly) {
   if (p <= 0) return;
@@ -438,6 +441,7 @@ function callout(ctx, p, n, name, px, py, ly) {
   ctx.restore();
 }
 
+// === EXAMPLE: dimensions on the engine =======================================
 // Linear dimension with extension lines, arrowheads and a counting value.
 function dimension(ctx, p, a, b, at, value, label, vertical) {
   if (p <= 0) return;
@@ -485,6 +489,7 @@ function dimension(ctx, p, a, b, at, value, label, vertical) {
   ctx.restore();
 }
 
+// === EXAMPLE: stroke timing ==================================================
 // Piecewise crank angle that steps through the strokes on the spoken words.
 function strokePhi(s) {
   const ts = ['intake', 'compression', 'power', 'exhaust'].map((w, i) => s.when(w, 1 + i));
@@ -507,7 +512,21 @@ CV.create({
   background: T.field,
   lang: 'en-US',
   fonts: [F(700, 112), F(600, 54), M(500, 24)],
-  music: { style: 'kinetic', bpm: 104, seed: 4 },
+  // the score designed for this video: minimal and precise: a dorian marimba ostinato over a four-on-the-floor
+  music: {
+    bpm: 104, seed: 4, key: 'E', mode: 'dorian', progression: [0, 0, 5, 6],
+    layers: [
+      { name: 'pad', inst: 'pad', notes: 'chord', pattern: 'X---', vel: 0.04, cutoff: [600, 1000], attack: 0.5 },
+      { name: 'marimba (sparse)', inst: 'bell', kind: 'marimba', notes: [0, 1, 0, 1, 0, 1, 3, 1], pattern: 'X.x.X.x.X.x.X.x.', gate: 1.4, vel: 0.12, verb: 0.12, from: 0.2, to: 0.5 },
+      { name: 'marimba', inst: 'bell', kind: 'marimba', notes: [0, 2, 1, 2, 0, 2, 1, 2, 0, 2, 1, 2, 3, 2, 1, 2], pattern: 'XxxxXxxxXxxxXxxx', gate: 1.4, vel: 0.12, verb: 0.12, from: 0.5 },
+      { name: 'kick', inst: 'kick', pattern: '9888', vel: 0.6, from: 0.45 },
+      { name: 'bass', inst: 'bass', octave: -1, pattern: '.X.X.X.X', gate: 0.6, vel: 0.24, from: 0.45 },
+      { name: 'clap', inst: 'clap', pattern: '.X.X', vel: 0.18, from: 0.55 },
+      { name: 'offbeat hat', inst: 'hat', pattern: '.X.X.X.X', vel: 0.09, from: 0.55 },
+      { name: 'ticks', inst: 'hat', pattern: 'XX.XXX.XXX.XXX.X', vel: 0.025, from: 0.8 },
+    ],
+    lead: { inst: 'bell', kind: 'kalimba', range: [76, 88], rhythm: 'rhythmic', vel: 0.09, echo: 0.2 },
+  },
   transition: 'cut',
   subtitles: {
     style: { font: F(500, 46), color: T.line, box: 'rgba(6,28,52,0.86)', y: 0.935, radius: 4 },
@@ -789,6 +808,7 @@ CV.create({
     ctx.globalAlpha = 0.25 * a;
     ctx.lineWidth = 1;
     ctx.strokeRect(52, 52, g.W - 104, g.H - 104);
+    // <example>
     // title block
     ctx.globalAlpha = 0.8 * a;
     ctx.lineWidth = 1.5;
@@ -801,6 +821,7 @@ CV.create({
     ctx.font = M(400, 24);
     ctx.fillStyle = T.cyan;
     ctx.fillText('SECTION A–A · 1:2 · MM', 1458, 142);
+    // </example>
     ctx.restore();
     draw.vignette(ctx, g.W, g.H, 0.3, '#020c18');
     draw.grain(ctx, g.frame, 0.045);

@@ -11,7 +11,7 @@
 
 - **Canvas, deterministic.** Each frame is `draw(ctx, t)`, a pure function of time. It renders in parallel headless Chromium pages, is encoded with ffmpeg (H.264, BT.709) and comes out frame-exact.
 - **The voice is the clock.** Microsoft Edge neural voices (free, no API key, 300+ voices, strong Chinese) with **word-level timestamps**. Scene lengths come from the speech, and visuals land on the words (`s.when('forty')`, or `fx.wordReveal({ sync: s })` for a headline that appears as it is said).
-- **Music on the same beat.** Every video gets a generated score (8 styles, from `explainer` to `synthwave`) arranged from its own timeline. Cuts land on the beat, and every line starts on an eighth note. The bed dips under the voice, and its melody plays only in the pauses. Hits get a breath before them, and the last chord rings out with the final frame. Transitions whoosh and counters tick. All of it is synthesized locally and deterministically: no samples, no licences.
+- **Music on the same beat.** Every video gets its own score, designed by the agent from the brief (tempo, key, mode, chords, instruments and how they build, within enforced limits; no preset styles) and arranged from the video's timeline. Cuts land on the beat, and every line starts on an eighth note. The bed dips under the voice, and its melody plays only in the pauses. Hits get a breath before them, and the last chord rings out with the final frame. Transitions whoosh and counters tick. All of it is synthesized locally and deterministically: no samples, no licences.
 - **Room to breathe.** Narration is not wall-to-wall: music-only pre-rolls, held beats before the payoff, end cards that ring out (`beats: 6`, `narration: false`).
 - **Real transitions and exits.** 22 transition types (whip, stripes, split, iris, ink, cube, light leak, …), each with its natural sound, plus exit choreography so cuts happen on action. A 3D bridge (`CV.three`) uses three.js for product turns, exploded views and globes, with deterministic WebGL.
 - **Subtitles done properly.** Cues are built from the same word timings. CJK line breaking follows kinsoku rules, and long lines split into balanced chunks. Captions are burned in with the video's own typography (or karaoke-highlighted) and also exported as `.srt`, `.vtt` or a soft track.
@@ -32,7 +32,7 @@ Every example below was rendered by the skill's own CLI from the files in [`pres
 | <img src="docs/media/paper-sketch.gif" width="100%"><br>**Paper Sketch** · 16:9 · 24 s · 🔊 ZH (XiaoxiaoNeural) · `acoustic` score<br>Hand-drawn strokes that "boil" on threes, watercolour washes, page slides with a paper sound, a music-only bar where the drawing closes its loop.<br>[▶ video](docs/media/paper-sketch.mp4) · [source](presets/paper-sketch/video.html) | <img src="docs/media/swiss-kinetic.gif" width="70%"><br>**Swiss Kinetic** · 1:1 · 15 s · music only · `kinetic` score · motion blur<br>A 12-column grid, one red, every move on a 104 BPM beat, a 12-strip blinds cut, and a match cut where the square becomes the full stop.<br>[▶ video](docs/media/swiss-kinetic.mp4) · [source](presets/swiss-kinetic/video.html) |
 | <img src="docs/media/neon-circuit.gif" width="45%"><br>**Neon Circuit** · 9:16 · 18 s · 🔊 ZH (YunjianNeural) · `synthwave` score<br>Night city and HUD, an RGB split only on hits, a terminal with a beat-blinking caret, a music-only "countdown armed" beat, glitch cuts with glitch sounds.<br>[▶ video](docs/media/neon-circuit.mp4) · [source](presets/neon-circuit/video.html) | <img src="docs/media/pop-collage.gif" width="45%"><br>**Pop Collage** · 9:16 · 20 s · 🔊 ZH (XiaoyiNeural) · `pop` score<br>Cut-paper stickers that land on the beat with springs, palette-coloured stripe transitions, karaoke captions, a music-only recap where three tips land one per beat.<br>[▶ video](docs/media/pop-collage.mp4) · [source](presets/pop-collage/video.html) |
 
-During style discovery the agent also offers a *wildcard*: a custom system designed for your brief, previewed with your own title. See [STYLE_PRESETS.md](STYLE_PRESETS.md).
+During style discovery the agent also offers a *wildcard*: a custom system designed for your brief, previewed with your own title. A preset only sets the look and the motion grammar (palette, type, motion helpers, transitions, caption style). The script, the scene structure, the choreography and the music are designed for each video, and `cv init` copies the style, never the example's content. See [STYLE_PRESETS.md](STYLE_PRESETS.md).
 
 ## How it works
 
@@ -110,7 +110,14 @@ Re-render every gallery example: `npm run examples`, then `npm run showcase` for
 const { ease, fx } = CV;
 CV.create({
   width: 1920, height: 1080, fps: 30, background: '#050506',
-  music: { style: 'keynote', bpm: 92 },      // score + beat grid: cuts and voice land on the beat
+  music: {                                    // a score designed for this video + the beat grid
+    bpm: 92, key: 'A', mode: 'minor', progression: [0, 5, 2, 6],
+    layers: [
+      { inst: 'pad', pattern: 'X---', vel: 0.1 },
+      { inst: 'bass', synth: true, octave: -1, pattern: 'XxXxXxXx', vel: 0.2, from: 0.3 },
+      { inst: 'kick', pattern: 'X.........x.....', vel: 0.55, from: 0.55 },
+    ],
+  },
   subtitles: { style: { box: 'rgba(0,0,0,.6)' } },
   scenes: [{
     id: 'hook', voiceDelay: 1.3, energy: 0.4, // narration.json "hook" drives its length; a beat of music first
@@ -133,7 +140,7 @@ Open it in a browser for a live preview player (Space, ←/→, scrubbing, narra
 - [STYLE_PRESETS.md](STYLE_PRESETS.md) — the ten presets and how to design a custom one
 - [docs/motion-design.md](docs/motion-design.md) — the motion-design guide (do/don't, timing tables, QA checklist)
 - [docs/narration-and-subtitles.md](docs/narration-and-subtitles.md) — Edge TTS voices, writing for the ear, caption rules
-- [docs/music-and-sound.md](docs/music-and-sound.md) — generated score styles, the beat grid, sound effects, pacing and silence
+- [docs/music-and-sound.md](docs/music-and-sound.md) — designing the score (spec, rules, limits), the beat grid, sound effects, pacing and silence
 - [docs/three-d.md](docs/three-d.md) — three.js in a composition: when 3D earns its place, the pattern, the rules
 - [docs/prompt-templates.md](docs/prompt-templates.md) — prompt patterns collected from X/GitHub (with sources) and ready-made templates
 - [docs/tech-selection.md](docs/tech-selection.md) — why Canvas + Playwright + ffmpeg + Edge TTS + a seeded synth + three.js (vs Remotion, HyperFrames, Motion Canvas, WebCodecs…)

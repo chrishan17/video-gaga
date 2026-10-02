@@ -36,7 +36,7 @@ const T = {
 const F = (w, px) => `${w} ${px}px ${T.display}`;
 const M = (w, px) => `${w} ${px}px ${T.mono}`;
 
-// === SHARED DRAWING ==========================================================
+// === EXAMPLE: the hero chip ==================================================
 // The hero object: a chip with a core grid. `wave` lights cells as a radial
 // front passes them (0 → dark, ≥1.25 → fully lit). `front` (optional) sends a
 // bright band through the grid — the core "thinking".
@@ -84,6 +84,7 @@ function chip(ctx, cx, cy, size, wave, glow, front = null) {
   ctx.restore();
 }
 
+// === KIT: light and type =====================================================
 // Text filled with a moving specular band (p: 0→1 sweep position).
 function sweepFill(ctx, x0, x1, p, base, hi) {
   const g = ctx.createLinearGradient(x0, 0, x1, 0);
@@ -112,6 +113,7 @@ function hairline(ctx, W, y, w, a, thick = 2) {
   ctx.restore();
 }
 
+// === EXAMPLE: end-card layout ================================================
 // Where the end card keeps the chip (the breath lands exactly here: match cut).
 const END_CHIP = { y: 0.3, size: 120 };
 const SPLIT = 0.9; // hook → reveal: the stage opens along the hairline
@@ -121,7 +123,19 @@ CV.create({
   width: 1920, height: 1080, fps: 30,
   background: T.bg,
   lang: 'en-US',
-  music: { style: 'keynote', bpm: 92, seed: 7 },
+  // the score designed for this video: dark stage, pulse and light: a minor-key pad, a ticking synth bass, the kick only when it lifts
+  music: {
+    bpm: 92, seed: 7, key: 'A', mode: 'minor', progression: [0, 5, 2, 6],
+    layers: [
+      { name: 'pad', inst: 'pad', notes: 'chord', pattern: 'X---', vel: 0.1, cutoff: [700, 1600], attack: 0.9 },
+      { name: 'pulse', inst: 'bass', synth: true, octave: -1, pattern: 'XxXxXxXx', gate: 0.84, vel: 0.22, cutoff: [160, 320], envDecay: 0.08, from: 0.3 },
+      { name: 'kick', inst: 'kick', pattern: 'X... .... ..x. ....', vel: 0.55, from: 0.55 },
+      { name: 'keys', inst: 'keys', notes: [0, 1, 2], octave: 1, pattern: '....XXX.', gate: 3, vel: 0.06, bright: 0.5, echo: 0.25, from: 0.62 },
+      { name: 'drive', inst: 'kick', pattern: '..X.', vel: 0.45, from: 0.72 },
+      { name: 'hats', inst: 'hat', pattern: 'xxXx xxXx xxXx xxXx', vel: 0.08, from: 0.72 },
+    ],
+    lead: { inst: 'keys', range: [69, 84], rhythm: 'sparse', vel: 0.11, bright: 0.6, echo: 0.3 },
+  },
   fonts: [F(600, 80), F(800, 120), M(500, 40)],
   subtitles: {
     style: { font: `500 40px ${T.display}`, color: '#EDEDF0', box: 'rgba(18,18,22,0.72)', y: 0.915 },

@@ -39,6 +39,7 @@ const F = (w, px, fam = T.serif, style = '') => `${style ? style + ' ' : ''}${w}
 const L = 150, R = 1920 - 150; // page margins
 const set = { ease: ease.enter, dur: 0.75 }; // "set like type": masked rise, long settle
 
+// === KIT: rules and datelines ================================================
 // A hairline rule that draws on left → right.
 function rule(ctx, x0, x1, y, p, w = 2, col = T.ink) {
   if (p <= 0) return;
@@ -59,6 +60,7 @@ function label(ctx, txt, x, y, a, col = T.muted, size = 24, align = 'left') {
   ctx.restore();
 }
 
+// === EXAMPLE: halftone map of the coast ======================================
 // --- The duotone halftone "photo": a printed map of the California coast ----
 // Stylised outline (block-normalised), north at the top. Two hosts: UCLA (Los
 // Angeles) and SRI (Menlo Park). The dots are computed once from a seeded
@@ -105,6 +107,7 @@ function halftone(ctx, printed) {
 }
 const bp = ([u, v]) => [BLOCK.x + u * BLOCK.w, BLOCK.y + v * BLOCK.h];
 
+// === KIT: ink-wash transition ================================================
 // Ink wash: the next page rises like ink soaking up the sheet, with a soft
 // wavering edge (into and out of the dark breath page).
 function inkWash(ctx, A, B, p) {
@@ -128,7 +131,18 @@ CV.create({
   width: 1920, height: 1080, fps: 30,
   background: T.paper,
   lang: 'en-US',
-  music: { style: 'documentary', bpm: 84, seed: 7, duck: -14 },
+  // the score designed for this video: measured and cinematic: low minor pads, a pulse of plucked strings, a heartbeat tom
+  music: {
+    bpm: 84, seed: 7, duck: -14, key: 'D', mode: 'minor', progression: [0, 5, 3, 4],
+    layers: [
+      { name: 'low strings', inst: 'pad', notes: 'chord', octave: -1, pattern: 'X---', vel: 0.09, cutoff: [650, 1150], attack: 1.1, release: 1.6 },
+      { name: 'sub', inst: 'bass', octave: -2, pattern: 'X---', gate: 0.95, vel: 0.2, decay: 4, from: 0.3 },
+      { name: 'pulse', inst: 'pluck', notes: [0, 1], pattern: 'XXXXXXXX', gate: 0.9, vel: 0.07, bright: 0.2, decay: 0.993, from: 0.4 },
+      { name: 'heartbeat', inst: 'tom', pitch: 75, pattern: 'Xx......', vel: 0.4, from: 0.6 },
+      { name: 'answer', inst: 'tom', pitch: 90, pattern: '....X...', vel: 0.3, from: 0.75 },
+    ],
+    lead: { inst: 'keys', range: [69, 84], rhythm: 'sparse', vel: 0.1, bright: 0.4, decay: 2, echo: 0.2 },
+  },
   transition: { type: 'wipe', angle: 0, duration: 0.7, ease: ease.inOutCubic, lineColor: T.ink, lineWidth: 3, sfx: 'paper' },
   subtitles: {
     style: { font: F(500, 40, T.sans), color: T.paper, box: 'rgba(26,25,22,0.88)', y: 0.925, radius: 4 },
@@ -360,6 +374,7 @@ CV.create({
   ],
   // Running folio (pages 2–4) + newsprint grain
   overlay(ctx, g) {
+    // <example>
     const sc = (id) => g.scenes.find((x) => x.id === id);
     const a = sc('attempt'), br = sc('breath');
     const on = clamp((g.T - a.start - 0.4) / 0.5) * (1 - clamp((g.T - br.start) / 0.4));
@@ -372,6 +387,7 @@ CV.create({
       label(ctx, `NO. 01 — P. ${page}`, R, 104, 1, T.muted, 20, 'right');
       ctx.globalAlpha = 1;
     }
+    // </example>
     draw.grain(ctx, g.frame, 0.055, { blend: 'multiply' });
   },
 });

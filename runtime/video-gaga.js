@@ -1362,8 +1362,6 @@
   // ===========================================================================
   const fail = (msg) => { throw new Error(`[video-gaga] ${msg}`); };
 
-  // Default tempo per generated music style (scripts/music.mjs renders them).
-  const STYLE_BPM = { keynote: 92, explainer: 100, kinetic: 104, synthwave: 112, acoustic: 96, ambient: 76, pop: 116, documentary: 84 };
   // The sound a transition naturally makes (only when music/sfx are enabled).
   const TRANSITION_SFX = {
     push: 'whoosh', slide: 'whoosh', whip: 'whoosh', wipe: 'swish', stripes: 'swish', split: 'whoosh', blinds: 'swish',
@@ -1391,9 +1389,13 @@
     const bg = config.background ?? '#000';
 
     // ---- music & beat grid ----------------------------------------------------
-    // music: 'bed.mp3' | { style, bpm, beatsPerBar, offset, snap, voiceOnBeat, seed, volume, sfx, file }
+    // music: 'bed.mp3' | { bpm, beatsPerBar, offset, snap, voiceOnBeat, volume, sfx, file,
+    //   and the score designed for this video: key, mode, progression, layers, lead, seed … }
+    // (scripts/music.mjs validates and renders the score; there are no preset styles)
     const mus = typeof config.music === 'string' ? { file: config.music } : config.music ? { ...config.music } : null;
-    const bpm = mus?.bpm ?? (mus?.style && mus.style !== 'none' ? STYLE_BPM[mus.style] ?? 96 : null);
+    if (mus && 'style' in mus) fail(`music.style ('${mus.style}') is not supported: there are no preset music styles. Design the score for this video (bpm, key, mode, progression, layers, lead), see docs/music-and-sound.md`);
+    if (mus && !mus.file && (mus.layers || mus.lead) && !mus.bpm) fail('music.bpm is required for a generated score');
+    const bpm = mus?.bpm ?? null;
     const beatsPerBar = mus?.beatsPerBar ?? 4;
     const beatLen = bpm ? 60 / bpm : 0, barLen = beatLen * beatsPerBar;
     const gridOffset = mus?.offset ?? 0;
@@ -1403,6 +1405,7 @@
     const snapUp = (x, unit) => (unit ? gridOffset + Math.ceil((x - gridOffset) / unit - 1e-6) * unit : x);
 
     // ---- timeline resolution (voice drives duration) -------------------------
+    if (!config.scenes?.length) fail('no scenes yet: add one scene per storyboard row to CV.create({ scenes: [ … ] })');
     const scenes = config.scenes.map((s, i) => ({ ...s, index: i }));
     let cursor = 0;
     for (const s of scenes) {
@@ -1619,7 +1622,7 @@
       if (config.overlay) {
         const beat = bpm ? (T - gridOffset) / beatLen : NaN;
         const pulse = (decay = 0.16) => (bpm ? Math.exp(-((beat - Math.floor(beat + 1e-6)) * beatLen) / decay) : 0);
-        config.overlay(ctx, { T, frame, fps, W, H, u: Math.min(W, H) / 1080, duration, p: T / duration, scenes, isRender: RENDER, beat, bar: beat / beatsPerBar, pulse });
+        config.overlay(ctx, { T, frame, fps, W, H, u: Math.min(W, H) / 1080, duration, p: T / duration, scenes, isRender: RENDER, beat, beatLen: beatLen || NaN, bar: beat / beatsPerBar, pulse });
       }
       if (burnSubs && burnCues.length) {
         // a scene may restyle captions over its own field (e.g. a highlight that contrasts with it)
@@ -1711,8 +1714,10 @@
         music: mus?.file || null,
         // beat grid + arrangement plan for the generated score (scripts/music.mjs)
         bpm, beatsPerBar, gridOffset,
-        score: mus && mus.style && !mus.file ? {
-          style: mus.style, bpm, beatsPerBar, offset: gridOffset, seed: mus.seed ?? 1, key: mus.key ?? null,
+        score: mus && (mus.layers || mus.lead) && !mus.file ? {
+          bpm, beatsPerBar, offset: gridOffset, seed: mus.seed ?? 1,
+          key: mus.key ?? null, mode: mus.mode ?? null, progression: mus.progression ?? null, sevenths: mus.sevenths ?? false,
+          chordBars: mus.chordBars ?? 1, layers: mus.layers ?? [], lead: mus.lead ?? null, fills: mus.fills ?? true,
           volume: mus.volume ?? 1, duck: mus.duck ?? null, gap: mus.gap ?? null, duration, fps,
           intro: mus.intro ?? null, ending: mus.ending ?? 'resolve',
           sections: scenes.map((s) => ({ id: s.id, start: s.start, end: s.end, energy: s.energy ?? null, voiced: !!s.voice })),
