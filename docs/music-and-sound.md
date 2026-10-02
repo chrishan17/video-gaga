@@ -58,7 +58,7 @@ CV.create({
 | `ending` | `'resolve'` | `'resolve'` lands the tonic chord on the last downbeat and lets it ring. `'none'` lets the groove run to the end |
 | `file` | — | A licensed track instead of the generated score (side-chain ducked, faded) |
 
-The ten presets each carry the score designed for their own example video. Read them as worked examples of the spec, not as styles to reuse: a new video gets a new score.
+The twelve presets each carry the score designed for their own example video. Read them as worked examples of the spec, not as styles to reuse: a new video gets a new score.
 
 ## 2. Designing the score
 
