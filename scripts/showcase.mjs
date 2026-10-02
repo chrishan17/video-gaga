@@ -25,6 +25,7 @@ const SHOWCASE = {
   'swiss-kinetic': { gif: [0, 10], poster: 13.5 },
   'neon-circuit': { gif: [2.5, 8], poster: 16.5 },
   'pop-collage': { gif: [1.5, 8], poster: 5.5 },
+  'ink-wash': { gif: [4.5, 7], poster: 20.5, fps: 12, colors: 64 },
 };
 
 const ff = (args) => {

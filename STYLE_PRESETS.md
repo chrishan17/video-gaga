@@ -1,6 +1,6 @@
 # Style presets
 
-Ten motion-design systems, each shipped as a working composition in `presets/<slug>/video.html` (with `narration.json` where voiced). A preset is a **visual style**: its palette and type (`THEME`), its reusable motion and drawing helpers (`KIT` sections), its transition vocabulary, caption style and pacing. Its example video (the `EXAMPLE` sections, the scenes, the narration and the score) only shows that grammar at work: `cv init` copies the style and leaves the example out, and each new video gets its own script, structure and score. **Read this index first. Read a preset's full `video.html` only after the user has picked it**, then treat that file as the design recipe: its palette, type, motion grammar, transitions and score. For a Phase 2 preview, read only its `THEME` object and first scene.
+Eleven motion-design systems, each shipped as a working composition in `presets/<slug>/video.html` (with `narration.json` where voiced). A preset is a **visual style**: its palette and type (`THEME`), its reusable motion and drawing helpers (`KIT` sections), its transition vocabulary, caption style and pacing. Its example video (the `EXAMPLE` sections, the scenes, the narration and the score) only shows that grammar at work: `cv init` copies the style and leaves the example out, and each new video gets its own script, structure and score. **Read this index first. Read a preset's full `video.html` only after the user has picked it**, then treat that file as the design recipe: its palette, type, motion grammar, transitions and score. For a Phase 2 preview, read only its `THEME` object and first scene.
 
 Every preset exposes a `THEME` / `T` object at the top (colours and fonts) so it can be re-branded without touching the motion code. Two presets use three.js for 3D (see [docs/three-d.md](docs/three-d.md)).
 
@@ -10,7 +10,8 @@ Every preset exposes a `THEME` / `T` object at the top (colours and fonts) so it
 | Understand · learn · trust the numbers | Clear Explainer, Blueprint, Data Globe |
 | "Where in the world" · scale · global data | Data Globe |
 | How a thing works · technical · precise | Blueprint, Studio 3D (exploded view) |
-| Story · history · essay · gravitas | Editorial |
+| Story · history · essay · gravitas | Editorial, Ink Wash |
+| Calm · contemplative · Chinese culture and poetry | Ink Wash |
 | Excited · hype · social | Pop Collage, Neon Circuit, Swiss Kinetic |
 | Warm · friendly · human | Paper Sketch, Pop Collage, Clear Explainer |
 | Bold · design-led · editorial | Swiss Kinetic, Editorial, Launch Keynote |
@@ -27,6 +28,7 @@ Every preset exposes a `THEME` / `T` object at the top (colours and fonts) so it
 | Swiss Kinetic | 1:1 | none | `kinetic` 104 | — |
 | Neon Circuit | 9:16 | ZH | `synthwave` 112 | — |
 | Pop Collage | 9:16 | ZH | `pop` 116 | — |
+| Ink Wash | 16:9 | none | `D major` 76 | — |
 
 ---
 
@@ -193,6 +195,22 @@ Every preset exposes a `THEME` / `T` object at the top (colours and fonts) so it
 - **Example's score:** `pop` 116 BPM, C major: high energy, a dip on the last tip, one `hit` on the recap; pops and ticks on sticker landings, shimmer on the payoff
 - **Captions:** big (62 px), cream with an ink stroke, **karaoke highlight** in yellow, baseline at 80% height
 - **Pacing:** fast. A sticker lands on nearly every beat; `tail: 0.25` keeps ~0.5 s of air after each line.
+
+## 11. Ink Wash — `ink-wash`
+
+<img src="docs/media/ink-wash.jpg" width="480" alt="Ink Wash">
+
+- **Vibe:** a Chinese ink painting (水墨) that paints itself on rice paper. Still, spacious, literate; the empty paper is part of the picture.
+- **Best for:** Chinese culture, poetry and philosophy, tea, calligraphy and craft, festivals and the solar terms, brand stories with an Eastern voice, reflective essays and wellness.
+- **Avoid for:** dense data, tech launches, hype and fast social cuts.
+- **Format:** 16:9 · 20–40 s · music only or a calm voice (ZH: YunyangNeural −6% or XiaoxiaoNeural −4%; EN: ChristopherNeural)
+- **Palette:** `#EEE7D7` 宣纸 rice paper (fibres, cloudy sizing, a warm edge) · one ink `#16150F` used at tones from 淡墨 0.15 to 浓墨 0.9 · `#F4EFE4` mist · one cinnabar `#B5342A`, for the seal and nothing else
+- **Type:** Ma Shan Zheng (brush 楷书 display, set in vertical columns read right to left) · Noto Serif SC 500/700 for small labels and captions
+- **Motion signature:** an ink drop **blooming** into the paper, paler inside with a darker wet edge · **brush strokes** that press in, run and lift, breaking into dry-brush bristles (飞白) at the tail · washes that soak in pale and settle, dark at the crest and fading into mist at the foot (远山淡、近山浓) · calligraphy that **soaks in** character by character, soft and slightly large, then sharp with a faint bleed · drifting **mist** that swallows what it passes, which is also how things exit · one **seal** pressed on the beat as the full stop
+- **Transitions:** a custom **handscroll pan** (手卷: the next scene is the next stretch of the same scroll, the join hidden in mist, with a paper sound) · the runtime `ink` bloom with a faint ink edge into the ending · hard cuts on the beat when the painting stays and only the words change
+- **Example's score:** 76 BPM, D major, two bars per chord: a soft sine drone, a plucked zither line that thickens with the energy, a low string, a tom heartbeat only in the music-only breath, a sparse plucked lead · energy 0.2 → 0.65 in the breath, 0.3 at the seal · paper on the scroll pans, a swell into the ending, one click for the seal
+- **Captions:** Noto Serif SC 500 40 px, ink on a translucent paper box, low (0.92 H); or `captions: 'file'` when the line is already on screen in calligraphy
+- **Pacing:** slow. Scene lengths in `beats`, a bloom or stroke on the beat, every column held ≥ 2 s, a music-only breath where the mist clears the page, a long ring-out under the seal.
 
 ---
 
