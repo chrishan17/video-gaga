@@ -496,7 +496,9 @@ const OPTS_FOR = {
   tom: ['pitch'],
 };
 const LAYER_KEYS = ['inst', 'pattern', 'notes', 'octave', 'vel', 'from', 'to', 'bars', 'gate', 'pan', 'name'];
-const SPEC_KEYS = ['bpm', 'key', 'mode', 'seed', 'progression', 'sevenths', 'chordBars', 'layers', 'lead', 'fills', 'beatsPerBar'];
+const SPEC_KEYS = ['bpm', 'key', 'mode', 'seed', 'progression', 'sevenths', 'chordBars', 'layers', 'lead', 'fills', 'beatsPerBar', 'parts'];
+// what a part (a chapter of a long score, chosen per scene with `part`) may change
+const PART_KEYS = ['key', 'mode', 'progression', 'chordBars', 'sevenths', 'seed', 'lead'];
 const NOTE_TOKEN = /^(root|third|fifth|seventh|[0-7])([_^]*)$/;
 
 // pattern → { len, events: [{ i, v, len }] }
@@ -529,13 +531,16 @@ export function validateScore(spec) {
   if (spec.beatsPerBar != null) inRange('music.beatsPerBar', spec.beatsPerBar, LIMITS.beatsPerBar);
   // layers: [] and no lead = sound effects only (on the beat grid): no harmony needed
   const sfxOnly = Array.isArray(spec.layers) && !spec.layers.length && spec.lead == null;
-  if (sfxOnly) { /* nothing to check */ } else if (!(spec.key in NOTE)) err(`music.key must be one of ${Object.keys(NOTE).join(' ')} (got ${JSON.stringify(spec.key)})`);
-  if (!sfxOnly && !MODE_NAMES.includes(spec.mode)) err(`music.mode must be one of ${MODE_NAMES.join(', ')} (got ${JSON.stringify(spec.mode)})`);
-  const prog = spec.progression;
-  if (sfxOnly) { /* no chords */ } else if (!Array.isArray(prog) || prog.length < LIMITS.progressionLength[0] || prog.length > LIMITS.progressionLength[1]) err(`music.progression must list ${LIMITS.progressionLength.join('–')} scale degrees`);
-  else prog.forEach((d, i) => { if (!Number.isInteger(d) || d < LIMITS.degree[0] || d > LIMITS.degree[1]) err(`music.progression[${i}] must be a scale degree 0–6 (0 = tonic)`); });
-  if (spec.chordBars != null && !LIMITS.chordBars.includes(spec.chordBars)) err(`music.chordBars must be ${LIMITS.chordBars.join(', ')}`);
-  if (spec.sevenths != null && typeof spec.sevenths !== 'boolean') err('music.sevenths must be true or false');
+  const harmony = (at, h, partial) => {
+    if (sfxOnly || (partial && h.key == null)) { /* nothing to check */ } else if (!(h.key in NOTE)) err(`${at}.key must be one of ${Object.keys(NOTE).join(' ')} (got ${JSON.stringify(h.key)})`);
+    if (!sfxOnly && !(partial && h.mode == null) && !MODE_NAMES.includes(h.mode)) err(`${at}.mode must be one of ${MODE_NAMES.join(', ')} (got ${JSON.stringify(h.mode)})`);
+    const prog = h.progression;
+    if (sfxOnly || (partial && prog == null)) { /* no chords */ } else if (!Array.isArray(prog) || prog.length < LIMITS.progressionLength[0] || prog.length > LIMITS.progressionLength[1]) err(`${at}.progression must list ${LIMITS.progressionLength.join('–')} scale degrees`);
+    else prog.forEach((d, i) => { if (!Number.isInteger(d) || d < LIMITS.degree[0] || d > LIMITS.degree[1]) err(`${at}.progression[${i}] must be a scale degree 0–6 (0 = tonic)`); });
+    if (h.chordBars != null && !LIMITS.chordBars.includes(h.chordBars)) err(`${at}.chordBars must be ${LIMITS.chordBars.join(', ')}`);
+    if (h.sevenths != null && typeof h.sevenths !== 'boolean') err(`${at}.sevenths must be true or false`);
+  };
+  harmony('music', spec, false);
 
   const layers = spec.layers;
   if (!Array.isArray(layers)) err('music.layers must be an array ([] = sound effects only)');
@@ -589,20 +594,35 @@ export function validateScore(spec) {
     if (layers.length > 1 && layers.every((L) => (L?.from ?? 0) === 0 && L?.to == null)) warn('every layer plays at every energy: give layers a `from` so the score builds and breathes with the story');
     if (layers.some((L) => L && INSTRUMENTS.drums.includes(L.inst) && (L.from ?? 0) < 0.3)) warn('drums play at energy < 0.3: they will sit under the quietest, most intimate moments');
   }
-  const lead = spec.lead;
-  if (lead != null) {
-    if (typeof lead !== 'object') err('music.lead must be an object or null');
-    else {
-      if (!LIMITS.lead.insts.includes(lead.inst)) err(`music.lead.inst must be one of ${LIMITS.lead.insts.join(', ')}`);
-      if (!(lead.rhythm in RHYTHMS)) err(`music.lead.rhythm must be one of ${Object.keys(RHYTHMS).join(', ')}`);
-      if (!isRange(lead.range) || lead.range[0] < LIMITS.lead.range[0] || lead.range[1] > LIMITS.lead.range[1] || lead.range[1] - lead.range[0] < 7) err(`music.lead.range must be [low, high] MIDI within ${LIMITS.lead.range.join('…')}, at least 7 semitones wide`);
-      if (typeof lead.vel !== 'number' || !(lead.vel > 0) || lead.vel > LIMITS.lead.vel) err(`music.lead.vel must be in (0, ${LIMITS.lead.vel}]`);
-      const allowed = ['inst', 'range', 'rhythm', 'vel', ...(OPTS_FOR[lead.inst] || []), 'bright', 'decay'];
-      for (const k of Object.keys(lead)) if (!allowed.includes(k)) err(`music.lead.${k} is not an option for ${lead.inst}`);
-      if (lead.kind != null && !BELL_KINDS.includes(lead.kind)) err(`music.lead.kind must be one of ${BELL_KINDS.join(', ')}`);
-      for (const k of Object.keys(OPT_RANGES)) if (lead[k] != null) inRange(`music.lead.${k}`, lead[k], OPT_RANGES[k]);
+  const checkLead = (at, lead) => {
+    if (typeof lead !== 'object') return err(`${at} must be an object or null`);
+    if (!LIMITS.lead.insts.includes(lead.inst)) err(`${at}.inst must be one of ${LIMITS.lead.insts.join(', ')}`);
+    if (!(lead.rhythm in RHYTHMS)) err(`${at}.rhythm must be one of ${Object.keys(RHYTHMS).join(', ')}`);
+    if (!isRange(lead.range) || lead.range[0] < LIMITS.lead.range[0] || lead.range[1] > LIMITS.lead.range[1] || lead.range[1] - lead.range[0] < 7) err(`${at}.range must be [low, high] MIDI within ${LIMITS.lead.range.join('…')}, at least 7 semitones wide`);
+    if (typeof lead.vel !== 'number' || !(lead.vel > 0) || lead.vel > LIMITS.lead.vel) err(`${at}.vel must be in (0, ${LIMITS.lead.vel}]`);
+    const allowed = ['inst', 'range', 'rhythm', 'vel', ...(OPTS_FOR[lead.inst] || []), 'bright', 'decay'];
+    for (const k of Object.keys(lead)) if (!allowed.includes(k)) err(`${at}.${k} is not an option for ${lead.inst}`);
+    if (lead.kind != null && !BELL_KINDS.includes(lead.kind)) err(`${at}.kind must be one of ${BELL_KINDS.join(', ')}`);
+    for (const k of Object.keys(OPT_RANGES)) if (lead[k] != null) inRange(`${at}.${k}`, lead[k], OPT_RANGES[k]);
+  };
+  if (spec.lead != null) checkLead('music.lead', spec.lead);
+  // parts: chapters of a long score. Each may change the harmony and the
+  // melody; the layers (the instruments) stay, so the video keeps one sound.
+  if (spec.parts != null) {
+    if (typeof spec.parts !== 'object' || Array.isArray(spec.parts)) err('music.parts must be an object: { name: { progression, key, mode, chordBars, sevenths, seed, lead } }');
+    else for (const [name, part] of Object.entries(spec.parts)) {
+      const at = `music.parts.${name}`;
+      if (!part || typeof part !== 'object') { err(`${at} must be an object`); continue; }
+      for (const k of Object.keys(part)) if (!PART_KEYS.includes(k)) err(`${at}.${k} is not a part option (a part may change ${PART_KEYS.join(', ')}; layers stay the same for the whole video)`);
+      harmony(at, part, true);
+      if (part.seed != null && !Number.isFinite(part.seed)) err(`${at}.seed must be a number`);
+      if (part.lead != null) {
+        if (!spec.lead) err(`${at}.lead: there is no music.lead to vary (add one, or leave the part's lead out)`);
+        else checkLead(`${at}.lead`, { ...spec.lead, ...part.lead });
+      }
     }
   }
+  for (const sec of spec.sections || []) if (sec.part != null && !spec.parts?.[sec.part]) err(`scene "${sec.id}": part '${sec.part}' is not in music.parts (${Object.keys(spec.parts || {}).join(', ') || 'none defined'})`);
   return { errors, warnings };
 }
 
@@ -703,15 +723,27 @@ export function renderScore(plan, opts = {}) {
   const hits = (plan.sfx || []).filter((e) => e.type === 'hit' || e.type === 'boom').map((e) => e.t);
   const breathAt = (t) => hits.some((h) => t >= h - beat * 0.5 && t < h - 0.01);
 
+  // parts: a scene's `part` changes the harmony (and the melody) from the bar it
+  // starts in; each part's progression starts on its own first chord
+  const partHarmony = (name) => {
+    const P = name != null ? plan.parts[name] : {};
+    const key = P.key ?? plan.key, md = P.mode ?? plan.mode;
+    return { tonic: 48 + NOTE[key], mode: md, prog: P.progression ?? prog, chordBars: P.chordBars ?? chordBars, sevenths: P.sevenths ?? sevenths };
+  };
+  const partAt = (t) => sections[secAt(t)]?.part ?? null;
+
   // chords per bar, voice-led
   const chords = [];
-  let prevV = null;
+  let prevV = null, curPart, partBar = 0;
   for (let b = 0; b < nBars; b++) {
-    const deg = prog[Math.floor(b / chordBars) % prog.length];
-    const pcs = chordTones(tonic, mode, deg, sevenths ? 4 : 3);
+    const pn = plan.parts ? partAt(offset + b * barLen + barLen * 0.25) : null;
+    if (b === 0 || pn !== curPart) { curPart = pn; partBar = b; }
+    const H = partHarmony(pn);
+    const deg = H.prog[Math.floor((b - partBar) / H.chordBars) % H.prog.length];
+    const pcs = chordTones(H.tonic, H.mode, deg, H.sevenths ? 4 : 3);
     const voicing = voiceLead(pcs, 57, 76, prevV);
     prevV = voicing;
-    chords.push({ deg, root: degree(tonic, mode, deg), seventh: degree(tonic, mode, deg + 6), voicing, tones: pcs });
+    chords.push({ deg, root: degree(H.tonic, H.mode, deg), seventh: degree(H.tonic, H.mode, deg + 6), voicing, tones: pcs, tonic: H.tonic, mode: H.mode, part: pn });
   }
   const harmony = {
     tonic,
@@ -744,6 +776,11 @@ export function renderScore(plan, opts = {}) {
 
   // --- bars -------------------------------------------------------------------
   const report = { bpm, key: `${plan.key} ${mode}`, progression: prog.join('-'), layers: layers.length, lead: plan.lead?.inst ?? null, bars: [], warnings };
+  // where each part takes over: "name@bar"
+  if (plan.parts) report.parts = chords.filter((c, b) => b < endBar && (b === 0 || c.part !== chords[b - 1].part)).map((c) => `${c.part ?? 'main'}@${chords.indexOf(c) + 1}`);
+  // one loop for minutes on end is the most audible problem of a long score
+  const loops = Math.min(nBars, endBar) / (prog.length * chordBars);
+  if (!plan.parts && !silent && duration > 75 && loops > 8) warnings.push(`${Math.round(duration)} s on one ${prog.length}-chord loop (it repeats ${Math.round(loops)} times): give the chapters their own harmony with music.parts and a \`part\` on each chapter's first scene (docs/music-and-sound.md §2.5)`);
   for (let b = 0; b < (silent ? 0 : Math.min(nBars, endBar)); b++) {
     const b0 = offset + b * barLen;
     if (b0 >= duration) break;
@@ -771,18 +808,35 @@ export function renderScore(plan, opts = {}) {
   // --- melody in the gaps ---------------------------------------------------------
   const L = plan.lead ? { ...plan.lead, opts: Object.fromEntries(Object.entries(plan.lead).filter(([k]) => !['inst', 'range', 'rhythm', 'vel'].includes(k))) } : null;
   if (L && !silent) {
-    const motifs = [0, 1].map(() => {
-      const rh = RHYTHMS[L.rhythm][Math.floor(R() * RHYTHMS[L.rhythm].length)];
-      let d = 2 + Math.floor(R() * 3);
+    // each part gets its own two motifs (its own seed and lead options). Without
+    // parts the melody keeps the shared random stream (scores sound as before);
+    // with parts it gets its own, so a part never changes the melody before it
+    const compose = (Lp, rr) => [0, 1].map(() => {
+      const rh = RHYTHMS[Lp.rhythm][Math.floor(rr() * RHYTHMS[Lp.rhythm].length)];
+      let d = 2 + Math.floor(rr() * 3);
       return rh.map(([b, len], i) => {
-        if (i) d += [-2, -1, -1, 1, 1, 2, 0][Math.floor(R() * 7)];
+        if (i) d += [-2, -1, -1, 1, 1, 2, 0][Math.floor(rr() * 7)];
         d = clamp(d, 0, 9);
         return { b, len, d };
       });
     });
+    const leads = new Map([[null, { L, motifs: compose(L, plan.parts ? rng(`${plan.seed ?? 1}:main`) : R) }]]);
+    const leadFor = (name) => {
+      if (!leads.has(name)) {
+        const P = plan.parts[name];
+        const Lp = P.lead ? { ...L, ...P.lead, opts: { ...L.opts, ...Object.fromEntries(Object.entries(P.lead).filter(([k]) => !['inst', 'range', 'rhythm', 'vel'].includes(k))) } } : L;
+        leads.set(name, { L: Lp, motifs: compose(Lp, rng(`${P.seed ?? plan.seed ?? 1}:${name}`)) });
+      }
+      return leads.get(name);
+    };
     const phrases = Math.ceil(nBars / 2);
-    for (let ph = 0; ph < phrases; ph++) {
-      const t0 = offset + ph * 2 * barLen;
+    let phPart, ph0 = 0;
+    for (let phAbs = 0; phAbs < phrases; phAbs++) {
+      const t0 = offset + phAbs * 2 * barLen;
+      const pn = chords[clamp(phAbs * 2, 0, chords.length - 1)].part;
+      if (phAbs === 0 || pn !== phPart) { phPart = pn; ph0 = phAbs; }
+      const ph = phAbs - ph0;
+      const { L, motifs } = leadFor(pn);
       const motif = motifs[ph % 4 === 2 ? 1 : 0];
       motif.forEach((nt, i) => {
         const t = t0 + nt.b * beat;
@@ -794,10 +848,10 @@ export function renderScore(plan, opts = {}) {
         const c = chords[clamp(Math.floor((t - offset) / barLen), 0, chords.length - 1)];
         // strong beats: snap to the nearest chord tone; the 4th phrase varies the last note
         let d = nt.d + (ph % 4 === 3 && i === motif.length - 1 ? 2 : 0);
-        let note = degree(tonic, mode, c.deg + d);
+        let note = degree(c.tonic, c.mode, c.deg + d);
         if (nt.b % 2 === 0) {
           const pcs = c.tones.map((x) => ((x % 12) + 12) % 12);
-          for (let k = 0; k < 3 && !pcs.includes(((note % 12) + 12) % 12); k++) note = degree(tonic, mode, c.deg + (++d));
+          for (let k = 0; k < 3 && !pcs.includes(((note % 12) + 12) % 12); k++) note = degree(c.tonic, c.mode, c.deg + (++d));
         }
         while (note < L.range[0]) note += 12;
         while (note > L.range[1]) note -= 12;
@@ -811,7 +865,9 @@ export function renderScore(plan, opts = {}) {
 
   // --- ending: tonic chord rings out with the last frame --------------------------
   if (endT < duration && !silent) {
-    const v = voiceLead(chordTones(tonic, mode, 0, sevenths ? 4 : 3), 57, 76, prevV);
+    // the home chord of the part the video ends in
+    const H = partHarmony(plan.parts ? partAt(endT) : null), tonic = H.tonic;
+    const v = voiceLead(chordTones(H.tonic, H.mode, 0, H.sevenths ? 4 : 3), 57, 76, prevV);
     const ringFor = duration - endT;
     v.forEach((nn, i) => I.pad(m, m.bed, endT, ringFor, nn, { vel: 0.08, attack: 0.05, release: 0.6, cutoff: 1400, pan: lerp(-0.35, 0.35, i / (v.length - 1)) }));
     v.forEach((nn, i) => I.keys(m, m.keys, endT + i * 0.012, ringFor, nn + 12, { vel: 0.08, bright: 0.6, decay: 2.5, pan: lerp(-0.3, 0.3, i / (v.length - 1)) }));

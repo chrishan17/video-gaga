@@ -36,6 +36,10 @@ Every example below was rendered by the skill's own CLI from the files in [`pres
 
 During style discovery the agent also offers a *wildcard*: a custom system designed for your brief, previewed with your own title. A preset only sets the look and the motion grammar (palette, type, motion helpers, transitions, caption style). The script, the scene structure, the choreography and the music are designed for each video, and `cv init` copies the style, never the example's content. See [STYLE_PRESETS.md](STYLE_PRESETS.md).
 
+### Longer videos
+
+The presets show 15–30 s pieces. [`examples/hundred-days`](examples/hundred-days/video.html) is a 2.5-minute personal story in the Paper Sketch style (26 scenes in six chapters, narrated in Chinese by YunxiNeural): a chapter tag in the corner, music-only breaths between chapters, a score whose harmony changes per chapter (`music.parts`), and a callback from the first scene to the last. SKILL.md's *Long videos* notes cover planning one. [▶ video](docs/media/hundred-days.mp4)
+
 ## How it works
 
 ```

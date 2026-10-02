@@ -26,6 +26,7 @@ import asyncio
 import hashlib
 import json
 import os
+import ssl
 import sys
 from pathlib import Path
 
@@ -51,6 +52,13 @@ except ImportError:  # pragma: no cover
 
 MP3_BPS = 48_000  # audio-24khz-48kbitrate-mono-mp3
 TICKS = 10_000_000
+
+# edge-tts trusts only certifi's bundle, so behind a TLS-inspecting proxy
+# (corporate networks, sandboxes) every request fails certificate checks.
+# Honour the standard CA variables the way curl and requests do.
+_ca = os.environ.get("SSL_CERT_FILE") or os.environ.get("REQUESTS_CA_BUNDLE")
+if _ca and os.path.isfile(_ca) and hasattr(edge_tts, "communicate") and hasattr(edge_tts.communicate, "_SSL_CTX"):
+    edge_tts.communicate._SSL_CTX = ssl.create_default_context(cafile=_ca)
 
 
 async def synth(seg, defaults, out_dir: Path):
