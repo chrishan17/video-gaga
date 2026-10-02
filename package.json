@@ -13,7 +13,8 @@
     "node": ">=18"
   },
   "dependencies": {
-    "playwright": "^1.63.0"
+    "playwright": "^1.63.0",
+    "spessasynth_core": "4.3.22"
   },
   "scripts": {
     "doctor": "node scripts/cv.mjs doctor",

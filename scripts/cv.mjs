@@ -88,8 +88,11 @@ async function tts(dir) {
 // ---------------------------------------------------------------------------
 async function synthMusic(dir, score, { quiet } = {}) {
   const { renderScore, writeWav } = await import('./music.mjs');
+  const { soundfontPath } = await import('./soundfont.mjs');
   const voiceDb = score.voice.length ? speechLevel(dir) : null;
-  const key = crypto.createHash('sha1').update(fs.readFileSync(path.join(ROOT, 'scripts', 'music.mjs'))).update(JSON.stringify(score)).update(String(voiceDb)).digest('hex').slice(0, 16);
+  const sf = soundfontPath();
+  const key = crypto.createHash('sha1').update(fs.readFileSync(path.join(ROOT, 'scripts', 'music.mjs'))).update(fs.readFileSync(path.join(ROOT, 'scripts', 'soundfont.mjs')))
+    .update(JSON.stringify(score)).update(String(voiceDb)).update(fs.existsSync(sf) ? `${sf}:${fs.statSync(sf).size}` : 'synth').digest('hex').slice(0, 16);
   const file = path.join(dir, 'build', 'music.wav'), bed = path.join(dir, 'build', 'music-bed.wav');
   const meta = path.join(dir, 'build', 'music.json');
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -98,12 +101,12 @@ async function synthMusic(dir, score, { quiet } = {}) {
     return { file, bed, report: JSON.parse(fs.readFileSync(meta, 'utf8')).report };
   }
   const t0 = Date.now();
-  const mix = renderScore(score, { voiceDb: voiceDb ?? undefined });
+  const mix = await renderScore(score, { voiceDb: voiceDb ?? undefined, log: quiet ? () => {} : log });
   writeWav(file, mix);
   writeWav(bed, { left: mix.bed.left, right: mix.bed.right, sampleRate: mix.sampleRate });
   mix.report.voiceDb = voiceDb;
   fs.writeFileSync(meta, JSON.stringify({ key, report: mix.report }, null, 1));
-  if (!quiet) log(`▸ music: ${mix.report.key} · ${mix.report.bpm} BPM · ${mix.report.layers} layers · ${score.sfx.length} sfx (${Date.now() - t0} ms)`);
+  if (!quiet) log(`▸ music: ${mix.report.key} · ${mix.report.bpm} BPM · ${mix.report.layers} layers · ${score.sfx.length} sfx · ${mix.report.engine === 'samples' ? 'sampled instruments' : 'built-in synth'} (${Date.now() - t0} ms)`);
   if (!quiet) for (const w of mix.report.warnings || []) log(`  ⚠ music: ${w}`);
   return { file, bed, report: mix.report };
 }
@@ -763,6 +766,7 @@ async function musicCmd(opts) {
   log(`✔ ${path.relative(process.cwd(), file)}  ${info.duration.toFixed(2)}s`);
   log(`  ${report.key} · ${report.bpm} BPM · chords ${report.progression} · ${report.layers} layers${report.lead ? ` + ${report.lead} lead` : ''} · bar energy ${report.bars.join(' ')}`);
   if (report.parts) log(`  parts (name@bar): ${report.parts.join(' ')}`);
+  if (report.mixDb) log(`  mix (dB of the whole): ${Object.entries(report.mixDb).map(([k, v]) => `${k} ${v}`).join(' · ')} · ${report.engine === 'samples' ? 'sampled instruments' : 'built-in synth (no samples: run cv doctor)'}`);
   log(`  peak ${report.peakDb} dBFS · gaps ${report.gapDb ?? '—'} dB vs the voice (${report.voiceDb ?? '—'} dBFS speech), dips ${report.voiceDuckDb} dB while it speaks · final chord ${report.endChordAt != null ? `at ${report.endChordAt}s` : 'none'}`);
   log(`  sfx: ${info.score.sfx.map((e) => `${e.type}@${e.t.toFixed(2)}`).join(' ') || 'none'}`);
   log(`  cuts on the grid: ${info.scenes.slice(1).map((s) => s.start.toFixed(2)).join(' ')}`);
@@ -805,13 +809,17 @@ async function doctor() {
   const uv = has('uv');
   const py = spawnSync('python3', ['-c', 'import edge_tts;print(edge_tts.__version__)'], { encoding: 'utf8' });
   row(uv || py.status === 0, 'edge-tts', uv ? 'via uv (fetched on first use)' : py.status === 0 ? `python edge-tts ${py.stdout.trim()}` : 'install uv (recommended) or pip install edge-tts');
+  // the instrument samples for the score (downloaded once, 40 MB)
+  const { loadSoundfont, SOUNDFONT } = await import('./soundfont.mjs');
+  const sf = await loadSoundfont({ log });
+  row(!sf.error, 'instrument samples', sf.error ? `${sf.error}\n${' '.repeat(23)}→ without them the score falls back to a much cheaper synth` : `${path.basename(sf.file)} (${SOUNDFONT.license})`);
   log(ok ? '\nReady to render.' : '\nFix the ✖ items above, then re-run doctor.');
   process.exitCode = ok ? 0 : 1;
 }
 
 const HELP = `video-gaga — Canvas motion graphics → MP4
 
-doctor                        check node, ffmpeg, Playwright/Chromium and Edge TTS
+doctor                        check node, ffmpeg, Playwright/Chromium, Edge TTS and the instrument samples
 
 render <project|video.html>   render to MP4 (runs Edge TTS first if narration.json exists)
     --out <file.mp4>          default <project>/out/<name>.mp4
