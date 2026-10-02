@@ -42,7 +42,7 @@
 ## 工作流程
 
 1. **提问**：4–7 个问题，每题三个选项，其中一个为推荐项并附理由。维度按视频类型挑选，例如时长、画幅、配音、字幕、品牌色、节奏、结尾。
-2. **风格样帧**：用你的真实标题渲染 3 个方向（推荐预设、对比预设、定制野卡），由你挑选。
+2. **风格样帧**：用你的真实标题渲染 3 个方向（推荐预设、对比预设、定制野卡），并排放在一个 moodboard 网页里（动态样片、关键帧、配色、字体、配乐方向），你点一下就选好了。
 3. **分镜**：逐场景列出旁白原文（或标明纯音乐）、画面焦点、与哪个词或哪一拍同步、退场、转场、音乐能量和音效，确认后再动手。
 4. **制作**：编写 `video.html`（Canvas 或 three.js 场景）和 `narration.json`。先跑 Edge TTS 拿到词级时间，剪辑点和起句对齐到节拍，`cv music` 按时间轴生成配乐，再生成探针样帧，由 Agent 自己看图挑问题、修改、再检查。
 5. **渲染与验收**：并行渲染、混音（旁白、为人声让位的配乐、loudnorm 响度标准化）、封装，然后用 `cv check` 核对同步与音量比例，最后从成片里抽帧再看一遍。
@@ -69,6 +69,7 @@ node scripts/cv.mjs init my-video --preset clear-explainer [--ratio 9:16]
 node scripts/cv.mjs tts my-video                    # 生成配音与词级时间（带缓存）
 node scripts/cv.mjs music my-video                  # 生成配乐 build/music.wav（预览播放器会播放）
 node scripts/cv.mjs still my-video --sheet --subs   # 探针样帧 + 缩略图拼版，供自检
+node scripts/cv.mjs moodboard .cv-previews/style-a .cv-previews/style-b .cv-previews/style-c --wait  # 在一个网页里并排选风格
 node scripts/cv.mjs render my-video --subs burn     # 渲染 MP4，字幕烧录，同时导出 srt/vtt
 node scripts/cv.mjs check my-video/out/my-video.mp4 --srt my-video/out/my-video.srt
 node scripts/cv.mjs voices --lang zh-CN             # 列出中文音色
