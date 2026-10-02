@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Noto+Serif+SC:wght@500;600&family=Courier+Prime:wght@400;700&display=block" rel="stylesheet">
 </head>
 <body>
+<script src="build/narration.js"></script>
 <script src="../../runtime/video-gaga.js"></script>
 <script>
 /* =============================================================================
@@ -18,8 +19,10 @@
    out of focus and keep tracking open while they hold, cuts are dissolves,
    dips to black and one film burn. Documentary furniture: a mono timecode
    kicker over a serif line, subtitles set in the lower bar.
-   Rhythm: slow. Shots hold for 6–10 beats of the video's own score; the
-   example below is music-only, so its score is the clock.
+   Rhythm: slow. Shots hold for 6–10 beats of the video's own score. In the
+   example below a documentary narrator sets the shot lengths, a remembered
+   voice speaks the quote, and the leader, the sunrise and the title card are
+   music only.
    ============================================================================= */
 const { ease, clamp, lerp, fx, draw, color } = CV;
 
@@ -433,18 +436,18 @@ CV.create({
     },
     // --- 2. Black: the hour, then the line -----------------------------------
     {
-      id: 'hour', narration: false, beats: 6, energy: 0.25,
+      id: 'hour', captions: 'file', tail: 1.6, energy: 0.25, // the line is the title
       transition: { type: 'cut' },
       draw(ctx, s) {
         const { W, H, t } = s;
         const out = s.out(1.1, ease.inOutSine);
-        trackTitle(ctx, '凌晨 4:52', W / 2, H / 2 - 70, t - s.onBeat(0.5), { font: F(400, 26, T.mono), fill: T.amber, spacing: [0.3, 0.42], life: s.dur, exit: out, blur: 4 });
-        trackTitle(ctx, '城市还没有醒', W / 2, H / 2 + 40, t - s.onBeat(1.5), { font: F(600, 88, T.han), spacing: [0.1, 0.24], life: s.dur, exit: out });
+        trackTitle(ctx, '凌晨 4:52', W / 2, H / 2 - 70, t - s.when('凌晨', s.onBeat(0.5)), { font: F(400, 26, T.mono), fill: T.amber, spacing: [0.3, 0.42], life: s.dur, exit: out, blur: 4 });
+        trackTitle(ctx, '城市还没有醒', W / 2, H / 2 + 40, t - s.when('城市', s.onBeat(1.5)), { font: F(600, 88, T.han), spacing: [0.1, 0.24], life: s.dur, exit: out });
       },
     },
     // --- 3. The river: a slow push in, the first ferry crosses ----------------
     {
-      id: 'river', narration: false, beats: 8, energy: 0.35,
+      id: 'river', tail: 1.4, energy: 0.35,
       transition: { type: 'fade', duration: 1.8, ease: ease.inOutSine, sfx: 'swell' },
       draw(ctx, s) {
         const { W, t } = s;
@@ -457,17 +460,18 @@ CV.create({
           river(ctx, W, t, 0.08, [{ x: fx0 - 3, w: 18, a: 0.7, color: '#FFB060' }]);
           ferry(ctx, fx0, HY + 46);
         }, { zoom: [1, 1.07], focusX: 1000, focusY: HY });
-        lowerThird(ctx, 160, 880, '05:10 · 江北渡口', '第一班渡轮离岸', t - s.onBeat(2), { exit: s.out(0.9, ease.inOutSine) });
+        lowerThird(ctx, 160, 880, '05:10 · 江北渡口', '第一班渡轮离岸', t - s.when('江北', s.onBeat(2)), { exit: s.out(0.9, ease.inOutSine) });
       },
     },
     // --- 4. The city wakes: windows light in bursts, on the half-beats -------
     {
-      id: 'windows', narration: false, beats: 8, energy: 0.5,
-      sfx: [{ at: (s) => s.onBeat(1), type: 'click', gain: 0.5 }],
+      id: 'windows', tail: 2.6, energy: 0.5, // the tail lets the last windows come on
+      sfx: [{ at: (s) => s.when('一扇', s.onBeat(1)), type: 'click', gain: 0.5 }],
       draw(ctx, s) {
         const { W, t } = s;
+        const first = s.when('一扇', s.onBeat(1)); // the first window lights as it is named
         // how many windows are lit: grows on each half-beat, never fades back
-        const step = Math.floor(clamp((t - s.onBeat(1)) / (s.beatLen / 2) + 1, 0, 13));
+        const step = Math.floor(clamp((t - first) / (s.beatLen / 2) + 1, 0, 13));
         const lit = Math.pow(step / 13, 1.4) * 0.85;
         dolly(ctx, s, () => {
           const g = ctx.createLinearGradient(0, 0, 0, 1000);
@@ -480,7 +484,7 @@ CV.create({
             for (const [x, y, o] of b.win) {
               const on = o < lit;
               // a window comes on with a short flicker, two frames dark
-              const age = on ? t - (s.onBeat(1) + Math.ceil(Math.pow(o / 0.85, 1 / 1.4) * 13 - 1) * s.beatLen / 2) : -1;
+              const age = on ? t - (first + Math.ceil(Math.pow(o / 0.85, 1 / 1.4) * 13 - 1) * s.beatLen / 2) : -1;
               const flick = age >= 0 && age < 0.2 && Math.floor(age * 30) % 3 === 1;
               ctx.fillStyle = on && !flick ? (o < 0.3 ? '#FFC783' : '#F4D7A6') : '#141B1F';
               ctx.fillRect(x, y, 26, 38);
@@ -488,7 +492,7 @@ CV.create({
             }
           }
         }, { zoom: [1.04, 1.1], x: [-80, 120] });
-        lowerThird(ctx, 160, 880, '05:31', '一扇窗，又一扇窗', t - s.onBeat(4), { exit: s.out(0.6, ease.inOutSine), scrim: 0.8 });
+        lowerThird(ctx, 160, 880, '05:31', '一扇窗，又一扇窗', t - s.when('一扇', s.onBeat(4)), { exit: s.out(0.6, ease.inOutSine), scrim: 0.8 });
       },
     },
     // --- 5. Sunrise: the film burns into the light ---------------------------
@@ -504,7 +508,8 @@ CV.create({
     },
     // --- 6. Rack focus: the light goes soft, a voice is remembered ----------
     {
-      id: 'voice', narration: false, beats: 8, energy: 0.55,
+      // the quote is heard in the ferryman's own voice (its own voice in narration.json)
+      id: 'voice', captions: 'file', tail: 3.0, energy: 0.55,
       draw(ctx, s) {
         const { W, H, t } = s;
         const buf = gateBuf('soft', W / 2, H / 2);
@@ -531,9 +536,9 @@ CV.create({
         const out = s.out(1, ease.inOutSine);
         ctx.font = F(500, 58, T.han);
         ctx.fillStyle = T.cream;
-        fx.charReveal(ctx, '“每天都一样。', W / 2, 520, t - s.onBeat(1), { align: 'center', stagger: 0.07, dur: 1, rise: 0.06, blur: 8, ease: ease.inOutSine, exit: out });
-        fx.charReveal(ctx, '可每天的光，都不一样。”', W / 2, 610, t - s.onBeat(3), { align: 'center', stagger: 0.07, dur: 1, rise: 0.06, blur: 8, ease: ease.inOutSine, exit: out });
-        trackTitle(ctx, '—— 一位摆渡人', W / 2, 720, t - s.onBeat(5.5), { font: F(500, 30, T.han), fill: T.dim, spacing: [0.16, 0.24], life: 4, exit: out, blur: 4 });
+        fx.charReveal(ctx, '“每天都一样。', W / 2, 520, t - s.when('每天都', s.onBeat(1)), { align: 'center', stagger: 0.07, dur: 1, rise: 0.06, blur: 8, ease: ease.inOutSine, exit: out });
+        fx.charReveal(ctx, '可每天的光，都不一样。”', W / 2, 610, t - s.when('可每天', s.onBeat(3)), { align: 'center', stagger: 0.07, dur: 1, rise: 0.06, blur: 8, ease: ease.inOutSine, exit: out });
+        trackTitle(ctx, '—— 一位摆渡人', W / 2, 720, t - (s.voiceEnd + 0.4), { font: F(500, 30, T.han), fill: T.dim, spacing: [0.16, 0.24], life: 4, exit: out, blur: 4 });
       },
     },
     // --- 7. The title, then the light goes out -------------------------------

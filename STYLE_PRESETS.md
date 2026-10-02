@@ -27,7 +27,7 @@ Every preset exposes a `THEME` / `T` object at the top (colours and fonts) so it
 | Swiss Kinetic | 1:1 | none | `kinetic` 104 | — |
 | Neon Circuit | 9:16 | ZH | `synthwave` 112 | — |
 | Pop Collage | 9:16 | ZH | `pop` 116 | — |
-| Cinematic Film | 16:9 (2.39:1 scope) | none | 72, D major | — |
+| Cinematic Film | 16:9 (2.39:1 scope) | ZH | 72, D major | — |
 
 ---
 
@@ -202,14 +202,14 @@ Every preset exposes a `THEME` / `T` object at the top (colours and fonts) so it
 - **Vibe:** a documentary shot on film and projected in a dark room. Patient, warm, a little nostalgic.
 - **Best for:** brand films and manifestos, documentary and memoir pieces, places and people, anniversaries, trailers and title sequences, anything that should feel *felt* rather than explained.
 - **Avoid for:** dense data, fast social hooks, UI walkthroughs, anything that must read as crisp and digital.
-- **Format:** 16:9 with a 2.39:1 scope letterbox (`T.aspect`; 1.85 for a flat frame) · 30–60 s · music only or a slow narration (ZH: YunyangNeural −6%; EN: ChristopherNeural −4%). For 9:16, set `T.aspect` to 1 (no bars) and keep the gate.
+- **Format:** 16:9 with a 2.39:1 scope letterbox (`T.aspect`; 1.85 for a flat frame) · 30–60 s · a slow documentary narration (ZH: YunyangNeural −6%, with a second voice for a quoted interviewee; EN: ChristopherNeural −4%) or music only. For 9:16, set `T.aspect` to 1 (no bars) and keep the gate.
 - **Palette:** `#0B0A08` film black, lifted to `#121A1B` teal · `#F1E6D0` cream titles · one warm accent `#E3A257` (timecodes, the light) · `#8A7F70` dim · the grade is a warm soft-light `#FFB46E` with red-orange halation `#FF6A2A`
 - **Type:** Noto Serif SC 500/600 (Chinese titles, supers) · Cormorant Garamond 500/600 (Latin titles in wide-tracked caps) · Courier Prime (timecodes and kickers)
 - **Motion signature:** the **film gate** over every frame (`filmGate`: gate weave, halation, a warm grade with lifted blacks, exposure flicker, dust, hairs and a scratch that lives for a few dozen frames, vignette, grain) · scope **letterbox** bars · slow **dollies** on every shot (`dolly`: a push or a lateral track over the whole shot, never a snap) · titles that **fade up out of focus and keep tracking open** while they hold (`trackTitle`) · a documentary **lower third**: mono timecode kicker, a hairline that draws, a serif line that resolves glyph by glyph (`lowerThird`) · an academy **countdown leader** (`leader`) · rack focus by blurring a half-size buffer
 - **Transitions:** long dissolves (`fade`, 1.4–1.8 s) by default · `dip` to black for chapter breaks · one custom **film burn** (`filmBurn`: the stock overexposes into orange and white and the next shot comes through) for the turn of the piece. No pushes, wipes or whips.
-- **Example's score:** 72 BPM, D major from the relative minor (`[5, 3, 0, 4]`): a sine pad alone under the leader, low strings and a bass as the city wakes, felt-piano eighths at first light, a heartbeat tom only under the sunrise, a sparse keys melody throughout (the example is music-only) · ticks on the countdown, swells on the dissolve and the burn, one shimmer when the sun clears
+- **Example's score:** 72 BPM, D major from the relative minor (`[5, 3, 0, 4]`): a sine pad alone under the leader, low strings and a bass as the city wakes, felt-piano eighths at first light, a heartbeat tom only under the sunrise, a sparse keys melody in the gaps; the leader, the sunrise and the title card are music only · ticks on the countdown, swells on the dissolve and the burn, one shimmer when the sun clears
 - **Captions:** in the lower letterbox bar like a film print's subtitles: Noto Serif SC 38 px cream with a thin dark stroke, no box
-- **Pacing:** slow. Shots of 6–10 beats, every title held long enough to read twice, a dip to black before the title, a long fade to black at the end.
+- **Pacing:** slow. The narrator sets the shot lengths (6–10 beats each, a long `tail` after each line), every title held long enough to read twice, a dip to black before the title, a long fade to black at the end.
 - **Render tip:** the gate touches every pixel each frame, so draft with `--scale 0.5`; for the GIF use fewer frames and colours.
 
 ---
