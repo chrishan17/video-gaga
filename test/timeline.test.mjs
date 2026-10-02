@@ -1,5 +1,6 @@
 // Timeline + caption resolution inside CV.create (needs a DOM, so it runs in
-// headless Chromium): voiced scenes are sized from the last spoken word, and
+// headless Chromium): voiced scenes are sized from the last spoken word (plus
+// 0.25 s for its final syllable to decay, never past the clip), and
 // scene.captions controls whether cues are burned, exported, or dropped.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -18,7 +19,7 @@ test('voice timeline and per-scene captions', { skip: !chromium && 'playwright n
     const page = await browser.newPage();
     await page.goto('about:blank');
     await page.evaluate(() => { window.__CV_RENDER__ = true; });   // no preview player
-    await page.addScriptTag({ path: path.join(ROOT, 'runtime', 'canvas-video.js') });
+    await page.addScriptTag({ path: path.join(ROOT, 'runtime', 'video-gaga.js') });
     const r = await page.evaluate(() => {
       const seg = (text, words, duration) => ({ text, duration, words: words.map(([w, s, e]) => ({ text: w, start: s, end: e })) });
       const narration = {
@@ -42,10 +43,10 @@ test('voice timeline and per-scene captions', { skip: !chromium && 'playwright n
       return { scenes: api.info().scenes, cues: api.cues.map((c) => ({ text: c.text, burn: c.burn !== false })), infoCues: api.info().cues.map((c) => c.text), b: window.__b };
     });
     const [a, b, c] = r.scenes;
-    assert.ok(Math.abs(a.dur - (0.2 + 1.0 + 0.5)) < 1e-9, `scene a sized from last word: ${a.dur}`);
-    assert.ok(Math.abs(b.dur - (0.2 + 1.2 + 0.5)) < 1e-9, `scene b: ${b.dur}`);
-    assert.ok(Math.abs(c.dur - (0.2 + 0.6 + 0.5)) < 1e-9, `scene c: ${c.dur}`);
-    assert.ok(Math.abs(r.b.voiceEnd - 1.4) < 1e-9, `voiceEnd = last word: ${r.b.voiceEnd}`);
+    assert.ok(Math.abs(a.dur - (0.2 + 1.0 + 0.25 + 0.5)) < 1e-9, `scene a sized from last word: ${a.dur}`);
+    assert.ok(Math.abs(b.dur - (0.2 + 1.2 + 0.25 + 0.5)) < 1e-9, `scene b: ${b.dur}`);
+    assert.ok(Math.abs(c.dur - (0.2 + 0.6 + 0.25 + 0.5)) < 1e-9, `scene c: ${c.dur}`);
+    assert.ok(Math.abs(r.b.voiceEnd - (0.2 + 1.2 + 0.25)) < 1e-9, `voiceEnd = last word + decay: ${r.b.voiceEnd}`);
     assert.ok(Math.abs(r.b.whenS - (0.2 + 0.95)) < 1e-9, `when('S') hits the word S: ${r.b.whenS}`);
     assert.deepEqual(r.cues, [{ text: 'Select a word.', burn: true }, { text: 'Press Option S.', burn: false }]);
     assert.deepEqual(r.infoCues, ['Select a word.', 'Press Option S.'], "'file' cues are exported, false cues are not");

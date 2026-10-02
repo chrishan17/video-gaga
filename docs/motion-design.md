@@ -1,8 +1,10 @@
 # Motion design guide
 
-This is the bar every canvas-video composition must clear. Read it before you write a single `draw()`.
+This is the bar every video-gaga composition must clear. Read it before you write a single `draw()`.
 
 > **Motion exists to direct attention and explain change.** If you can't say what a move tells the viewer, it doesn't belong in the video. A cool move that serves the content is great. A cool move that exists only to be cool is noise.
+>
+> **But don't be timid.** A video where every scene is "text fades in, holds, gets pushed off" is monotonous. Give each video one or two signature moves that make it memorable *and* explain something: a camera that follows the head of a growing line, an iris that opens from the key number, a match cut, a 3D turn that shows the back of the product, a list that lands on the beat.
 
 ---
 
@@ -65,10 +67,13 @@ At 30 fps, one frame is 33 ms. Durations scale with distance and size:
 
 ## 4. Rhythm & pacing
 
-- **Build on a beat grid.** With narration, the words are the grid (`s.when('word')`). With music, use BPM (`beat = 60 / BPM`). With neither, pick a tempo (for example 100 BPM, a 0.6 s beat) and snap the major moves to it.
-- **Vary density.** Alternate fast clusters (a burst of 3 hits) with rests (a hold, a slow push). Constant intensity feels flat.
+- **Build on a beat grid.** Set `music: { style, bpm }` and the runtime puts every cut and every voice onset on the grid. Inside a scene, the words are the fine grid (`s.when('word')`) and the beats are the coarse one (`s.onBeat(i)`, `s.nextBeat(t)`): voiced hits follow the words, music-only moves follow the beats.
+- **Vary density.** Alternate fast clusters (a burst of 3 hits) with rests (a hold, a slow push). Constant intensity feels flat. Raise the scene `energy` where the story climbs and drop it before the payoff.
+- **Leave room.** Plan music-only moments: a pre-roll before the first word, a held beat after the big number, an end card that rings out. See [music-and-sound.md](music-and-sound.md) §5.
 - **Cut on action.** Start a transition while something is moving, not after everything has stopped dead.
-- **End on a still.** The final frame is a poster: the logo or conclusion fully resolved, held ≥ 1 s.
+- **Exits.** Every element that enters should leave in a way that matches its entrance (rise in → rise out, draw on → draw off, or simply stay and be carried by the transition). Use `s.out(d, ease.exit, overlap)` to drive exits in the last moments of a scene. Secondary elements (kickers, footnotes, labels) leave first, 0.3–0.5 s before the cut; the hero is carried by the transition. Exits are ~30% faster than entrances.
+- **Beat accents are seasoning.** `s.pulse()` may breathe a dot, a glow or a cursor on the beat. Never pulse whole layouts or text.
+- **End on a still.** The final frame is a poster: the logo or conclusion fully resolved, held ≥ 1 s while the final chord rings.
 
 ---
 
@@ -107,13 +112,21 @@ Keep camera motion slow relative to content motion. Never shake the camera for "
 | **Fade / crossfade** | time passes, mood shifts, the ending | between every scene (it turns mushy) |
 | **Dip to black/colour** | a chapter break, a reveal after a hook | fast sequences |
 | **Push / slide** | sequential steps, "next" | unrelated topics |
+| **Whip** (`whip`) | a fast "next" with motion blur: social, energetic lists | calm pieces, more than every other cut |
 | **Wipe** | a graphic, editorial energy (angled, with a colour edge) | calm pieces |
-| **Iris** | a focus point grows into the next scene | more than once per video |
-| **Zoom through** | going "into" something (an idea, a product) | lateral moves |
-| **Glitch** | digital or cyber aesthetics only, ≤ 0.4 s | anything serious or calm |
+| **Stripes** (`stripes`) | brand-coloured bands sweep the frame: pop, promos | serious topics |
+| **Blinds** (`blinds`) | structured, typographic, grid-based styles | organic styles |
+| **Split** (`split`) | the old frame opens onto a reveal (doors) | sequences |
+| **Clock** (`clock`) | time passing, a process cycle | more than once |
+| **Iris** | a focus point grows into the next scene (open from the key number) | more than once per video |
+| **Ink / dissolve** | organic spread, memory, an idea taking hold | crisp tech pieces |
+| **Zoom through** (`zoom`, `zoomBlur`) | going "into" something (an idea, a product) | lateral moves |
+| **Cube / flip** | rotating to the next face of a topic, a before/after card | more than one per video |
+| **Light leak** (`flash`) | warmth, a premium reveal, film looks | data, UI |
+| **Glitch / pixelate** | digital or cyber aesthetics only, ≤ 0.4 s | anything serious or calm |
 | **Custom (paper slide, morph)** | the style has a physical metaphor | if it costs readability |
 
-Use **one or two** transition types per video. Consistency is style.
+Use **one or two** transition types per video, plus at most one special for the single most important change (for example an iris out of the payoff number). Consistency is style. With music on, every transition plays its natural sound at its midpoint, which lands on the beat.
 
 ---
 
@@ -153,7 +166,9 @@ Use **one or two** transition types per video. Consistency is style.
 - **Narration drives the timeline.** Scene duration comes from the voice (`voiceDelay + speech + tail`). Never cut a voice line mid-word.
 - **Sync visual hits to words** with `s.when('phrase')`: the number counts up *as it is said*, the term appears *as it is named*. A visual may lead the word by 0–150 ms (the eye is faster than the ear). It should never trail by more than 200 ms.
 - Leave 150–300 ms of air before the first word of a scene, and 400–800 ms after the last one.
-- Music (optional, bring your own licensed track) is auto-ducked under the voice. Cut on downbeats if you have them.
+- **Music is on by default.** `music: { style, bpm }` generates a score from the timeline: it dips 12 dB under speech, plays its melody only in the gaps, crashes into rising sections and resolves on the last downbeat. Choose the style from the content's emotion. See [music-and-sound.md](music-and-sound.md).
+- **Sound effects mark what matters**: transitions whoosh, counted items tick, the one big reveal gets a `hit` (the music breathes for half a beat before it). Never put a sound on every element.
+- Balance: the bed sits 10–18 dB under the voice while it speaks. `cv render` measures it.
 
 ---
 
@@ -180,6 +195,10 @@ Use **one or two** transition types per video. Consistency is style.
 - ❌ Numbers that never hold, or charts without axes and units.
 - ❌ Visuals that ignore the narration (the chart draws before the voice mentions it, or long after).
 - ❌ Dead air at the end, or cut-off voice at the end.
+- ❌ Wall-to-wall narration with no music-only moment, or a dry voice with no music bed.
+- ❌ Scenes that only enter and hold, then get shoved off: no exits, no cut on action.
+- ❌ Everything pulsing to the beat, or a sound effect on every element.
+- ❌ 3D for decoration (a spinning logo that could be flat).
 - ❌ More than 3 flashes per second, or big full-screen luminance flicker (photosensitivity).
 - ❌ Internal words on screen: "Scene 1", "Title here", "preset", "Option A", placeholders.
 
@@ -189,6 +208,9 @@ Use **one or two** transition types per video. Consistency is style.
 - [ ] Nothing overlaps unintentionally, and no text collides with the caption zone.
 - [ ] Every word on screen is readable at the probe's size and holds long enough.
 - [ ] Visual hits land on their spoken words (check `when()` targets).
-- [ ] Transitions are consistent, and the last frame is a resolved still.
+- [ ] Transitions are consistent, the cut lands on action, and the last frame is a resolved still.
+- [ ] Secondary elements exit before the cut; nothing pops off abruptly.
+- [ ] At least one music-only moment; `cv music` shows energy rising and falling with the story.
+- [ ] The render reports the music 10–18 dB under the voice and sync < 120 ms median.
 - [ ] Fonts loaded (no fallback warning) and CJK line breaks are clean.
 - [ ] The video fits the requested length, and the voice isn't rushed.

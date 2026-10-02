@@ -1,17 +1,17 @@
 # Narration (Edge TTS) & subtitles
 
-canvas-video narrates with Microsoft Edge's online neural voices through [rany2/edge-tts](https://github.com/rany2/edge-tts). It is free, needs no API key, and offers 300+ voices with word-level timestamps. The voice **drives the timeline**: every scene lasts as long as its line needs, and every visual hit can be pinned to the word that motivates it.
+video-gaga narrates with Microsoft Edge's online neural voices through [rany2/edge-tts](https://github.com/rany2/edge-tts). It is free, needs no API key, and offers 300+ voices with word-level timestamps. The voice **drives the timeline**: every scene lasts as long as its line needs, and every visual hit can be pinned to the word that motivates it.
 
 ## 1. How it works
 
 1. You write `narration.json` next to `video.html`, with one segment per scene (`id` = scene id).
 2. `cv render` (or `cv tts`) runs `scripts/tts.py` for each segment via the edge-tts Python API with `boundary="WordBoundary"`.
    - edge-tts ≥ 7.0 defaults to **SentenceBoundary**, and its CLI has no switch for this, which is why we use the API.
-   - The audio is `audio-24khz-48kbitrate-mono-mp3` (CBR), so **duration = bytes × 8 / 48000**. That is the exact clip length, with no ffprobe needed. Clips end with 0.4–1.1 s of silence, so the timeline uses the **last word's end** as the end of speech, not the clip length.
+   - The audio is `audio-24khz-48kbitrate-mono-mp3` (CBR), so **duration = bytes × 8 / 48000**. That is the exact clip length, with no ffprobe needed. Clips end with 0.4–1.1 s of silence, so the timeline uses the **last word's end** (+0.25 s for the final syllable to decay) as the end of speech, not the clip length.
    - Word offsets and durations arrive in 100-ns ticks (÷ 10,000,000 for seconds).
    - Results are cached per segment by a hash of (text, voice, rate, pitch, volume).
-3. `build/narration.js` sets `window.CV_NARRATION`. The runtime places each scene: `start → +voiceDelay → speech (to the last word) → +tail`, with transitions overlapping. The clip's trailing silence simply plays under whatever comes next.
-4. The renderer mixes the clips at their exact start times (`adelay` + `amix`), optionally ducks a music bed, applies `loudnorm` to −16 LUFS, and muxes AAC.
+3. `build/narration.js` sets `window.CV_NARRATION`. The runtime places each scene: `start → +voiceDelay → speech (to the last word, +0.25 s for its final syllable to decay) → +tail`, with transitions overlapping. The clip's trailing silence simply plays under whatever comes next.
+4. The renderer mixes the clips at their exact start times (`adelay` + `amix`) with the generated score (already arranged around the voice, see [music-and-sound.md](music-and-sound.md)) or a side-chain-ducked licensed track, applies `loudnorm` to −16 LUFS, and muxes AAC.
 5. Captions are built from the same word timings: burned in on the canvas, and written as `.srt` and `.vtt`.
 
 ```json
@@ -66,6 +66,7 @@ List them all with `node scripts/cv.mjs voices --lang zh-CN`. These are tested a
 ## 3. Writing for the ear
 
 - **One sentence per scene, 1–2 clauses.** Scenes live on the voice; long lines make long, static scenes.
+- **Don't fill every second.** Leave a music-only pre-roll, a held beat before the payoff and an end card that rings out. The voice lands harder after a pause. With music on, every line starts on an eighth note of the beat grid.
 - **Front-load the subject**, and end on the payoff word, which is where the visual hit goes.
 - **Numbers.** Write what should be *seen* in captions. Edge reads `8%` as 百分之八 and `2026` correctly. Spell out anything ambiguous (`10.24` → 十月二十四日 in the voice line, while the on-screen graphic shows `10.24`).
 - **Punctuation = pauses.** `，` ≈ 150–250 ms, `。？！` ≈ 300–500 ms. Use them to shape rhythm and to give animations room.
@@ -118,9 +119,10 @@ Why canvas burn-in instead of ffmpeg's `subtitles` filter: it needs a libass bui
 `cv render` ends with `cv check`, which reports:
 - video and audio durations (they must match within 0.1 s)
 - loudness (mean and peak dB), with a warning if the track is near-silent
+- **music balance**: dB under the voice while it speaks, and vs the voice in the gaps (see [music-and-sound.md](music-and-sound.md) §6)
 - cue count, overlaps, and whether the last cue fits
-- **A/V sync**: speech onsets found by `silencedetect` compared against cue starts. The median is typically 50–90 ms (the detector fires slightly after the consonant attack). The check warns above 300 ms.
-- **Voice sync** (render only, since it needs the timeline): each clip's own speech onset, shifted to its place on the timeline, compared with the onsets in the final mix. It covers lines that have no caption cue. It is typically < 20 ms and warns above 150 ms.
+- **A/V sync**: speech onsets found by `silencedetect` on the **voice stem** (music would fill every silence) compared against cue starts. `cv render` leaves the stem in `build/voice-stem.wav`, so a later `cv check out/<name>.mp4` measures the same way. The median is typically 50–90 ms (the detector fires slightly after the consonant attack). The check warns above 300 ms.
+- **Voice sync** (render only, since it needs the timeline): each clip's own speech onset, shifted to its place on the timeline, compared with the onsets on the voice stem. It covers lines that have no caption cue. It is typically < 20 ms and warns above 150 ms.
 
 ## 6. Troubleshooting
 
@@ -132,3 +134,5 @@ Why canvas burn-in instead of ffmpeg's `subtitles` filter: it needs a libass bui
 | Voice sounds rushed | Lower `rate`, or cut words. Don't cram. |
 | Caption breaks mid-name | Put a space around the Latin term, or reduce `minChars`. |
 | Visual hit misses the word | Use `s.when('exact words as spoken')`, and check `build/voice/<id>.json` for how the voice tokenised them. |
+| Can't target part of a date or number | Edge returns a spoken date or long number as **one word** ("October 29th, 1969"), so `s.when('1969')` gives the start of the whole date. Time the parts with `s.at(s.when('October') + k, …)` or put the date in a music-only beat and use `s.onBeat(i)`. |
+| Too much air after each line | Scene timing ends at the last word (+0.25 s for its decay), not at the end of the clip. Tune the pause with `tail`, never with negative values. |

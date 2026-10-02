@@ -1,9 +1,10 @@
 #!/usr/bin/env node
-// canvas-video CLI — HTML Canvas composition → MP4 (+ Edge TTS narration, subtitles).
+// video-gaga CLI — HTML Canvas composition → MP4 (+ Edge TTS narration, subtitles).
 //
 //   node scripts/cv.mjs render <project|video.html> [options]
 //   node scripts/cv.mjs still  <project> [--at 1,2.5] [--sheet]
 //   node scripts/cv.mjs tts    <project>
+//   node scripts/cv.mjs music  <project>
 //   node scripts/cv.mjs check  <video.mp4> [--srt file.srt]
 //   node scripts/cv.mjs gif    <video.mp4> [--out x.gif] [--width 480] [--fps 12]
 //   node scripts/cv.mjs init   <dir> --preset <slug>
@@ -12,6 +13,7 @@
 // Run `node scripts/cv.mjs help` for all options.
 
 import { spawn, spawnSync } from 'node:child_process';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -81,6 +83,49 @@ async function tts(dir) {
 }
 
 // ---------------------------------------------------------------------------
+// Music: the score is arranged from the resolved timeline (scripts/music.mjs)
+// ---------------------------------------------------------------------------
+async function synthMusic(dir, score, { quiet } = {}) {
+  const { renderScore, writeWav } = await import('./music.mjs');
+  const voiceDb = score.voice.length ? speechLevel(dir) : null;
+  const key = crypto.createHash('sha1').update(fs.readFileSync(path.join(ROOT, 'scripts', 'music.mjs'))).update(JSON.stringify(score)).update(String(voiceDb)).digest('hex').slice(0, 16);
+  const file = path.join(dir, 'build', 'music.wav'), bed = path.join(dir, 'build', 'music-bed.wav');
+  const meta = path.join(dir, 'build', 'music.json');
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  if ([file, bed, meta].every((f) => fs.existsSync(f)) && JSON.parse(fs.readFileSync(meta, 'utf8')).key === key) {
+    if (!quiet) log('▸ music (cached)');
+    return { file, bed, report: JSON.parse(fs.readFileSync(meta, 'utf8')).report };
+  }
+  const t0 = Date.now();
+  const mix = renderScore(score, { voiceDb: voiceDb ?? undefined });
+  writeWav(file, mix);
+  writeWav(bed, { left: mix.bed.left, right: mix.bed.right, sampleRate: mix.sampleRate });
+  mix.report.voiceDb = voiceDb;
+  fs.writeFileSync(meta, JSON.stringify({ key, report: mix.report }, null, 1));
+  if (!quiet) log(`▸ music: ${mix.report.style} · ${mix.report.key} · ${mix.report.bpm} BPM · ${score.sfx.length} sfx (${Date.now() - t0} ms)`);
+  return { file, bed, report: mix.report };
+}
+
+// RMS (dBFS) of the narration while it speaks (frames above a −45 dB gate),
+// so the score can sit at a fixed distance under *this* voice.
+function speechLevel(dir) {
+  const vdir = path.join(dir, 'build', 'voice');
+  if (!fs.existsSync(vdir)) return null;
+  let sum = 0, count = 0;
+  for (const f of fs.readdirSync(vdir).filter((x) => x.endsWith('.mp3')).sort()) {
+    const r = spawnSync('ffmpeg', ['-v', 'error', '-i', path.join(vdir, f), '-ac', '1', '-ar', '16000', '-f', 'f32le', '-'], { maxBuffer: 1 << 28 });
+    if (r.status !== 0) continue;
+    const x = new Float32Array(r.stdout.buffer, r.stdout.byteOffset, Math.floor(r.stdout.byteLength / 4));
+    for (let i = 0; i + 320 <= x.length; i += 320) { // 20 ms frames
+      let e = 0;
+      for (let j = i; j < i + 320; j++) e += x[j] * x[j];
+      if (e / 320 > 3.2e-5) { sum += e; count += 320; }
+    }
+  }
+  return count ? +(10 * Math.log10(sum / count)).toFixed(1) : null;
+}
+
+// ---------------------------------------------------------------------------
 // Browser
 // ---------------------------------------------------------------------------
 async function launch() {
@@ -88,7 +133,7 @@ async function launch() {
   try {
     ({ chromium } = await import('playwright'));
   } catch {
-    die('playwright is not installed. Run `npm install` in the canvas-video folder (then `npx playwright install chromium` if needed).');
+    die('playwright is not installed. Run `npm install` in the video-gaga folder (then `npx playwright install chromium` if needed).');
   }
   const args = ['--allow-file-access-from-files', '--force-color-profile=srgb', '--hide-scrollbars', '--mute-audio', '--disable-renderer-backgrounding', '--disable-background-timer-throttling', '--ignore-gpu-blocklist', '--enable-unsafe-swiftshader'];
   try {
@@ -208,7 +253,14 @@ async function render(opts) {
   log('▸ muxing');
   const dur = frames / fps;
   const voice = info.voice.map((v) => ({ ...v, start: v.start - from / fps })).filter((v) => v.start + v.duration > 0 && v.start < dur);
-  const music = opts.music ? path.resolve(opts.music) : info.music ? path.resolve(dir, info.music) : null;
+  // music: --music <file> (licensed track, side-chain ducked) > music.file in
+  // the composition > the generated score (already arranged around the voice)
+  let music = null, generated = false;
+  if (!opts.noMusic) {
+    if (opts.music && opts.music !== true) music = path.resolve(opts.music);
+    else if (info.music) music = path.resolve(dir, info.music);
+    else if (info.score) { const sm = await synthMusic(dir, info.score); music = sm.file; generated = sm; }
+  }
   const args = ['-y', '-loglevel', 'error', '-i', videoOnly];
   let filter = [];
   let idx = 1;
@@ -228,12 +280,24 @@ async function render(opts) {
     filter.push(`${voiceLabels.join('')}amix=inputs=${voiceLabels.length}:normalize=0:dropout_transition=0,apad[voice]`);
     aout = '[voice]';
   }
+  // remembered to render a voice-only stem for the sync and balance checks
+  // (args.slice(3) keeps the video as input 0 so the stream labels still match)
+  const voiceStemSpec = voiceLabels.length ? { inputs: args.slice(3), filter: filter.slice() } : null;
   if (music && fs.existsSync(music)) {
-    args.push('-stream_loop', '-1', '-i', music);
-    const mv = Number(opts.musicVolume ?? 0.22);
-    filter.push(`[${idx}:a]aresample=48000,aformat=channel_layouts=stereo,volume=${mv},afade=t=in:d=0.8,afade=t=out:st=${Math.max(0, dur - 1.5).toFixed(2)}:d=1.5[mus]`);
+    if (generated) {
+      // the score already fades, ducks under the voice and ends on the last frame
+      args.push('-ss', (from / fps).toFixed(3), '-i', music);
+      filter.push(`[${idx}:a]aresample=48000,aformat=channel_layouts=stereo,volume=${Number(opts.musicVolume ?? 1)}[mus]`);
+    } else {
+      args.push('-stream_loop', '-1', '-i', music);
+      const mv = Number(opts.musicVolume ?? 0.22);
+      filter.push(`[${idx}:a]aresample=48000,aformat=channel_layouts=stereo,volume=${mv},afade=t=in:d=0.8,afade=t=out:st=${Math.max(0, dur - 1.5).toFixed(2)}:d=1.5[mus]`);
+    }
     idx++;
-    if (aout) {
+    if (aout && generated) {
+      filter.push(`[voice][mus]amix=inputs=2:normalize=0,apad[mixed]`);
+      aout = '[mixed]';
+    } else if (aout) {
       filter.push(`[voice]asplit=2[vk][vm]`);
       filter.push(`[mus][vk]sidechaincompress=threshold=0.03:ratio=8:attack=20:release=350[duck]`);
       filter.push(`[vm][duck]amix=inputs=2:normalize=0,apad[mixed]`);
@@ -253,11 +317,34 @@ async function render(opts) {
   args.push('-c:v', 'copy', '-t', dur.toFixed(3), '-movflags', '+faststart', out);
   await run('ffmpeg', args);
 
-  if (!opts.keepTemp) fs.rmSync(tmp, { recursive: true, force: true });
+  // stems for the checks: speech onsets can't be found under music, and the
+  // music/voice balance needs both signals separately
+  let stems = null;
+  if (voiceStemSpec) {
+    const vf = path.join(tmp, 'voice.f32');
+    await run('ffmpeg', ['-y', '-loglevel', 'error', ...voiceStemSpec.inputs, '-filter_complex', voiceStemSpec.filter.join(';'), '-map', '[voice]', '-t', dur.toFixed(3), '-ac', '1', '-ar', '48000', '-f', 'f32le', vf]);
+    // spans = the spoken part of each line (not the clip's trailing silence), as the score ducks
+    stems = { voice: fs.readFileSync(vf), spans: voice.map((v) => [v.start, v.start + (v.speech ?? v.duration)]) };
+    if (music && fs.existsSync(music)) {
+      const mf = path.join(tmp, 'music.f32');
+      const mvol = generated ? Number(opts.musicVolume ?? 1) : Number(opts.musicVolume ?? 0.22);
+      // generated: measure the bed without sound effects (word-synced ticks aren't "music")
+      await run('ffmpeg', ['-y', '-loglevel', 'error', ...(generated ? ['-ss', (from / fps).toFixed(3)] : ['-stream_loop', '-1']), '-i', generated ? generated.bed : music, '-af', `volume=${mvol}`, '-t', dur.toFixed(3), '-ac', '1', '-ar', '48000', '-f', 'f32le', mf]);
+      stems.music = fs.readFileSync(mf);
+      stems.ducked = !generated; // a plain track is side-chain ducked in the real mix
+    }
+    // keep the voice stem next to the build so a later `cv check <mp4>` can measure sync too
+    const wav = path.join(dir, 'build', 'voice-stem.wav');
+    await run('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'f32le', '-ar', '48000', '-ac', '1', '-i', vf, wav]);
+    stems.voiceWav = wav;
+    fs.writeFileSync(path.join(dir, 'build', 'voice-stem.json'), JSON.stringify({ video: path.basename(out), from: from / fps, music: !!music }));
+  }
+
   const secs = ((Date.now() - t0) / 1000).toFixed(1);
   log(`✔ ${path.relative(process.cwd(), out)}  (${secs}s)`);
   if (cues.length && subsMode !== 'none') log(`  subtitles: ${path.relative(process.cwd(), base)}.srt / .vtt (${cues.length} cues${burn ? ', burned in' : ''}${soft ? ', soft track' : ''})`);
-  report(out, cues.length ? `${base}.srt` : null, voice.map((v) => ({ ...v, file: path.resolve(dir, v.file) })));
+  report(out, cues.length ? `${base}.srt` : null, stems, voice.map((v) => ({ ...v, file: path.resolve(dir, v.file) })));
+  if (!opts.keepTemp) fs.rmSync(tmp, { recursive: true, force: true });
 }
 
 async function renderChunk({ browser, html, q, a, b, fps, mb, shutter, fmt, quality, seg, crf, x264preset, tick }) {
@@ -280,7 +367,7 @@ async function renderChunk({ browser, html, q, a, b, fps, mb, shutter, fmt, qual
     for (let k = 0; k < mb; k++) {
       // subframe offsets centred on the frame time, spanning `shutter` of a frame
       const sub = mb > 1 ? (k / (mb - 1) - 0.5) * shutter : 0;
-      const dataUrl = await page.evaluate(([f, sub, type, qv]) => { window.__CV.drawFrame(f, sub); return window.__CV.capture(type, qv); }, [f, sub, type, quality]);
+      const dataUrl = await page.evaluate(async ([f, sub, type, qv]) => { await window.__CV.renderFrame(f, sub); return window.__CV.capture(type, qv); }, [f, sub, type, quality]);
       const buf = Buffer.from(dataUrl.slice(dataUrl.indexOf(',') + 1), 'base64');
       if (!ff.stdin.write(buf)) await new Promise((r) => ff.stdin.once('drain', r));
     }
@@ -315,9 +402,12 @@ function speechOnsets(file, minSilence) {
   return onsets.slice(1);
 }
 
+// stems: { voiceWav, music, voice, spans, noSync } from the renderer (speech
+// onsets can't be found under music, so they're measured on the voice stem).
 // voice: [{id, file, start}] from the renderer. Lets sync be checked for every
 // clip, including lines that have no caption cue.
-function report(file, srt, voice = []) {
+function report(file, srt, stems = null, voice = []) {
+  const speechSrc = stems?.voiceWav || file;
   const p = ffprobe(file);
   const v = p.streams.find((s) => s.codec_type === 'video');
   const a = p.streams.find((s) => s.codec_type === 'audio');
@@ -347,8 +437,9 @@ function report(file, srt, voice = []) {
     if (prevEnd > dur + 0.05) issues.push(`last subtitle ends after video (${prevEnd.toFixed(2)}s > ${dur.toFixed(2)}s)`);
     if (overlaps) issues.push(`${overlaps} overlapping subtitle cues`);
     // A/V sync: every cue that follows a pause should start where speech starts.
-    if (a && times.length) {
-      const onsets = speechOnsets(file, 0.18);
+    if (a && times.length && stems?.noSync) log('  a/v sync: n/a (the track has music; re-run `cv render` to measure on the voice stem)');
+    else if (a && times.length) {
+      const onsets = speechOnsets(speechSrc, 0.18);
       const offs = [];
       let lastEnd = -1;
       for (const m of times) {
@@ -367,11 +458,26 @@ function report(file, srt, voice = []) {
       }
     }
   }
+  // music ↔ voice balance (from the stems): the bed should sit well under speech
+  if (stems?.music && stems.voice) {
+    const v = new Float32Array(stems.voice.buffer, stems.voice.byteOffset, stems.voice.byteLength / 4);
+    const m = new Float32Array(stems.music.buffer, stems.music.byteOffset, stems.music.byteLength / 4);
+    const inSpan = (i) => stems.spans.some(([a, b]) => i >= a * 48000 && i < b * 48000);
+    let vs = 0, ms = 0, mg = 0, nv = 0, ng = 0;
+    for (let i = 0; i < Math.min(v.length, m.length); i += 4) {
+      if (inSpan(i)) { vs += v[i] * v[i]; ms += m[i] * m[i]; nv++; } else { mg += m[i] * m[i]; ng++; }
+    }
+    const dB = (x, n) => 10 * Math.log10(x / Math.max(1, n) + 1e-12);
+    const under = dB(vs, nv) - dB(ms, nv), gaps = dB(mg, ng) - dB(vs, nv);
+    log(`  music: ${under.toFixed(1)} dB under the voice while it speaks${stems.ducked ? ' (before side-chain ducking)' : ''}, ${gaps >= 0 ? '+' : ''}${gaps.toFixed(1)} dB vs the voice in the gaps`);
+    if (!stems.ducked && nv && under < 9) issues.push(`music is only ${under.toFixed(1)} dB under the voice (aim for 10–18 dB; lower music.volume or deepen music.duck)`);
+    if (!stems.ducked && nv && under > 22) issues.push(`music is ${under.toFixed(1)} dB under the voice — probably inaudible (raise music.volume)`);
+  }
   // Voice placement: each clip's own speech onset, shifted to where the timeline
   // put it, should match an onset in the final mix (covers uncaptioned lines).
   const clips = a ? voice.filter((c) => fs.existsSync(c.file) && c.start >= 0 && c.start < dur) : [];
   if (clips.length) {
-    const onsets = speechOnsets(file, 0.1);
+    const onsets = speechOnsets(speechSrc, 0.1);
     const offs = clips.map((c) => {
       const expect = c.start + (speechOnsets(c.file, 0.05)[0] ?? 0);
       const near = onsets.reduce((b, o) => (Math.abs(o - expect) < Math.abs(b - expect) ? o : b), Infinity);
@@ -414,7 +520,7 @@ async function still(opts) {
   const files = [];
   for (const t of times) {
     const f = Math.min(info.totalFrames - 1, Math.max(0, Math.round(t * info.fps)));
-    const url = await page.evaluate((f) => { window.__CV.drawFrame(f); return window.__CV.capture('image/png'); }, f);
+    const url = await page.evaluate(async (f) => { await window.__CV.renderFrame(f); return window.__CV.capture('image/png'); }, f);
     const file = path.join(outDir, `t${(f / info.fps).toFixed(2).padStart(6, '0')}.png`);
     fs.writeFileSync(file, Buffer.from(url.split(',')[1], 'base64'));
     files.push(file);
@@ -456,8 +562,9 @@ function init(opts) {
   if (!fs.existsSync(tpl)) die(`unknown preset "${slug}". Available: ${fs.readdirSync(path.join(ROOT, 'presets')).filter((d) => fs.existsSync(path.join(ROOT, 'presets', d, 'video.html'))).join(', ')}`);
   if (fs.existsSync(path.join(dir, 'video.html')) && !opts.force) die(`${dir}/video.html exists (use --force)`);
   fs.mkdirSync(dir, { recursive: true });
-  fs.copyFileSync(path.join(ROOT, 'runtime', 'canvas-video.js'), path.join(dir, 'canvas-video.js'));
-  let htmlSrc = fs.readFileSync(tpl, 'utf8').replace(/src="[^"]*canvas-video\.js"/, 'src="canvas-video.js"');
+  fs.copyFileSync(path.join(ROOT, 'runtime', 'video-gaga.js'), path.join(dir, 'video-gaga.js'));
+  // (older compositions loaded canvas-video.js)
+  let htmlSrc = fs.readFileSync(tpl, 'utf8').replace(/src="[^"]*(?:video-gaga|canvas-video)\.js"/, 'src="video-gaga.js"');
   if (opts.ratio) {
     const [w, h] = { '16:9': [1920, 1080], '9:16': [1080, 1920], '1:1': [1080, 1080], '4:5': [1080, 1350] }[opts.ratio] || die('ratio must be 16:9, 9:16, 1:1 or 4:5');
     htmlSrc = htmlSrc.replace(/width:\s*\d+/, `width: ${w}`).replace(/height:\s*\d+/, `height: ${h}`);
@@ -470,6 +577,24 @@ function init(opts) {
   log(`✔ scaffolded ${path.relative(process.cwd(), dir) || '.'} from preset "${slug}"`);
   log(`  preview:  open ${path.join(dir, 'video.html')}`);
   log(`  render:   node ${path.relative(process.cwd(), path.join(ROOT, 'scripts', 'cv.mjs'))} render ${path.relative(process.cwd(), dir) || '.'}`);
+}
+
+// music — render the score on its own (for previewing in the player, or listening)
+async function musicCmd(opts) {
+  const { dir, html } = resolveProject(opts._[1]);
+  const browser = await launch();
+  const { page, info, errors } = await openComposition(browser, html, { render: '1', scale: '0.25', subs: '0' });
+  if (errors.length) log(`⚠ page errors:\n  ${errors.join('\n  ')}`);
+  await page.close();
+  await browser.close();
+  if (!info.score) die('this composition has no generated music (add music: { style, bpm } to CV.create)');
+  const { file, report } = await synthMusic(dir, info.score);
+  log(`✔ ${path.relative(process.cwd(), file)}  ${info.duration.toFixed(2)}s`);
+  log(`  ${report.style} · ${report.key} · ${report.bpm} BPM · bar energy ${report.bars.join(' ')}`);
+  log(`  peak ${report.peakDb} dBFS · gaps ${report.gapDb ?? '—'} dB vs the voice (${report.voiceDb ?? '—'} dBFS speech), dips ${report.voiceDuckDb} dB while it speaks · final chord ${report.endChordAt != null ? `at ${report.endChordAt}s` : 'none'}`);
+  log(`  sfx: ${info.score.sfx.map((e) => `${e.type}@${e.t.toFixed(2)}`).join(' ') || 'none'}`);
+  log(`  cuts on the grid: ${info.scenes.slice(1).map((s) => s.start.toFixed(2)).join(' ')}`);
+  if (report.unknownSfx) log(`  ⚠ unknown sfx types: ${report.unknownSfx.join(', ')}`);
 }
 
 async function voices(opts) {
@@ -512,15 +637,16 @@ async function doctor() {
   process.exitCode = ok ? 0 : 1;
 }
 
-const HELP = `canvas-video — Canvas motion graphics → MP4
+const HELP = `video-gaga — Canvas motion graphics → MP4
 
 doctor                        check node, ffmpeg, Playwright/Chromium and Edge TTS
 
 render <project|video.html>   render to MP4 (runs Edge TTS first if narration.json exists)
     --out <file.mp4>          default <project>/out/<name>.mp4
     --subs file|burn|soft|burn+soft|none   default file (.srt + .vtt next to the MP4)
-    --music <file>            background music bed (auto-ducked under narration)
-    --music-volume 0.22
+    --music <file>            a licensed music track instead of the generated score (side-chain ducked)
+    --music-volume <x>        default 1 for the generated score, 0.22 for a track
+    --no-music                render without music and sound effects
     --motion-blur <n>         render n subframes per frame and blend (3–5 is plenty)
     --shutter 0.5             shutter angle as fraction of a frame (with --motion-blur)
     --scale 0.5               draft at half resolution (2 = 4K from a 1080p design)
@@ -533,6 +659,7 @@ render <project|video.html>   render to MP4 (runs Edge TTS first if narration.js
 still <project>               export PNG probes (3 per scene) for review
     --at 1.2,3.4  --sheet  --subs  --scale 0.5  --tts
 tts <project>                 synthesize narration.json with Edge TTS (cached)
+music <project>               render the generated score to build/music.wav (the preview player plays it)
 check <video.mp4> [--srt f]   ffprobe summary + A/V + subtitle sanity checks
                               (render runs it too, adding per-clip voice sync)
 gif <video.mp4>               palette GIF preview  [--out --width 480 --fps 12 --from --dur]
@@ -542,6 +669,24 @@ voices [--lang zh-CN]         list Edge TTS voices
 
 const opts = parseArgs(process.argv.slice(2));
 const cmd = opts._[0];
-const main = { doctor, render, still, tts: (o) => tts(resolveProject(o._[1]).dir), check: (o) => { const issues = report(path.resolve(o._[1] || die('missing file')), o.srt ? path.resolve(o.srt) : null); process.exitCode = issues.length ? 2 : 0; }, gif, init, voices }[cmd];
+// Standalone check: speech onsets can't be found on a track with music, so use
+// the voice stem `cv render` leaves in <project>/build when it belongs to this MP4.
+function checkCmd(o) {
+  const file = path.resolve(o._[1] || die('missing file'));
+  let stems = null;
+  for (const b of [path.join(path.dirname(file), '..', 'build'), path.join(path.dirname(file), 'build')]) {
+    const meta = path.join(b, 'voice-stem.json'), wav = path.join(b, 'voice-stem.wav');
+    if (fs.existsSync(meta) && fs.existsSync(wav)) {
+      const m = JSON.parse(fs.readFileSync(meta, 'utf8'));
+      if (m.video === path.basename(file) && !m.from) stems = { voiceWav: wav };
+      else if (m.music) stems = { noSync: true };
+      break;
+    }
+  }
+  const issues = report(file, o.srt ? path.resolve(o.srt) : null, stems);
+  process.exitCode = issues.length ? 2 : 0;
+}
+
+const main = { doctor, render, still, music: musicCmd, tts: (o) => tts(resolveProject(o._[1]).dir), check: checkCmd, gif, init, voices }[cmd];
 if (!main) { log(HELP); process.exit(cmd && cmd !== 'help' ? 1 : 0); }
 Promise.resolve(main(opts)).catch((e) => die(e.stack || e.message));

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Synthesize narration with Microsoft Edge TTS (rany2/edge-tts) and emit
-word-level timings that drive the canvas-video timeline.
+word-level timings that drive the video-gaga timeline.
 
 Usage:
     uv run --no-project --with edge-tts python scripts/tts.py <project-dir>

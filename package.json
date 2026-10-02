@@ -1,13 +1,13 @@
 {
-  "name": "canvas-video",
-  "version": "0.1.0",
+  "name": "video-gaga",
+  "version": "0.2.0",
   "private": true,
-  "description": "Agent skill: design motion-graphics videos in HTML Canvas and render them to MP4, with optional Edge TTS narration and subtitles.",
+  "description": "Agent skill: design motion-graphics videos in HTML Canvas (and three.js) and render them to MP4, with a generated beat-synced score, sound effects, Edge TTS narration and subtitles.",
   "type": "module",
   "license": "MIT",
   "author": "Chris Han <chris.han@castlery.org>",
   "bin": {
-    "canvas-video": "scripts/cv.mjs"
+    "video-gaga": "scripts/cv.mjs"
   },
   "engines": {
     "node": ">=18"
@@ -19,8 +19,10 @@
     "doctor": "node scripts/cv.mjs doctor",
     "render": "node scripts/cv.mjs render",
     "still": "node scripts/cv.mjs still",
-    "examples": "for p in launch-keynote clear-explainer neon-circuit paper-sketch; do node scripts/cv.mjs render presets/$p --subs burn || exit 1; done && node scripts/cv.mjs render presets/swiss-kinetic --motion-blur 5",
-    "test": "node --test test/*.test.mjs"
+    "examples": "for p in launch-keynote studio-3d clear-explainer blueprint data-globe editorial paper-sketch neon-circuit pop-collage; do node scripts/cv.mjs render presets/$p --subs burn || exit 1; done && node scripts/cv.mjs render presets/swiss-kinetic --motion-blur 5",
+    "test": "node --test test/*.test.mjs",
+    "music": "node scripts/cv.mjs music",
+    "showcase": "node scripts/showcase.mjs"
   },
   "keywords": [
     "agent-skill",
@@ -31,6 +33,9 @@
     "tts",
     "edge-tts",
     "subtitles",
-    "ffmpeg"
+    "ffmpeg",
+    "three.js",
+    "music",
+    "sound-design"
   ]
 }

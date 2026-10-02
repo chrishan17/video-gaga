@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 
-const src = fs.readFileSync(new URL('../runtime/canvas-video.js', import.meta.url), 'utf8');
+const src = fs.readFileSync(new URL('../runtime/video-gaga.js', import.meta.url), 'utf8');
 const sandbox = { console, URLSearchParams };
 sandbox.globalThis = sandbox;
 vm.runInNewContext(src, sandbox);
@@ -71,8 +71,8 @@ test('zh cues: minChars counts spoken characters, not punctuation', () => {
   assert.deepEqual(Array.from(cues, (c) => c.text), ['中文 日文 韩文', '也能读']);
 });
 
-test('speech end is the last word, not the clip length', () => {
-  assert.equal(CV.speech.end({ duration: 2.86, words: [{ text: '读', start: 1.66, end: 1.99 }] }), 1.99);
+test('speech end is the last word (+ its decay), not the clip length', () => {
+  assert.ok(Math.abs(CV.speech.end({ duration: 2.86, words: [{ text: '读', start: 1.66, end: 1.99 }] }) - 2.24) < 1e-9);
   assert.equal(CV.speech.end({ duration: 1.5, words: [] }), 1.5);
   assert.equal(CV.speech.end({ duration: 1.0, words: [{ text: 'x', start: 0.2, end: 1.3 }] }), 1.0);
 });
@@ -87,6 +87,13 @@ test('phrase lookup prefers exact words over substrings', () => {
   assert.equal(CV.speech.find(zh, '这个词'), 0.1, 'phrase across CJK words');
 });
 
+test('zh cues: a long phrase splits at its clause mark when both halves fit', () => {
+  const text = '2023 年，全球最繁忙的机场是哪一座？';
+  const words = ['2023', '年', '全球', '最', '繁忙', '的', '机场', '是', '哪一座'].map((w, i) => ({ text: w, start: i * 0.3, end: i * 0.3 + 0.25 }));
+  const cues = CV.subtitles.build(text, words, { lang: 'zh-CN' });
+  assert.deepEqual(Array.from(cues, (c) => c.text), ['2023 年', '全球最繁忙的机场是哪一座？']);
+});
+
 test('speech estimate is plausible', () => {
   const zh = CV.subtitles.estimate('画布就是你的摄影棚。', 'zh-CN');
   assert.ok(zh.duration > 1.5 && zh.duration < 4, String(zh.duration));
@@ -98,4 +105,95 @@ test('countUp / typewriter formatting', () => {
   assert.equal(CV.fx.countUp(1, 0, 12500), '12,500');
   assert.equal(CV.fx.countUp(0.5, 0, 0.9, { decimals: 1 }), '0.5');
   assert.equal(CV.fx.typewriter('上海见', 2 / 3), '上海');
+});
+
+// --- beat grid & pacing (CV.create with a stub canvas, no browser) ------------
+function stubCreate(config) {
+  const ctx = new Proxy({}, { get: () => () => ({}) });
+  class Off { constructor(w, h) { this.width = w; this.height = h; } getContext() { return ctx; } }
+  const sb = { console, URLSearchParams, OffscreenCanvas: Off };
+  sb.globalThis = sb;
+  vm.runInNewContext(src, sb);
+  return sb.CV.create({ canvas: new Off(1920, 1080), ...config });
+}
+
+test('cuts land on the beat grid and the video ends on a beat', () => {
+  const beat = 60 / 100;
+  const api = stubCreate({
+    music: { style: 'explainer', bpm: 100 },
+    transition: { type: 'push', duration: 0.6 },
+    scenes: [{ id: 'a', duration: 2.3, draw() {} }, { id: 'b', duration: 3.1, draw() {} }, { id: 'c', narration: false, beats: 6, draw() {} }],
+  });
+  const [a, b, c] = api.scenes;
+  for (const s of [b, c]) {
+    const mid = s.start + 0.3;
+    assert.ok(Math.abs(mid / beat - Math.round(mid / beat)) < 1e-6, `transition midpoint ${mid} not on a beat`);
+  }
+  assert.ok(Math.abs(c.end - (c.start + 0.3) - 6 * beat) < 1e-6, 'beats: 6 → six beats from the cut');
+  assert.ok(Math.abs(api.duration / beat - Math.round(api.duration / beat)) < 1e-6, 'ends on a beat');
+  assert.ok(a.end >= 2.3 && Math.abs(a.end - b.start - 0.6) < 1e-6, 'overlap preserved');
+});
+
+test('voice starts on an eighth note; sfx resolve phrases, functions and transitions', () => {
+  const words = [{ text: 'Hello', start: 0.1, end: 0.4 }, { text: 'world', start: 0.5, end: 0.9 }];
+  const api = stubCreate({
+    music: { style: 'pop', bpm: 120 },
+    narration: { lang: 'en', segments: { a: { text: 'Hello world', duration: 1, words }, b: { text: 'Hello world', duration: 1, words } } },
+    scenes: [
+      { id: 'a', sfx: [{ at: 'world', type: 'tick' }, { at: (s) => s.onBeat(2), type: 'pop' }], draw() {} },
+      { id: 'b', transition: { type: 'whip', duration: 0.4 }, draw() {} },
+    ],
+  });
+  const half = 60 / 120 / 2;
+  for (const s of api.scenes) {
+    const onset = s.start + s.voiceDelay + 0.1;
+    assert.ok(Math.abs(onset / half - Math.round(onset / half)) < 1e-6, `voice onset ${onset} off the grid`);
+  }
+  const a = api.scenes[0];
+  const tick = api.sfx.find((e) => e.type === 'tick'), pop = api.sfx.find((e) => e.type === 'pop');
+  assert.ok(Math.abs(tick.t - (a.start + a.voiceDelay + 0.5)) < 1e-6, 'phrase sfx at the word');
+  assert.ok(Math.abs(pop.t - 1.0) < 1e-6, 'function sfx at beat 2');
+  assert.ok(api.sfx.some((e) => e.type === 'whoosh' && e.transition), 'whip makes a whoosh');
+  const info = api.info();
+  assert.equal(info.score.style, 'pop');
+  assert.equal(info.score.voice.length, 2);
+});
+
+test('without music nothing snaps (old compositions keep their timing)', () => {
+  const api = stubCreate({ scenes: [{ id: 'a', duration: 2.3, draw() {} }, { id: 'b', duration: 1.7, draw() {} }] });
+  assert.equal(api.scenes[1].start, 2.3);
+  assert.equal(api.duration, 4);
+  assert.equal(api.info().score, null);
+});
+
+// --- music synth -----------------------------------------------------------------
+test('generated score is deterministic, sized to the video and not clipping', async () => {
+  const { renderScore, styles } = await import('../scripts/music.mjs');
+  const plan = (style) => ({ style, bpm: styles[style].bpm, seed: 2, duration: 8, sections: [{ start: 0, end: 4, voiced: true }, { start: 4, end: 8, voiced: false }], voice: [{ start: 0.5, end: 3.2 }], sfx: [{ type: 'whoosh', t: 4, dur: 0.6 }, { type: 'hit', t: 6 }] });
+  for (const style of Object.keys(styles)) {
+    const a = renderScore(plan(style)), b = renderScore(plan(style));
+    assert.equal(a.left.length, Math.ceil(8.05 * 48000), style);
+    let same = true, peak = 0;
+    for (let i = 0; i < a.left.length; i += 97) { if (a.left[i] !== b.left[i] || a.right[i] !== b.right[i]) same = false; peak = Math.max(peak, Math.abs(a.left[i]), Math.abs(a.right[i])); }
+    assert.ok(same, `${style} not deterministic`);
+    assert.ok(peak > 0.01 && peak <= 1, `${style} peak ${peak}`);
+  }
+});
+
+test('music options reach the score plan', () => {
+  const api = stubCreate({ music: { style: 'ambient', bpm: 80, duck: -15, gap: 5, volume: 1.2, seed: 9 }, scenes: [{ id: 'a', duration: 3, draw() {} }] });
+  const sc = api.info().score;
+  assert.equal(sc.duck, -15);
+  assert.equal(sc.gap, 5);
+  assert.equal(sc.volume, 1.2);
+  assert.equal(sc.seed, 9);
+});
+
+test('scene timing ends at the last spoken word, not the clip end', () => {
+  const words = [{ text: 'One', start: 0.1, end: 0.6 }, { text: 'two', start: 1.4, end: 2.2 }];
+  assert.ok(Math.abs(CV.speech.end({ duration: 3.0, words }) - 2.45) < 1e-9, 'last word + 0.25 s');
+  assert.equal(CV.speech.end({ duration: 2.3, words }), 2.3, 'never longer than the clip');
+  assert.equal(CV.speech.end({ duration: 3.0, words, estimated: true }), 3.0, 'estimates keep their length');
+  const api = stubCreate({ narration: { lang: 'en', segments: { a: { text: 'One two', duration: 3.0, words } } }, scenes: [{ id: 'a', voiceDelay: 0.5, tail: 0.5, draw() {} }] });
+  assert.ok(Math.abs(api.scenes[0].dur - (0.5 + 2.45 + 0.5)) < 1e-9);
 });
