@@ -68,21 +68,21 @@ The language and the vocabulary are in [motion-design.md](motion-design.md).
 
 **Good**
 - The score sounds produced and chosen: like something a music supervisor would license for this exact video, with a reference you can name.
-- It has a hook (a figure of a bar or two that is its identity), a pulse early on, a bass that locks with the kick, and a melody that answers in the gaps.
+- It has a hook (a figure of a bar or two that is its identity), a pulse early on, a bass that locks with the kick, and a melody that answers in the gaps: one you could hum after a single hearing, written note by note, with a motif that is stated, answered and brought home.
 - Its arc follows the story: what plays first, where the groove arrives, what happens at the turn (a drop, a key change, everything but one instrument falling away), what it lands on.
 - The voice is clear and unhurried; the music sits under it and fills the pauses. There is silence where a line needs to land.
-- Sound effects mark what matters, and the one big hit is the only one.
+- Sound effects mark what matters, and the one big hit is the only one. Small sounds are real objects (paper, a card, a switch) in the same room as the music, heard clearly but not jumping out.
 
 **Not good**
 - A drone (pads or strings alone for long stretches), a low tom as the only pulse, slow minor chords drowned in reverb by default, a melody that never resolves, every scene at low energy. These read as cheap or creepy.
-- Wall-to-wall narration; a sound on every element.
+- Wall-to-wall narration; a sound on every element; synthesized beeps and sine ticks; a melody buried under the keys in its own register.
 - Instruments chosen by subject cliché (a guzheng because the topic is China) rather than by feeling.
 
 The spec and how to direct it are in [music-and-sound.md](music-and-sound.md) §2.
 
 ## How you know
 
-Intent is not evidence: judge what was rendered. The contact sheets show composition and readability; a strip of close probes shows whether a move has weight; a half-scale draft shows the cuts; frames pulled from the final MP4 show what the viewer gets; `cv music` shows the arc and the mix. You cannot hear the audio, so say what you intended and ask the user to listen.
+Intent is not evidence: judge what was rendered. The contact sheets show composition and readability; a strip of close probes shows whether a move has weight; a half-scale draft shows the cuts; frames pulled from the final MP4 show what the viewer gets; `cv music` shows the arc and the mix, and its `listen:` line measures what ears would catch (a ghostly stretch, a buried melody, a flat score, effects lost or jumping out). You cannot hear the audio, so say what you intended and ask the user to listen to the 8 seconds around the key mood change.
 
 Deliver when it meets this page. If something still falls short, rebuild that part rather than patch it, or say plainly what it is.
 

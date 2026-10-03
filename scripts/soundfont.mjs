@@ -160,13 +160,22 @@ export class Sampler {
     }
     return { L, R };
   }
-  // Loudest 50 ms RMS of one reference note (used to level instruments by role)
-  loudness(patch, midi, cc = {}) {
-    const key = JSON.stringify([patch, midi, cc]);
+  // Loudest 50 ms RMS of one reference note (used to level instruments by role);
+  // { mean: true } = its RMS over the whole 1.2 s note
+  loudness(patch, midi, cc = {}, { mean = false } = {}) {
+    const key = JSON.stringify([patch, midi, cc, mean]);
     this.sf.cal ??= new Map();
     if (this.sf.cal.has(key)) return this.sf.cal.get(key);
     const tr = { patch, cc, notes: [{ t: 0, dur: 1.2, midi, vel: 100 }], ccs: [] };
     const n = Math.round(1.4 * this.SR), { L, R } = this.render(tr, n);
+    if (mean) {
+      let e = 0;
+      const m = Math.round(1.2 * this.SR);
+      for (let j = 0; j < m; j++) e += (L[j] * L[j] + R[j] * R[j]) / 2;
+      const v = Math.sqrt(e / m) || 1e-6;
+      this.sf.cal.set(key, v);
+      return v;
+    }
     const w = Math.round(0.05 * this.SR);
     let best = 0;
     for (let a = 0; a + w <= n; a += w >> 1) {

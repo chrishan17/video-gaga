@@ -403,3 +403,91 @@ test('sampled instruments: deterministic, in time, and every instrument sounds',
     assert.ok(e > 1e-4, `${inst} is silent`);
   }
 });
+
+test('written lines: parsed in beats, bar-checked, validated against range and key', async () => {
+  const { _internals, validateScore } = await import('../scripts/music.mjs');
+  const { parseLine } = _internals;
+  const a = parseLine('E5:1 D5 C5:.5 r:1.5 | [A3 C4 E4]:2 G4:1@1.2 G4:1/2 r:1/2');
+  assert.equal(a.bars, 2);
+  assert.deepEqual(a.events.map((e) => e.b), [0, 1, 2, 4, 6, 7]);
+  assert.deepEqual(a.events[3].midis, [57, 60, 64]);
+  assert.equal(a.events[1].len, 1); // a length carries over until changed
+  assert.equal(a.events[4].acc, 1.2);
+  assert.match(parseLine('E5:1 D5 | G4:4').error, /has 2 beats/);
+  assert.match(parseLine('E5:3').error, /whole number/);
+  assert.match(parseLine('H5:1').error, /can't read/);
+  assert.equal(parseLine('C4:4', 3).error?.includes('whole number'), true);
+  const base = { bpm: 90, key: 'C', mode: 'major', progression: [0, 3, 4, 0], layers: [{ inst: 'piano', notes: 'chord', pattern: 'X...', vel: 0.1 }] };
+  assert.deepEqual(validateScore({ ...base, lead: { inst: 'violin', vel: 0.1, line: 'E5:2 G5:2 | C6:4' } }).errors, []);
+  assert.ok(validateScore({ ...base, lead: { inst: 'violin', vel: 0.1, line: 'E8:4' } }).errors.some((e) => /within MIDI/.test(e)));
+  assert.ok(validateScore({ ...base, lead: { inst: 'violin', vel: 0.1, line: 'C#5 D#5 F#5 G#5' } }).warnings.some((w) => /outside C major/.test(w)));
+  assert.ok(validateScore({ ...base, layers: [{ inst: 'cello', line: 'C3:4', pattern: 'X...', vel: 0.1 }] }).errors.some((e) => /either a written/.test(e)));
+  assert.ok(validateScore({ ...base, layers: [{ inst: 'kick', line: 'C3:4', vel: 0.1 }] }).errors.some((e) => /is a drum/.test(e)));
+  // a part that changes the harmony needs its own written lines
+  const parted = { ...base, layers: [...base.layers, { name: 'cello', inst: 'cello', line: 'C3:4', vel: 0.1 }], lead: { inst: 'violin', vel: 0.1, line: 'E5:4' }, parts: { b: { key: 'A', mode: 'minor' } } };
+  const v = validateScore(parted);
+  assert.ok(v.warnings.some((w) => /plays music.lead.line/.test(w)) && v.warnings.some((w) => /keeps its written line/.test(w)));
+  const fixed = validateScore({ ...parted, parts: { b: { key: 'A', mode: 'minor', lead: { line: 'A5:4' }, lines: { cello: 'A2:4' } } } });
+  assert.deepEqual([fixed.errors, fixed.warnings.filter((w) => /line/.test(w))], [[], []]);
+  assert.ok(validateScore({ ...parted, parts: { b: { lines: { nope: 'A2:4' } } } }).errors.some((e) => /no layer named 'nope'/.test(e)));
+});
+
+test('written lines play as written: the lead in the gaps, a layer looping, a part rewriting it', async () => {
+  const { renderScore } = await import('../scripts/music.mjs');
+  const bar = 2; // 120 BPM, 4/4
+  const trace = [];
+  await renderScore({ bpm: 120, key: 'C', mode: 'major', progression: [0, 5], intro: 'full',
+    layers: [{ name: 'cello', inst: 'cello', line: 'C3:2 G2:2 | A2:4', vel: 0.1 }],
+    lead: { inst: 'flute', vel: 0.1, line: 'E5:1 D5:1 C5:2 | r:4' },
+    duration: 9 * bar, sections: [{ start: 0, end: 9 * bar, energy: 0.6 }], voice: [{ start: 2 * bar, end: 3 * bar }], sfx: [] }, { engine: 'synth', trace });
+  const cello = trace.filter((x) => x.inst === 'cello' && x.t < 4 * bar);
+  assert.deepEqual(cello.map((x) => x.midi), [48, 43, 45, 48, 43, 45]);
+  assert.ok(cello.every((x, i) => Math.abs(x.t - [0, 1, 2, 4, 5, 6][i]) < 0.02), cello.map((x) => x.t).join(' '));
+  const lead = trace.filter((x) => x.id.startsWith('lead'));
+  // bars 0, 2, 4, 6 hold the notes; bar 2 is spoken over, so it is skipped
+  assert.deepEqual([...new Set(lead.map((x) => Math.floor((x.t + 0.05) / bar)))], [0, 4, 6]);
+  assert.deepEqual(lead.slice(0, 3).map((x) => x.midi), [76, 74, 72]);
+  // a part rewrites the layer's line from the bar it starts on
+  const t2 = [];
+  await renderScore({ bpm: 120, key: 'C', mode: 'major', progression: [0, 5], intro: 'full',
+    layers: [{ name: 'cello', inst: 'cello', line: 'C3:2 G2:2 | A2:4', vel: 0.1 }], parts: { b: { key: 'A', mode: 'minor', lines: { cello: 'E2:4' } } },
+    duration: 9 * bar, sections: [{ start: 0, end: 3 * bar, energy: 0.6 }, { start: 3 * bar, end: 9 * bar, energy: 0.6, part: 'b' }], voice: [], sfx: [] }, { engine: 'synth', trace: t2 });
+  const c2 = t2.filter((x) => x.inst === 'cello' && x.t < 5 * bar).map((x) => x.midi);
+  assert.deepEqual(c2, [48, 43, 45, 48, 43, 40, 40]);
+});
+
+test('recorded sound effects: every type sounds, repeats vary, renders stay deterministic', async () => {
+  const { renderScore, sfxTypes } = await import('../scripts/music.mjs');
+  for (const t of ['tick', 'click', 'type', 'pop', 'paper', 'card', 'book', 'cloth', 'wood', 'glass', 'metal', 'thud', 'step']) assert.ok(sfxTypes.includes(t), t);
+  const plan = { bpm: 100, layers: [], duration: 8, sections: [{ start: 0, end: 8, energy: 0.5 }], voice: [],
+    sfx: sfxTypes.map((type, i) => ({ type, t: 0.3 + i * 0.25 })) };
+  const a = await renderScore(plan, { engine: 'synth' }), b = await renderScore(plan, { engine: 'synth' });
+  let same = true;
+  for (let i = 0; i < a.left.length; i += 13) if (a.left[i] !== b.left[i]) same = false;
+  assert.ok(same, 'deterministic');
+  for (const [i, type] of sfxTypes.entries()) {
+    if (['riser', 'swell', 'shimmer', 'chime', 'hit', 'boom', 'whoosh', 'swish'].includes(type)) continue; // overlap their neighbours
+    let e = 0;
+    for (let k = Math.round((0.3 + i * 0.25 - 0.1) * 48000); k < Math.round((0.3 + i * 0.25 + 0.12) * 48000); k++) e += a.left[k] ** 2;
+    assert.ok(e > 1e-5, `${type} is silent`);
+  }
+  // three ticks in a row are three different takes
+  const ticks = await renderScore({ ...plan, sfx: [0.5, 1.5, 2.5].map((t) => ({ type: 'tick', t })) }, { engine: 'synth' });
+  const shape = (t) => Array.from({ length: 200 }, (_, k) => ticks.left[Math.round(t * 48000) - 400 + k * 4]);
+  const s = [0.5, 1.5, 2.5].map(shape), diff = (x, y) => x.reduce((acc, v, k) => acc + Math.abs(v - y[k]), 0);
+  assert.ok(diff(s[0], s[1]) > 1e-3 && diff(s[1], s[2]) > 1e-3);
+});
+
+test('listening checks: a held, washed-out passage is flagged; a pulse is not', async () => {
+  const { renderScore } = await import('../scripts/music.mjs');
+  const { loadSoundfont } = await import('../scripts/soundfont.mjs');
+  if ((await loadSoundfont({ download: false })).error) return; // the ghost check needs the sampled engine
+  const base = { bpm: 66, key: 'D', mode: 'minor', progression: [0, 5, 3, 4], duration: 16, sections: [{ start: 0, end: 16, energy: 0.6 }], voice: [], sfx: [{ type: 'tick', t: 5 }] };
+  const ghost = await renderScore({ ...base, layers: [{ inst: 'choir', notes: 'chord', pattern: 'X---', vel: 0.1, verb: 0.9 }, { inst: 'synthpad', notes: 'chord', pattern: 'X---', vel: 0.1, verb: 0.9 }] }, { multi: false });
+  assert.ok(ghost.report.listen.ghost.length >= 1, JSON.stringify(ghost.report.listen));
+  assert.ok(ghost.report.warnings.some((w) => /ghostly/.test(w)));
+  const alive = await renderScore({ ...base, layers: [{ inst: 'piano', notes: [0, 1, 2, 1], pattern: 'x.x.x.x.', vel: 0.12 }, { inst: 'kick', pattern: 'X...X...', vel: 0.4 }, { inst: 'hat', pattern: 'x.x.x.x.', vel: 0.06 }] }, { multi: false });
+  assert.deepEqual(alive.report.listen.ghost, []);
+  assert.ok(alive.report.listen.sfxDb.median > 0, 'a tick over a light groove is heard');
+  assert.ok(typeof alive.report.listen.rangeLU === 'number');
+});
