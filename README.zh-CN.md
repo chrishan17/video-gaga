@@ -85,7 +85,8 @@ node scripts/cv.mjs voices --lang zh-CN             # 列出中文音色
 ## 文档
 
 - [SKILL.md](SKILL.md)：Agent 工作流（提问 → 风格 → 分镜 → 制作 → 验收 → 交付）
-- [docs/motion-design.md](docs/motion-design.md)：动效设计规范（该做 / 不该做、时长表、自检清单）
+- [docs/craft.md](docs/craft.md)：故事、画面，以及交付前 agent 自己审片的流程
+- [docs/motion-design.md](docs/motion-design.md)：动效语言（缓动、原则、镜头、转场、文字、机械检查）
 - [docs/narration-and-subtitles.md](docs/narration-and-subtitles.md)：Edge TTS 音色推荐、为耳朵写稿、字幕规则
 - [docs/music-and-sound.md](docs/music-and-sound.md)：如何设计配乐（规格、规则、限制）、节拍网格、音效、节奏与留白
 - [docs/three-d.md](docs/three-d.md)：在作品里用 three.js：什么时候值得用 3D、写法和规则
