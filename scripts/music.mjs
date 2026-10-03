@@ -24,7 +24,10 @@
 // built-in synthesizer below and says so: that sounds much cheaper.
 
 import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { loadSoundfont, Sampler } from './soundfont.mjs';
+import * as Multi from './samples.mjs';
 
 const SR = 48000;
 const TAU = Math.PI * 2;
@@ -425,9 +428,12 @@ D.conga = (m, t0, o = {}) => D.tom(m, t0, { ...o, f: 210 });
 // ---------------------------------------------------------------------------
 // The arranger speaks to it in the spec's terms: an instrument name, a time,
 // a length, a MIDI note and a `vel` on the spec's scale (0 … the cap).
-function sampledOrchestra(sf, m, n, kit) {
+// The piano, the strings, the harp play from multi-sampled recordings
+// (scripts/samples.mjs) unless `multi` is false; a part whose samples can't be
+// fetched falls back to the SoundFont and the report says so.
+function sampledOrchestra(sf, m, n, kit, { multi = true } = {}) {
   const S = new Sampler(sf, SR);
-  const tracks = new Map(); // id → { tr, bus, gain, pan, verb, echo, sus, lastCut }
+  const tracks = new Map(); // id → { tr, bus, gain, pan, verb, echo, sus, lastCut } (+ bank, notes for a multi-sampled part)
   const patchOf = (inst, o) => {
     const P = PITCHED[inst];
     if (inst === 'bell') return { program: BELLS[o.kind] ?? 9 };
@@ -443,6 +449,18 @@ function sampledOrchestra(sf, m, n, kit) {
     const patch = patchOf(inst, o), cc = {};
     if (o.attack != null) cc[73] = 64 + 16 * Math.log2(Math.max(0.02, o.attack) / 0.25);
     if (o.release != null) cc[72] = 64 + 16 * Math.log2(Math.max(0.05, o.release) / 1.0);
+    const bank = multi && !o.kind ? Multi.MULTI[inst] : null;
+    if (bank) {
+      const t = {
+        bank, inst, patch, cc, notes: [], sus: !!P.sus, bus: busName ?? P.bus, ref: refNote(inst, o),
+        attack: o.attack ?? (inst === 'sinepad' ? 0.3 : undefined), release: o.release,
+        pan: o.pan ?? 0,
+        verb: sendOf(o.verb, P.sus ? 0.22 : 0.15),
+        echo: sendOf(o.echo, 0),
+      };
+      tracks.set(id, t);
+      return t;
+    }
     const tr = S.track(patch, cc);
     const t = {
       tr, sus: !!P.sus, bus: busName ?? P.bus,
@@ -475,8 +493,12 @@ function sampledOrchestra(sf, m, n, kit) {
     note(id, inst, t0, dur, midi, vel, o = {}, busName) {
       const T = track(id, inst, o, busName), P = PITCHED[inst];
       const cut = brightness(inst, o);
-      if (cut != null && (T.lastCut == null || Math.abs(cut - T.lastCut) >= 2)) { S.cc(T.tr, Math.max(0, t0 - 0.004), 74, cut); T.lastCut = cut; }
       if (o.decay != null && o.decay > 0 && o.decay < 8 && (inst === 'keys' || inst === 'epiano' || inst === 'piano' || inst === 'felt')) dur = Math.min(dur, o.decay * 2);
+      if (T.bank) {
+        if (dur > 0 && vel > 0) T.notes.push({ t: t0, dur, midi: Math.round(midi), vel: midiVel(vel / P.cap), bright: cut == null ? undefined : clamp((cut - 40) / 56) });
+        return;
+      }
+      if (cut != null && (T.lastCut == null || Math.abs(cut - T.lastCut) >= 2)) { S.cc(T.tr, Math.max(0, t0 - 0.004), 74, cut); T.lastCut = cut; }
       S.note(T.tr, t0, dur, midi, midiVel(vel / P.cap));
     },
     drum(name, t0, vel, o = {}) {
@@ -490,9 +512,28 @@ function sampledOrchestra(sf, m, n, kit) {
       const { L, R } = S.render(tr, Math.round((len + 0.5) * SR));
       return { L: L.reverse(), R: R.reverse() };
     },
+    // → warnings (a multi-sampled part that fell back to the SoundFont)
     render() {
+      const warnings = [];
       for (const T of tracks.values()) {
-        const { L, R } = S.render(T.tr, n, { tie: T.sus });
+        if (T.bank) {
+          const ready = T.notes.length ? Multi.prepare(T.bank, T.notes) : { ok: true };
+          // as loud over time as the SoundFont instrument it replaces (the
+          // roles were balanced on those): compared on three notes around the reference
+          const refs = [T.ref - 12, T.ref, T.ref + 12];
+          const mine = ready.ok && refs.map((x) => Multi.loudness(T.bank, x, { mean: true }));
+          if (ready.ok && mine.every((x) => x)) {
+            const ratio = Math.exp(refs.reduce((acc, x, i) => acc + Math.log(S.loudness(T.patch, x, {}, { mean: true }) / mine[i]), 0) / refs.length);
+            T.gain = db(PITCHED[T.inst].role) / S.loudness(T.patch, T.ref) * ratio;
+            T.out = Multi.renderNotes(T.bank, T.sus ? tieNotes(T.notes) : T.notes, n, { attack: T.attack, release: T.release });
+          } else {
+            warnings.push(`${T.inst}: its recorded samples could not be loaded, so the SoundFont plays it (${ready.error || 'no reference note'})`);
+            T.tr = S.track(T.patch, T.cc);
+            for (const nt of T.notes) S.note(T.tr, nt.t, nt.dur, nt.midi, nt.vel);
+            T.gain = db(PITCHED[T.inst].role) / S.loudness(T.patch, T.ref);
+          }
+        }
+        const { L, R } = T.out ?? S.render(T.tr, n, { tie: T.sus });
         const b = m[T.bus];
         const a = (T.pan + 1) * Math.PI / 4, gl = Math.cos(a) * 1.4142 * T.gain, gr = Math.sin(a) * 1.4142 * T.gain;
         const vs = T.verb * T.gain, es = T.echo * T.gain;
@@ -504,8 +545,22 @@ function sampledOrchestra(sf, m, n, kit) {
           if (es) m.echo[i] += (l + r) * 0.5 * es;
         }
       }
+      return [...new Set(warnings)];
     },
   };
+}
+
+// a held pad repeats the same pitch bar after bar: tie it so it doesn't re-attack
+function tieNotes(notes) {
+  const out = [], open = new Map();
+  for (const nt of notes.slice().sort((a, b) => a.t - b.t || a.midi - b.midi)) {
+    const prev = open.get(nt.midi);
+    if (prev && Math.abs(prev.t + prev.dur - nt.t) < 0.03) { prev.dur = nt.t + nt.dur - prev.t; continue; }
+    const c = { ...nt };
+    open.set(nt.midi, c);
+    out.push(c);
+  }
+  return out;
 }
 
 function synthOrchestra(m, R) {
@@ -535,18 +590,65 @@ function synthOrchestra(m, R) {
 // ---------------------------------------------------------------------------
 // sound effects
 // ---------------------------------------------------------------------------
+// Small physical sounds (a tick, a card, a glass) are real recordings in
+// assets/sfx (Kenney, CC0): a few takes of each, picked in turn with a little
+// change of pitch and level so a repeated sound never sounds copied. They all
+// send to the score's one reverb, so they sit in the same room as the music.
+const SFX_DIR = fileURLToPath(new URL('../assets/sfx/', import.meta.url));
+const takes = new Map(); // type → Float32Array[]
+function takesOf(type) {
+  if (!takes.has(type)) {
+    let list = [];
+    try {
+      const dir = path.join(SFX_DIR, type);
+      list = fs.readdirSync(dir).filter((f) => f.endsWith('.wav')).sort((a, b) => parseInt(a) - parseInt(b))
+        .map((f) => Multi.readWav(fs.readFileSync(path.join(dir, f))).ch[0]);
+    } catch { /* missing: the caller falls back */ }
+    takes.set(type, list);
+  }
+  return takes.get(type);
+}
+function recorded(m, type, e, r, { level, verb = 0.06, pan = 0, spread = 0.25, pitch = 0.04, at = 0 }) {
+  const list = takesOf(type);
+  if (!list.length) return false;
+  m.lastTake ??= {};
+  let k = Math.floor(r() * list.length);
+  if (list.length > 1 && k === m.lastTake[type]) k = (k + 1) % list.length;
+  m.lastTake[type] = k;
+  const x = list[k], rate = 1 + (r() * 2 - 1) * pitch, g = level * (e.gain ?? 1) * db((r() * 2 - 1) * 1.5);
+  const p = e.pan ?? clamp(pan + (r() * 2 - 1) * spread, -1, 1);
+  const n0 = Math.round((e.t + at) * SR), len = Math.floor((x.length - 2) / rate);
+  for (let j = 0; j < len; j++) { const q = j * rate, i = q | 0, f = q - i; m.put(m.sfx, n0 + j, (x[i] + (x[i + 1] - x[i]) * f) * g, p, verb); }
+  return true;
+}
+// type → how loud, how much room, where it sits
+const RECORDED = {
+  tick: { level: 0.2, verb: 0.04, pan: 0.1, spread: 0.1 },        // a small mechanical tick (word-synced text, counters)
+  click: { level: 0.16, verb: 0.04, spread: 0.1 },                // a button / mouse click
+  type: { level: 0.22, verb: 0.03, spread: 0.2, pitch: 0.06 },    // a key press
+  pop: { level: 0.26, verb: 0.08 },                               // a small light object set down: a soft clack
+  paper: { level: 0.3, verb: 0.06, pitch: 0.03, at: -0.08 },               // a page turning, a sheet sliding
+  card: { level: 0.3, verb: 0.06 },                               // a card laid on a table
+  book: { level: 0.34, verb: 0.08 },                              // a book closed or set down
+  cloth: { level: 0.32, verb: 0.05, at: -0.1 },                           // fabric moving (a reveal, a curtain)
+  wood: { level: 0.32, verb: 0.1 },                               // a knock on wood
+  glass: { level: 0.26, verb: 0.12 },                             // a light glass tap
+  metal: { level: 0.24, verb: 0.12 },                             // a light metal tap
+  thud: { level: 0.4, verb: 0.1, spread: 0.1 },                   // something solid lands
+  step: { level: 0.28, verb: 0.06 },                              // a footstep
+};
 // `o` is the orchestra (sampled cymbals, timpani, celesta… when available).
 const FX = {
   // Air moving past: two bands of pinkish noise sweeping up to the transition
   // midpoint and away, travelling across the stereo field.
   whoosh(m, e, r) {
-    const dur = Math.max(0.35, Math.min(1.4, (e.dur ?? 0.6) * 1.25)), pre = dur * 0.6;
+    const dur = Math.max(0.3, Math.min(1.0, (e.dur ?? 0.6) * 1.1)), pre = dur * 0.6;
     const n0 = Math.round((e.t - pre) * SR), len = Math.round(dur * SR), vel = 0.2 * (e.gain ?? 1);
     const lo = svf(), hi = svf(), noise = pinkNoise(r);
     for (let j = 0; j < len; j++) {
       const x = j / len;
       const sweep = Math.sin(Math.PI * Math.min(1, x * 1.05)) ** 1.4;
-      if ((j & 31) === 0) { lo.set(lerp(180, 900, sweep), 0.9); hi.set(lerp(900, 5200, sweep), 1.1); }
+      if ((j & 31) === 0) { lo.set(lerp(280, 1000, sweep), 0.9); hi.set(lerp(1000, 5200, sweep), 1.1); } // nothing under ~200 Hz: low air reads as rumble
       const env = x < 0.6 ? Math.pow(x / 0.6, 2.4) : Math.exp(-(x - 0.6) / 0.11);
       const w = noise();
       m.put(m.sfx, n0 + j, (lo.run(w, 'bp') * 0.9 + hi.run(w, 'bp') * 0.5) * env * vel, lerp(-0.6, 0.6, smooth(x)), 0.08);
@@ -594,17 +696,13 @@ const FX = {
     if (o.kind === 'samples') { revCymbal(m, o, t, dur, 0.3 * (e.gain ?? 1), 2500); return; }
     FX.riser(m, { ...e, dur, t, gain: (e.gain ?? 1) * 0.5 }, r, h, o);
   },
-  tick(m, e) {
+  tick(m, e, r) {
+    if (recorded(m, 'tick', e, r, RECORDED.tick)) return;
     const n0 = Math.round(e.t * SR), len = Math.round(0.035 * SR), vel = 0.15 * (e.gain ?? 1), f = e.freq ?? 2200;
     for (let j = 0; j < len; j++) { const t = j / SR; m.put(m.sfx, n0 + j, (Math.sin(TAU * f * t) + 0.35 * Math.sin(TAU * f * 2.01 * t)) * Math.exp(-t / 0.005) * vel, e.pan ?? 0.1, 0.04); }
   },
-  click(m, e) { FX.tick(m, { ...e, freq: 3600, gain: (e.gain ?? 1) * 0.7 }); },
-  // A soft "bloop": a quick downward pitch drop with a round body.
-  pop(m, e) {
-    const n0 = Math.round(e.t * SR), len = Math.round(0.1 * SR), vel = 0.22 * (e.gain ?? 1);
-    let ph = 0;
-    for (let j = 0; j < len; j++) { const t = j / SR; ph += lerp(1100, 520, Math.min(1, t / 0.04)) / SR; m.put(m.sfx, n0 + j, Math.sin(TAU * ph) * Math.min(1, t / 0.002) * Math.exp(-t / 0.022) * vel, e.pan ?? 0, 0.12); }
-  },
+  click(m, e, r) { if (!recorded(m, 'click', e, r, RECORDED.click)) FX.tick(m, { ...e, gain: (e.gain ?? 1) * 0.7 }, r); },
+  pop(m, e, r) { if (!recorded(m, 'pop', e, r, RECORDED.pop)) FX.tick(m, e, r); },
   // Stuttered, bit-crushed bursts (digital/cyber only).
   glitch(m, e, r) {
     const n0 = Math.round((e.t - 0.06) * SR), len = Math.round(0.22 * SR), vel = 0.12 * (e.gain ?? 1);
@@ -626,25 +724,8 @@ const FX = {
     o.note('sfx:glock', 'bell', e.t, 1.2, root + 7, 0.12 * (e.gain ?? 1), { kind: 'glock', verb: 0.4 }, 'sfx');
     o.note('sfx:glock', 'bell', e.t + 0.16, 1.4, root + 12, 0.12 * (e.gain ?? 1), { kind: 'glock', verb: 0.4 }, 'sfx');
   },
-  // Paper sheet sliding (page transitions).
-  paper(m, e, r) {
-    const dur = Math.max(0.35, (e.dur ?? 0.7) * 1.1), n0 = Math.round((e.t - dur * 0.5) * SR), len = Math.round(dur * SR);
-    const f = svf();
-    f.set(2600, 0.6);
-    let brown = 0;
-    for (let j = 0; j < len; j++) {
-      const x = j / len;
-      brown = brown * 0.96 + (r() * 2 - 1) * 0.3;
-      const grit = r() < 0.02 ? (r() - 0.5) * 2 : 0;
-      m.put(m.sfx, n0 + j, f.run(brown + grit, 'bp') * Math.sin(Math.PI * x) ** 1.5 * 0.35 * (e.gain ?? 1), lerp(0.5, -0.5, x), 0.08);
-    }
-  },
-  // Typewriter / key press: a click and a short body.
-  type(m, e, r) {
-    D.noise(m, e.t, { bus: m.sfx, fc: 3200, q: 1.4, mode: 'bp', decay: 0.008, len: 0.04, vel: 0.2 * (e.gain ?? 1), verb: 0.04, pan: (r() - 0.5) * 0.4 }, r);
-    const n0 = Math.round(e.t * SR), len = Math.round(0.03 * SR);
-    for (let j = 0; j < len; j++) { const t = j / SR; m.put(m.sfx, n0 + j, Math.sin(TAU * 420 * t) * Math.exp(-t / 0.006) * 0.08 * (e.gain ?? 1), 0, 0.02); }
-  },
+  // the rest are recordings only (see RECORDED)
+  ...Object.fromEntries(['type', 'paper', 'card', 'book', 'cloth', 'wood', 'glass', 'metal', 'thud', 'step'].map((k) => [k, (m, e, r) => { recorded(m, k, e, r, RECORDED[k]); }])),
 };
 // a reversed cymbal (or, without samples, nothing) whose peak lands at t
 function revCymbal(m, o, t, dur, gain, lowpass) {
@@ -707,6 +788,7 @@ export const LIMITS = {
   noteRange: [28, 100], // MIDI, after octave shifts (E1 … E7)
   gate: [0.05, 8],
   swing: [0, 0.5],
+  lineBars: 16, // a written line repeats after at most this many bars
   // loudest allowed hit per instrument (the mix is normalised afterwards; these
   // keep one layer from swamping the others)
   vel: {
@@ -742,10 +824,10 @@ const OPTS_FOR = {
   timpani: SAMPLED_OPTS, flute: SAMPLED_OPTS, shakuhachi: SAMPLED_OPTS, violin: SAMPLED_OPTS, cello: SAMPLED_OPTS, horn: SAMPLED_OPTS, brass: SAMPLED_OPTS, synthbrass: SAMPLED_OPTS,
   tom: ['pitch'],
 };
-const LAYER_KEYS = ['inst', 'pattern', 'notes', 'octave', 'vel', 'from', 'to', 'bars', 'gate', 'pan', 'name', 'swing'];
+const LAYER_KEYS = ['inst', 'pattern', 'line', 'notes', 'octave', 'vel', 'from', 'to', 'bars', 'gate', 'pan', 'name', 'swing'];
 const SPEC_KEYS = ['bpm', 'key', 'mode', 'seed', 'progression', 'sevenths', 'chordBars', 'layers', 'lead', 'fills', 'beatsPerBar', 'parts', 'kit', 'swing'];
 // what a part (a chapter of a long score, chosen per scene with `part`) may change
-const PART_KEYS = ['key', 'mode', 'progression', 'chordBars', 'sevenths', 'seed', 'lead'];
+const PART_KEYS = ['key', 'mode', 'progression', 'chordBars', 'sevenths', 'seed', 'lead', 'lines'];
 const NOTE_TOKEN = /^(root|third|fifth|seventh|[0-7])([_^]*)$/;
 
 // pattern → { len, events: [{ i, v, len }] }
@@ -761,6 +843,55 @@ function parsePattern(p) {
     events.push({ i, v, len: 1 });
   }
   return { len: s.length, events };
+}
+
+// A written line: notes the composer chose, in beats.
+//   'E5:1 D5:.5 C5:1.5 | G4:2 r:2 | [A3 C4 E4]:4@0.8'
+// A note is a name with its octave (C4 = middle C; # or b), r is a rest,
+// [ … ] a chord; :beats sets the length (it carries over to the next notes
+// until changed; 1/3 for triplets), @0.5–1.3 scales the velocity (accents),
+// and | checks that a bar is full.
+// → { events: [{ b, len, midis, acc }], beats } | { error }
+const LINE_TOKEN = /^(r|[A-G](?:#|b)?-?\d|\[[^\]]*\])(?::(\d*\.?\d+(?:\/\d+)?))?(?:@(\d*\.?\d+))?$/;
+function noteNumber(name) {
+  const m = /^([A-G])(#|b)?(-?\d)$/.exec(name);
+  return m ? 12 * (Number(m[3]) + 1) + NOTE[m[1]] + (m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0) : null;
+}
+function parseLine(str, beatsPerBar = 4) {
+  if (typeof str !== 'string' || !str.trim()) return { error: 'is empty' };
+  const toks = str.match(/\[[^\]]*\][^\s|]*|\||[^\s|]+/g) || [];
+  const events = [];
+  let b = 0, len = 1, lastBar = 0, checks = 0;
+  for (const tok of toks) {
+    if (tok === '|') {
+      checks++;
+      const k = (b - lastBar) / beatsPerBar;
+      if (Math.abs(k - Math.round(k)) > 1e-6 || k < 0.5) return { error: `the bar before '|' number ${checks} has ${+(b - lastBar).toFixed(3)} beats (a bar holds ${beatsPerBar})` };
+      lastBar = b;
+      continue;
+    }
+    const m = LINE_TOKEN.exec(tok);
+    if (!m) return { error: `can't read '${tok}' (write notes like E5:1, rests r:2, chords [C4 E4 G4]:2, accents @1.2)` };
+    if (m[2] != null) {
+      const [x, y] = m[2].split('/').map(Number);
+      len = y ? x / y : x;
+      if (!(len > 0) || len > 16) return { error: `'${tok}': a length must be more than 0 and at most 16 beats` };
+    }
+    const acc = m[3] != null ? Number(m[3]) : 1;
+    if (!(acc >= 0.3 && acc <= 1.3)) return { error: `'${tok}': @ (velocity scale) must be 0.3–1.3` };
+    if (m[1] !== 'r') {
+      const names = m[1].startsWith('[') ? m[1].slice(1, -1).trim().split(/[\s,]+/) : [m[1]];
+      const midis = names.map(noteNumber);
+      if (!names.length || midis.some((x) => x == null)) return { error: `'${tok}': write chord notes with octaves, e.g. [C4 E4 G4]` };
+      events.push({ b, len, midis, acc });
+    }
+    b += len;
+  }
+  if (!events.length) return { error: 'has no notes' };
+  const bars = b / beatsPerBar;
+  if (Math.abs(bars - Math.round(bars)) > 1e-6) return { error: `lasts ${+b.toFixed(3)} beats, not a whole number of ${beatsPerBar}-beat bars (pad the end with a rest)` };
+  if (Math.round(bars) > LIMITS.lineBars) return { error: `is ${Math.round(bars)} bars long (at most ${LIMITS.lineBars}; it repeats)` };
+  return { events, beats: b, bars: Math.round(bars) };
 }
 
 const isRange = (v) => Array.isArray(v) && v.length === 2 && v.every((x) => typeof x === 'number' && Number.isFinite(x));
@@ -796,6 +927,20 @@ export function validateScore(spec) {
     if (inst === 'bell' && !BELL_KINDS.includes(kind)) err(`${at}.kind must be one of ${BELL_KINDS.join(', ')}`);
     if (inst === 'bass' && !BASS_KINDS.includes(kind)) err(`${at}.kind must be one of ${BASS_KINDS.join(', ')}`);
   };
+  // a written line: readable, in range, in the key (a few chromatic notes are fine)
+  const scaleOf = (h) => (h.key in NOTE && MODES[h.mode] ? new Set(MODES[h.mode].map((x) => (x + NOTE[h.key]) % 12)) : null);
+  const checkLine = (at, line, octave, [lo, hi], h = spec) => {
+    const r = parseLine(line, spec.beatsPerBar || 4);
+    if (r.error) return err(`${at}.line ${r.error}`);
+    const all = r.events.flatMap((e) => e.midis.map((x) => x + 12 * (octave ?? 0)));
+    const out = all.filter((x) => x < lo || x > hi);
+    if (out.length) err(`${at}.line: notes must be within MIDI ${lo}…${hi} (${out.length} outside, e.g. ${out[0]})`);
+    const sc = scaleOf(h);
+    if (sc) {
+      const off = all.filter((x) => !sc.has(pcOf(x))).length;
+      if (off / all.length > 0.25) warn(`${at}.line: ${off} of ${all.length} notes are outside ${h.key} ${h.mode}; check it was written in this key`);
+    }
+  };
   const layers = spec.layers;
   if (!Array.isArray(layers)) err('music.layers must be an array ([] = sound effects only)');
   else {
@@ -810,7 +955,11 @@ export function validateScore(spec) {
       for (const k of Object.keys(L)) if (!allowed.includes(k)) err(`${at}.${k} is not an option for ${L.inst} (allowed: ${allowed.join(', ')})`);
       const bars = L.bars ?? 1;
       if (!LIMITS.patternBars.includes(bars)) err(`${at}.bars must be ${LIMITS.patternBars.join(', ')}`);
-      if (typeof L.pattern !== 'string') err(`${at}.pattern is required (e.g. 'X---' or 'X.x.X.x.')`);
+      if (L.line != null) {
+        if (!pitched) err(`${at}.line: ${L.inst} is a drum; write its rhythm as a pattern`);
+        if (L.pattern != null || L.notes != null || L.bars != null) err(`${at}: a layer plays either a written \`line\` or a \`pattern\` with \`notes\`, not both`);
+        checkLine(at, L.line, L.octave, LIMITS.noteRange);
+      } else if (typeof L.pattern !== 'string') err(`${at}.pattern is required (e.g. 'X---' or 'X.x.X.x.'), or write the notes as a \`line\``);
       else {
         const p = parsePattern(L.pattern);
         if (p.error) err(`${at}.pattern ${p.error}`);
@@ -851,13 +1000,16 @@ export function validateScore(spec) {
     const toms = layers.filter((L) => L?.inst === 'tom');
     if (toms.length && toms.every((L) => (L.pitch ?? 90) < 80) && !layers.some((L) => ['kick', 'snare', 'clap', 'hat', 'shaker'].includes(L?.inst))) warn('a low tom as the only pulse reads as a horror-film heartbeat: use a kick/clap groove, or keep the tom for one dramatic moment');
   }
-  const checkLead = (at, lead) => {
+  const checkLead = (at, lead, h = spec) => {
     if (typeof lead !== 'object') return err(`${at} must be an object or null`);
     if (!LIMITS.lead.insts.includes(lead.inst)) err(`${at}.inst must be one of ${LIMITS.lead.insts.join(', ')}`);
-    if (!(lead.rhythm in RHYTHMS)) err(`${at}.rhythm must be one of ${Object.keys(RHYTHMS).join(', ')}`);
-    if (!isRange(lead.range) || lead.range[0] < LIMITS.lead.range[0] || lead.range[1] > LIMITS.lead.range[1] || lead.range[1] - lead.range[0] < 7) err(`${at}.range must be [low, high] MIDI within ${LIMITS.lead.range.join('…')}, at least 7 semitones wide`);
+    if (lead.line != null) checkLine(at, lead.line, 0, LIMITS.noteRange, h);
+    else {
+      if (!(lead.rhythm in RHYTHMS)) err(`${at}.rhythm must be one of ${Object.keys(RHYTHMS).join(', ')} (or write the melody as a \`line\`)`);
+      if (!isRange(lead.range) || lead.range[0] < LIMITS.lead.range[0] || lead.range[1] > LIMITS.lead.range[1] || lead.range[1] - lead.range[0] < 7) err(`${at}.range must be [low, high] MIDI within ${LIMITS.lead.range.join('…')}, at least 7 semitones wide`);
+    }
     if (typeof lead.vel !== 'number' || !(lead.vel > 0) || lead.vel > LIMITS.lead.vel) err(`${at}.vel must be in (0, ${LIMITS.lead.vel}]`);
-    const allowed = ['inst', 'range', 'rhythm', 'vel', ...(OPTS_FOR[lead.inst] || []), 'bright', 'decay'];
+    const allowed = ['inst', 'range', 'rhythm', 'line', 'vel', ...(OPTS_FOR[lead.inst] || []), 'bright', 'decay'];
     for (const k of Object.keys(lead)) if (!allowed.includes(k)) err(`${at}.${k} is not an option for ${lead.inst}`);
     kindOk(at, lead.inst, lead.kind);
     for (const k of Object.keys(OPT_RANGES)) if (lead[k] != null) inRange(`${at}.${k}`, lead[k], OPT_RANGES[k]);
@@ -873,10 +1025,22 @@ export function validateScore(spec) {
       for (const k of Object.keys(part)) if (!PART_KEYS.includes(k)) err(`${at}.${k} is not a part option (a part may change ${PART_KEYS.join(', ')}; layers stay the same for the whole video)`);
       harmony(at, part, true);
       if (part.seed != null && !Number.isFinite(part.seed)) err(`${at}.seed must be a number`);
+      const h = { key: part.key ?? spec.key, mode: part.mode ?? spec.mode };
+      const newHarmony = ['key', 'mode', 'progression'].some((k) => part[k] != null);
       if (part.lead != null) {
         if (!spec.lead) err(`${at}.lead: there is no music.lead to vary (add one, or leave the part's lead out)`);
-        else checkLead(`${at}.lead`, { ...spec.lead, ...part.lead });
+        else checkLead(`${at}.lead`, { ...spec.lead, ...part.lead }, h);
       }
+      if (newHarmony && spec.lead?.line != null && part.lead?.line == null) warn(`${at} changes the harmony but plays music.lead.line, written for the main chords: give it its own lead.line`);
+      if (part.lines != null) {
+        if (typeof part.lines !== 'object' || Array.isArray(part.lines)) err(`${at}.lines must be { layerName: line }`);
+        else for (const [ln, line] of Object.entries(part.lines)) {
+          const L = (Array.isArray(layers) ? layers : []).find((x) => x?.name === ln);
+          if (!L || L.line == null) err(`${at}.lines.${ln}: no layer named '${ln}' plays a written line`);
+          else checkLine(`${at}.lines.${ln}`, line, L.octave, LIMITS.noteRange, h);
+        }
+      }
+      if (newHarmony && Array.isArray(layers)) for (const L of layers) if (L?.line != null && part.lines?.[L.name] == null) warn(`${at} changes the harmony but layer ${L.name ? `'${L.name}'` : L.inst} keeps its written line: give it one in ${at}.lines${L.name ? '' : ' (name the layer first)'}`);
     }
   }
   for (const sec of spec.sections || []) if (sec.part != null && !spec.parts?.[sec.part]) err(`scene "${sec.id}": part '${sec.part}' is not in music.parts (${Object.keys(spec.parts || {}).join(', ') || 'none defined'})`);
@@ -919,6 +1083,24 @@ function playLayer(a, li, L, P, c, e, bi, b0) {
   });
 }
 
+// One bar of a written line (bar k of the line counted from its part's start):
+// the notes that start in it, phrased like a player would: the line's high
+// points a little stronger, the downbeats leaning, sustained notes legato.
+function playLine(a, id, inst, line, k, b0, { vel, octave = 0, opts = {}, sus = false, gate, phrase = false }) {
+  const bpb = a.barLen / a.beat, lb = ((k % line.bars) + line.bars) % line.bars;
+  let lo = Infinity, hi = -Infinity;
+  for (const ev of line.events) for (const x of ev.midis) { lo = Math.min(lo, x); hi = Math.max(hi, x); }
+  for (const ev of line.events) {
+    if (Math.floor(ev.b / bpb + 1e-9) !== lb) continue;
+    const t = b0 + (ev.b - lb * bpb) * a.beat;
+    const top = Math.max(...ev.midis);
+    const shape = phrase && hi > lo ? 0.9 + 0.2 * (top - lo) / (hi - lo) : 1;
+    const down = Math.abs(ev.b % bpb) < 1e-6 ? 1.06 : Math.abs(ev.b % 1) > 1e-6 ? 0.92 : 1;
+    const d = ev.len * a.beat * (gate ?? (sus ? 1 : 0.95));
+    ev.midis.forEach((x, i) => a.note(id, inst, t + i * (ev.midis.length > 1 && !sus ? 0.008 : 0), d, x + 12 * octave, vel * ev.acc * shape * down * (i ? 0.92 : 1), opts));
+  }
+}
+
 // Melody rhythms in beats: [start, length] over two bars (8 beats).
 const RHYTHMS = {
   sparse: [[[0, 2], [2.5, 1.5], [4, 3]], [[0.5, 1.5], [2, 2], [5, 2.5]], [[0, 1], [1, 1], [2, 3], [6, 1.5]]],
@@ -945,7 +1127,7 @@ function composeMotif(rh, rr) {
 export async function renderScore(plan, opts = {}) {
   const { errors, warnings } = validateScore(plan);
   if (errors.length) throw new Error(`music: the score spec has ${errors.length} problem(s):\n  ${errors.join('\n  ')}`);
-  const layers = plan.layers.map((L) => ({ L, P: parsePattern(L.pattern) }));
+  const layers = plan.layers.map((L) => ({ L, P: L.line != null ? null : parsePattern(L.pattern) }));
   const silent = !layers.length && !plan.lead; // sound effects only
   if (silent) plan = { ...plan, key: plan.key || 'C', mode: plan.mode || 'major', progression: plan.progression || [0] }; // harmony for tonal sfx
   const bpm = plan.bpm;
@@ -968,7 +1150,7 @@ export async function renderScore(plan, opts = {}) {
   if (opts.engine !== 'synth') {
     const sf = await loadSoundfont({ log: opts.log });
     if (sf.error) engineNote = `played by the built-in synth, which sounds much cheaper: ${sf.error}`;
-    else orch = sampledOrchestra(sf, m, n, KITS[plan.kit ?? 'standard']);
+    else orch = sampledOrchestra(sf, m, n, KITS[plan.kit ?? 'standard'], { multi: opts.multi !== false && process.env.VIDEO_GAGA_MULTISAMPLE !== '0' });
   }
   orch ??= synthOrchestra(m, R);
   if (opts.trace) { // every note and hit, for tests and debugging
@@ -1019,7 +1201,7 @@ export async function renderScore(plan, opts = {}) {
     const pcs = chordTones(H.tonic, H.mode, deg, H.sevenths ? 4 : 3);
     const voicing = voiceLead(pcs, 57, 76, prevV);
     prevV = voicing;
-    chords.push({ deg, root: degree(H.tonic, H.mode, deg), seventh: degree(H.tonic, H.mode, deg + 6), voicing, tones: pcs, tonic: H.tonic, mode: H.mode, part: pn });
+    chords.push({ deg, root: degree(H.tonic, H.mode, deg), seventh: degree(H.tonic, H.mode, deg + 6), voicing, tones: pcs, tonic: H.tonic, mode: H.mode, part: pn, partBar });
   }
   const chordAtT = (t) => chords[clamp(Math.floor((t - offset) / barLen), 0, chords.length - 1)];
   const harmony = { tonic, chordAt: (t) => chordAtT(t).voicing };
@@ -1040,6 +1222,10 @@ export async function renderScore(plan, opts = {}) {
     drum(id, name, t, vel, o = {}) { if (ok(t)) orch.drum(name, Math.max(0, feel(t, true)), touch(vel), o); },
   };
 
+  const lineCache = new Map();
+  const lineOf = (str) => { if (!lineCache.has(str)) lineCache.set(str, parseLine(str, beatsPerBar)); return lineCache.get(str); };
+  const optsAt = (L, e) => { const o = {}; for (const k of OPTS_FOR[L.inst] || []) if (L[k] != null && k !== 'pitch') o[k] = atEnergy(L[k], e); if (typeof L.pan === 'number') o.pan = L.pan; return o; };
+
   // --- bars -------------------------------------------------------------------
   const report = { bpm, key: `${plan.key} ${mode}`, progression: prog.join('-'), layers: layers.length, lead: plan.lead?.inst ?? null, engine: orch.kind, bars: [], warnings };
   if (engineNote) warnings.push(engineNote);
@@ -1056,7 +1242,13 @@ export async function renderScore(plan, opts = {}) {
     const si = secAt(b0 + barLen * 0.25);
     let e = energyOf(sections[si], si);
     if (b === 0 && plan.intro !== 'full') e = Math.min(e, 0.3); // let the first bar breathe in
-    layers.forEach(({ L, P }, li) => { if (plays(L, e)) playLayer(arr, li, L, P, chords[b], e, b, b0); });
+    layers.forEach(({ L, P }, li) => {
+      if (!plays(L, e)) return;
+      if (P) return playLayer(arr, li, L, P, chords[b], e, b, b0);
+      // a written line, from the start of its part (a part may rewrite it)
+      const c = chords[b], line = lineOf(c.part != null ? plan.parts[c.part].lines?.[L.name] ?? L.line : L.line);
+      playLine(arr, `L${li}`, L.inst, line, b - c.partBar, b0, { vel: atEnergy(L.vel, e), octave: L.octave, opts: optsAt(L, e), sus: SUSTAINED.has(L.inst), gate: L.gate });
+    });
     report.bars.push(Math.round(e * 100) / 100);
     // section changes: a fill into the downbeat and a crash on it, when the
     // energy rises and the score has drums there
@@ -1080,8 +1272,32 @@ export async function renderScore(plan, opts = {}) {
   }
 
   // --- melody in the gaps ---------------------------------------------------------
-  const Lm = plan.lead ? { ...plan.lead, opts: Object.fromEntries(Object.entries(plan.lead).filter(([k]) => !['inst', 'range', 'rhythm', 'vel'].includes(k))) } : null;
-  if (Lm && !silent) {
+  const Lm = plan.lead ? { ...plan.lead, opts: Object.fromEntries(Object.entries(plan.lead).filter(([k]) => !['inst', 'range', 'rhythm', 'vel', 'line'].includes(k))) } : null;
+  let prevNote = null;
+  const written = (Lp) => Lp.line != null;
+  const leadOf = (name) => {
+    const P = name != null ? plan.parts[name] : null;
+    return P?.lead ? { ...Lm, ...P.lead, opts: { ...Lm.opts, ...Object.fromEntries(Object.entries(P.lead).filter(([k]) => !['inst', 'range', 'rhythm', 'vel', 'line'].includes(k))) } } : Lm;
+  };
+  if (Lm && !silent && [null, ...Object.keys(plan.parts || {})].some((k) => written(leadOf(k)))) {
+    // the composer wrote the melody: play it as written, bar by bar from the
+    // start of each part, only where nobody is speaking
+    for (let b = 0; b < Math.min(nBars, endBar); b++) {
+      const c = chords[b], L = leadOf(c.part);
+      if (!written(L)) continue;
+      const b0 = offset + b * barLen;
+      playLine({
+        beat, barLen,
+        note(id, inst, t, d, midi, vel, o) {
+          if (t >= endT - 0.05) return;
+          const si = secAt(t);
+          if (energyOf(sections[si], si) < 0.3 || voicedAt(t) || voicedAt(t + Math.min(d, 0.6)) || breathAt(t)) return;
+          prevNote = midi;
+          orch.note(id, inst, Math.max(0, feel(t)), Math.min(d, endT - t), midi, vel * (0.96 + human() * 0.08), o, 'lead');
+        },
+      }, `lead:${L.inst}:${L.opts.kind ?? ''}`, L.inst, lineOf(L.line), b - c.partBar, b0, { vel: L.vel, opts: { ...(L.opts || {}), pan: 0.12 }, phrase: true });
+    }
+  } else if (Lm && !silent) {
     // each part gets its own motifs (its own seed and lead options)
     const compose = (Lp, rr) => {
       const set = RHYTHMS[Lp.rhythm];
@@ -1098,7 +1314,7 @@ export async function renderScore(plan, opts = {}) {
       return leads.get(name);
     };
     const phrases = Math.ceil(nBars / 2);
-    let phPart, ph0 = 0, prevNote = null;
+    let phPart, ph0 = 0;
     for (let phAbs = 0; phAbs < phrases; phAbs++) {
       const t0 = offset + phAbs * 2 * barLen;
       const pn = chords[clamp(phAbs * 2, 0, chords.length - 1)].part;
@@ -1170,7 +1386,7 @@ export async function renderScore(plan, opts = {}) {
   }
 
   // the sampled tracks render now, into the buses and the effect sends
-  orch.render();
+  for (const w of orch.render() || []) warnings.push(w);
 
   // --- effects, ducking, master ----------------------------------------------------
   // ping-pong delay (dotted eighth), fed by the echo send
@@ -1388,4 +1604,4 @@ export function writeWav(file, { left, right, sampleRate = SR }) {
 }
 
 export const sfxTypes = Object.keys(FX);
-export const _internals = { I, D, FX, Mixer, rng, SR, PITCHED, DRUMS };
+export const _internals = { I, D, FX, Mixer, rng, SR, PITCHED, DRUMS, parseLine };

@@ -92,7 +92,7 @@ async function synthMusic(dir, score, { quiet } = {}) {
   const voiceDb = score.voice.length ? speechLevel(dir) : null;
   const sf = soundfontPath();
   const key = crypto.createHash('sha1').update(fs.readFileSync(path.join(ROOT, 'scripts', 'music.mjs'))).update(fs.readFileSync(path.join(ROOT, 'scripts', 'soundfont.mjs')))
-    .update(JSON.stringify(score)).update(String(voiceDb)).update(fs.existsSync(sf) ? `${sf}:${fs.statSync(sf).size}` : 'synth').digest('hex').slice(0, 16);
+    .update(fs.readFileSync(path.join(ROOT, 'scripts', 'samples.mjs'))).update(JSON.stringify(score)).update(String(voiceDb)).update(fs.existsSync(sf) ? `${sf}:${fs.statSync(sf).size}` : 'synth').digest('hex').slice(0, 16);
   const file = path.join(dir, 'build', 'music.wav'), bed = path.join(dir, 'build', 'music-bed.wav');
   const meta = path.join(dir, 'build', 'music.json');
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -105,7 +105,9 @@ async function synthMusic(dir, score, { quiet } = {}) {
   writeWav(file, mix);
   writeWav(bed, { left: mix.bed.left, right: mix.bed.right, sampleRate: mix.sampleRate });
   mix.report.voiceDb = voiceDb;
-  fs.writeFileSync(meta, JSON.stringify({ key, report: mix.report }, null, 1));
+  // a score that fell back to cheaper instruments is not cached: the next render tries again
+  const degraded = mix.report.engine !== 'samples' || (mix.report.warnings || []).some((w) => /could not be loaded/.test(w));
+  fs.writeFileSync(meta, JSON.stringify({ key: degraded ? null : key, report: mix.report }, null, 1));
   if (!quiet) log(`▸ music: ${mix.report.key} · ${mix.report.bpm} BPM · ${mix.report.layers} layers · ${score.sfx.length} sfx · ${mix.report.engine === 'samples' ? 'sampled instruments' : 'built-in synth'} (${Date.now() - t0} ms)`);
   if (!quiet) for (const w of mix.report.warnings || []) log(`  ⚠ music: ${w}`);
   return { file, bed, report: mix.report };
