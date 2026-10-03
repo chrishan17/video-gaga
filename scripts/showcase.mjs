@@ -28,7 +28,7 @@ const SHOWCASE = {
   // flat palette colours: few colours, no dither noise; nearest-neighbour keeps the cells square
   'pixel-retro': { gif: [31, 8], poster: 54.3, fps: 15, colors: 16 },
   'ink-wash': { gif: [49.5, 6.5], poster: 75.5, fps: 12, colors: 64 },
-  'cinematic-film': { gif: [18, 7], poster: 25.5, fps: 12, colors: 48, width: 440 },
+  'cinematic-film': { gif: [29.2, 7], poster: 75.6, fps: 12, colors: 48, width: 440 },
 };
 
 const ff = (args) => {

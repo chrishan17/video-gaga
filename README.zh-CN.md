@@ -38,7 +38,7 @@
 | <img src="docs/media/pop-collage.gif" width="180"> | **Pop Collage 波普拼贴** · 9:16 竖屏 · 20 秒 · 中文旁白（晓伊）· `pop` 配乐。剪纸贴纸踩着拍子弹入，品牌色带转场，卡拉 OK 字幕，纯音乐回顾里三条要点一拍一条落下。[▶ 视频](docs/media/pop-collage.mp4) · [源码](presets/pop-collage/video.html) |
 | <img src="docs/media/pixel-retro.gif" width="360"> | **Pixel Retro 像素复古** · 16:9 · 66 秒 · 中文旁白（云希）· chiptune 配乐（E 多利亚 → G 大调）。《隐藏关卡》：一部关于找到自己声音的 8-bit 短片。每一帧都画在 384×216 的网格上并锁定 12 色。灰色的主线任务每天归零，状态栏里只有“声音”一格是空的，也是画面里唯一的颜色；话到嘴边变成省略号，主角往左走了一步，墙碎了，颜色涌进来，做过的每件事都变成砖，声音槽一格格充满。[▶ 视频](docs/media/pixel-retro.mp4) · [源码](presets/pixel-retro/video.html) |
 | <img src="docs/media/ink-wash.gif" width="360"> | **Ink Wash 水墨** · 16:9 · 76 秒 · 中文旁白（晓晓）· 钢琴、古筝、笛子配乐。故事《别怕落笔》：八岁时的画被老师打了红叉，二十年的田字格写满“正”，直到一支毛笔一抖，一滴墨在宣纸上洇开。它成了一座山的山顶，镜头拉远，群山、松、瀑布、小舟踩着拍子一笔笔长出来，那抹红最后变成自己的印章。[▶ 视频](docs/media/ink-wash.mp4) · [源码](presets/ink-wash/video.html) |
-| <img src="docs/media/cinematic-film.gif" width="360"> | **Cinematic Film 电影胶片** · 16:9 内的 2.39:1 宽银幕 · 45 秒 · 中文旁白（云扬，引语由云健念）· 72 BPM D 大调配乐。像用胶片拍的纪录片：倒计时片头，黎明前的江城在缓慢推镜里出现，窗户在半拍上一扇扇亮起，胶片烧灼转场进入日出，焦点虚化后，摆渡人用自己的声音说出那句话，片名在停留时缓缓拉开字距。[▶ 视频](docs/media/cinematic-film.mp4) · [源码](presets/cinematic-film/video.html) |
+| <img src="docs/media/cinematic-film.gif" width="360"> | **Cinematic Film 电影胶片** · 16:9 内的 2.39:1 宽银幕 · 94 秒 · 中文旁白（晓晓，爸爸那句由云健念）· 76 BPM 降 E 大调配乐（毛毡钢琴、八音盒、刷子鼓）。《第三十六张》：女儿在爸爸的旧相机里发现一卷 36 张只拍了 35 张的胶卷。暗房里显影的照片活了过来，胶片一格格推进 1999 年，灯箱上第 36 格是空的；同一片海边，他的影子又举起了相机，镜头拉远到整张印样。[▶ 视频](docs/media/cinematic-film.mp4) · [源码](presets/cinematic-film/video.html) |
 
 选风格时，Agent 每次都会额外给一个"野卡"方案：专门为你的需求设计一套新风格，并用你的真实标题出样帧。预设只决定视觉风格和动效语法（配色、字体、动效函数、转场、字幕样式）；文案、场景结构、具体动画和配乐都按每支视频的需求重新设计，`cv init` 也只复制风格，不复制示例内容。详见 [STYLE_PRESETS.md](STYLE_PRESETS.md)。
 
