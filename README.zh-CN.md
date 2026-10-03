@@ -44,7 +44,7 @@
 
 ### 更长的视频
 
-预设示例都是 15–30 秒。[`examples/hundred-days`](examples/hundred-days/video.html) 是一支两分半的个人故事（Paper Sketch 风格，26 个场景、六个章节，云希中文旁白）：角落里有章节标记，章节之间留出纯音乐的停顿，配乐按章节换和声（`music.parts`），结尾呼应开头的第一个画面。规划长视频见 SKILL.md 的 *Long videos* 一节。[▶ 视频](docs/media/hundred-days.mp4)
+预设示例都是 15–30 秒。[`examples/take-your-time`](examples/take-your-time/video.html)《慢慢说》是一支三分钟的个人故事（Swiss Kinetic 风格，33 个场景、六个章节，两个中文声音）：一个口吃的人，他的话撞上的那堵墙，和一段晚了八秒才开口的婚礼致辞。每章有章节卡和角标，章节之间留出纯音乐的停顿，配乐按章节换和声（`music.parts`），红色光标、墙和开头那句话在结尾都会回来。规划长视频见 SKILL.md 的 *Long videos* 一节。[▶ 视频](docs/media/take-your-time.mp4)
 
 ## 工作流程
 
