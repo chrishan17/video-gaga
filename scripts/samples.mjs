@@ -102,7 +102,7 @@ function fileFor(url) {
 function download(url, file) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const tmp = `${file}.part`;
-  const r = spawnSync('curl', ['-fsSL', '--retry', '2', '--max-time', '120', '-o', tmp, url], { stdio: ['ignore', 'ignore', 'pipe'], encoding: 'utf8' });
+  const r = spawnSync('curl', ['-fsSL', '--retry', '2', '--connect-timeout', '15', '--max-time', '120', '-o', tmp, url], { stdio: ['ignore', 'ignore', 'pipe'], encoding: 'utf8' });
   if (r.status !== 0) { fs.rmSync(tmp, { force: true }); return r.error ? 'curl not found' : (r.stderr || `curl exit ${r.status}`).trim(); }
   fs.renameSync(tmp, file);
   return null;
