@@ -403,3 +403,33 @@ test('sampled instruments: deterministic, in time, and every instrument sounds',
     assert.ok(e > 1e-4, `${inst} is silent`);
   }
 });
+
+test('motion-blur subframes never reach across a hard cut', () => {
+  const drawn = [];
+  const scene = (id) => ({ id, duration: 1, narration: false, draw: (c, s) => drawn.push([id, s.t]) });
+  const api = stubCreate({ fps: 30, transition: 'cut', scenes: [scene('a'), scene('b')] });
+  const at = (f, sub) => { drawn.length = 0; api.drawFrame(f, sub); return drawn[0][0]; };
+  assert.equal(at(29, 0.4), 'a', 'the last frame before the cut stays in its scene');
+  assert.equal(at(30, -0.4), 'b', 'the first frame after the cut stays in its scene');
+  assert.equal(at(15, 0.4), 'a');
+  api.drawFrame(0, -0.4);
+  assert.ok(drawn.at(-1)[1] >= 0, 'never before the start');
+});
+
+test('color.mix keeps endpoints and mixes in OKLab (no muddy midpoint)', () => {
+  const rgb = (s) => s.match(/[\d.]+/g).map(Number);
+  assert.deepEqual(rgb(CV.color.mix('#E4572E', '#1A2746', 0)).slice(0, 3), [0xE4, 0x57, 0x2E]);
+  assert.deepEqual(rgb(CV.color.mix('#E4572E', '#1A2746', 1)).slice(0, 3), [0x1A, 0x27, 0x46]);
+  const [r, g] = rgb(CV.color.mix('#ff0000', '#00ff00', 0.5));
+  assert.ok(r + g > 300, `red→green midpoint should stay bright, got ${r},${g}`);
+  assert.equal(rgb(CV.color.mix('rgba(0,0,0,0)', '#fff', 0.5))[3], 0.5, 'alpha is linear');
+});
+
+test('cameraAt: keyed, zoom even in log space, fields hold', () => {
+  const keys = [[0, { zoom: 1, x: 10 }], [2, { zoom: 4 }, CV.ease.linear]];
+  assert.equal(CV.draw.cameraAt(0, keys).zoom, 1);
+  assert.ok(Math.abs(CV.draw.cameraAt(1, keys).zoom - 2) < 1e-9, 'halfway from 1× to 4× is 2×');
+  assert.equal(CV.draw.cameraAt(1, keys).x, 10, 'x holds when a key leaves it out');
+  assert.equal(CV.draw.cameraAt(5, keys).zoom, 4);
+  assert.equal(CV.draw.cameraAt(1, keys).focusX, undefined);
+});

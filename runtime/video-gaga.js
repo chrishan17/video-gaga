@@ -200,11 +200,30 @@
       const [r, g, b, a0] = parseColor(c);
       return `rgba(${r | 0},${g | 0},${b | 0},${a ?? a0})`;
     },
+    // Mixed in OKLab, so the midpoint keeps its lightness and saturation
+    // (an sRGB lerp goes grey and muddy between two saturated colours).
     mix: (a, b, p) => {
       const A = parseColor(a), B = parseColor(b);
-      return `rgba(${lerp(A[0], B[0], p) | 0},${lerp(A[1], B[1], p) | 0},${lerp(A[2], B[2], p) | 0},${lerp(A[3], B[3], p)})`;
+      const LA = toOklab(A), LB = toOklab(B);
+      const [r, g, bl] = fromOklab([lerp(LA[0], LB[0], p), lerp(LA[1], LB[1], p), lerp(LA[2], LB[2], p)]);
+      return `rgba(${r},${g},${bl},${lerp(A[3], B[3], p)})`;
     },
   };
+  function toOklab([r, g, b]) {
+    const lin = (c) => ((c /= 255) <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+    r = lin(r); g = lin(g); b = lin(b);
+    const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+    const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+    const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+    return [0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s, 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s, 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s];
+  }
+  function fromOklab([L, a, b]) {
+    const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3;
+    const m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3;
+    const s = (L - 0.0894841775 * a - 1.291485548 * b) ** 3;
+    const srgb = (x) => Math.round(255 * clamp(x <= 0.0031308 ? 12.92 * x : 1.055 * x ** (1 / 2.4) - 0.055, 0, 1));
+    return [srgb(4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s), srgb(-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s), srgb(-0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s)];
+  }
 
   // ===========================================================================
   // Text: CJK-aware line breaking + per-glyph animation helpers
@@ -434,8 +453,12 @@
   }
 
   // Camera: scale/rotate/translate around the frame centre (or a focus point).
+  // cam.depth places a layer relative to the subject plane (1): a far layer
+  // (0.3) sees the same camera with less zoom and travel, a near one (1.6)
+  // more, so planes separate when the camera moves.
   function camera(ctx, W, H, cam, fn) {
-    const zoom = cam.zoom ?? 1, x = cam.x ?? 0, y = cam.y ?? 0, rot = cam.rotate ?? 0;
+    const d = cam.depth ?? 1;
+    const zoom = (cam.zoom ?? 1) ** d, x = (cam.x ?? 0) * d, y = (cam.y ?? 0) * d, rot = (cam.rotate ?? 0) * d;
     const fx = cam.focusX ?? W / 2, fy = cam.focusY ?? H / 2;
     ctx.save();
     ctx.translate(W / 2, H / 2);
@@ -444,6 +467,24 @@
     ctx.translate(-fx - x, -fy - y);
     fn();
     ctx.restore();
+  }
+
+  // A keyed camera: cameraAt(t, [[0, { zoom: 1 }], [1.5, { zoom: 3, x: 120 }, ease.swift]])
+  // → { zoom, x, y, rotate, focusX, focusY } for camera(). Each key is
+  // [time, fields, easeIntoThisKey]; fields a key leaves out hold. Zoom is
+  // interpolated in log space, so a push from 1 to 4 moves evenly instead of
+  // speeding up as it gets closer.
+  function cameraAt(t, keys) {
+    let cur = { zoom: 1, x: 0, y: 0, rotate: 0 };
+    const k = keys.map(([kt, v, e]) => {
+      cur = { ...cur, ...v };
+      return [kt, [Math.log2(cur.zoom), cur.x, cur.y, cur.rotate, cur.focusX ?? NaN, cur.focusY ?? NaN], e];
+    });
+    const [lz, x, y, rotate, fx, fy] = tween(t, k);
+    const out = { zoom: 2 ** lz, x, y, rotate };
+    if (!Number.isNaN(fx)) out.focusX = fx;
+    if (!Number.isNaN(fy)) out.focusY = fy;
+    return out;
   }
 
   function makeCanvas(w, h) {
@@ -489,7 +530,7 @@
     ctx.stroke();
   }
 
-  const draw = { roundRect, drawOn, sketchLine, sketchCircle, grain, vignette, camera, arrow, arc: arcOn };
+  const draw = { roundRect, drawOn, sketchLine, sketchCircle, grain, vignette, camera, cameraAt, arrow, arc: arcOn };
 
   // ===========================================================================
   // Motion primitives (fx) — the reusable "moves" of motion design
@@ -1639,6 +1680,21 @@
       ctx.restore();
     }
 
+    // Time of a motion-blur subframe. The shutter never reaches across a hard
+    // cut (it would blend the last frame of one scene into the first of the
+    // next) or outside the video.
+    function subTime(f, sub) {
+      const T0 = f / fps;
+      let T = (f + sub) / fps;
+      if (!sub) return T;
+      for (const s of scenes) {
+        if (!s._tr || s._tr.type !== 'cut') continue;
+        if (T0 < s.start && T >= s.start) T = s.start - 1e-6;
+        else if (T0 >= s.start && T < s.start) T = s.start;
+      }
+      return clamp(T, 0, duration - 1e-6);
+    }
+
     // ---- font / asset readiness ----------------------------------------------
     async function ready() {
       if (typeof document === 'undefined' || !document.fonts) return;
@@ -1696,16 +1752,16 @@
 
     const api = {
       W, H, fps, duration, totalFrames, canvas, ctx, scenes, cues, scale, bpm, sfx, missingFonts: [],
-      drawFrame: (f, sub = 0) => drawAt((f + sub) / fps, f),
+      drawFrame: (f, sub = 0) => drawAt(subTime(f, sub), f),
       // What the renderer calls: if drawing the frame started a webfont download
       // (a glyph subset the warm-up never saw), wait for it and draw again, so the
       // captured pixels never depend on download timing or render order.
       renderFrame: async (f, sub = 0) => {
-        drawAt((f + sub) / fps, f);
+        drawAt(subTime(f, sub), f);
         for (let k = 0; k < 4 && typeof document !== 'undefined' && document.fonts && document.fonts.status === 'loading'; k++) {
           await document.fonts.ready;
           fontEpoch++;
-          drawAt((f + sub) / fps, f);
+          drawAt(subTime(f, sub), f);
         }
       },
       drawAt,

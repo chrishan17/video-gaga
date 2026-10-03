@@ -32,16 +32,19 @@ Not good: a sequence of true statements with pictures, which is a slideshow with
 
 **Good**
 - One visual idea carries the video: a device that recurs and changes as the story moves. A red caret that is a man's voice and a red slab that is the wall in front of it. A grey world where one colour survives and floods back. A roll of film with 35 of 36 frames shot. A row of street lamps. Scenes are moments in the life of the device, not slides about the topic.
+- The device comes from this story, so you can say why: because the story has X, the picture is Y. Its nouns become objects, its verbs become motion, its numbers become something you can see. It reads without a label, and screenshots of the video would lose something important: the meaning is in how it moves.
 - Every frame would work as a poster: scale contrast (one thing huge, the rest small), deliberate empty space, crops that run off the edge, asymmetry, a clear grid, one place the eye goes first.
-- Type is image: one word filling the frame, weight contrast, tracking and line breaks chosen for the word that matters.
+- Type is image: one word filling the frame, weight contrast, tracking and line breaks chosen for the word that matters. The hierarchy is unmistakable: the hero is around twice the size of the next level, and labels are clearly smaller again. When two typefaces meet, the contrast between them means something (a voice and a record, then and now).
 - Shots vary the way an editor varies them: wide, close and extreme close; dense and empty. When two scenes share a layout, it is on purpose (a match cut, a before and after).
-- The palette is small, so colour can carry meaning: the accent marks the one thing that matters, and a shift of the whole palette marks a shift in the story.
-- Light and contrast let the subject read at a glance, even in a dark, moody piece.
+- The palette is small, so colour can carry meaning: the accent marks the one thing that matters, and a shift of the whole palette marks a shift in the story. Colour moves with the acts, like a score: one colour event per act lands harder than colour everywhere.
+- Light and contrast let the subject read at a glance, even in a dark, moody piece. Surfaces look made: one light direction for the whole film, a base with texture and one edge or highlight, value contrast between planes. The biggest moment can get a light of its own behind the subject.
 
 **Not good**
 - A centred title over a centred subtitle on every frame.
 - The subject too small or too dark to read in the first second.
-- The generic AI look: purple-blue gradients, neon on dark, glass cards, floating blobs, icons in circles, emoji, stock-looking illustration, unless the brief truly asks for it.
+- The look models reach for by default, unless the brief truly asks for it: a cream ground with a high-contrast serif and a terracotta or red accent; near-black with one acid accent; a broadsheet of hairline rules; tracked ALL-CAPS eyebrows, mono data labels and middle-dot meta strings; scene counters and chrome (NO. 01, 00 —, 03 / 04, INTRODUCING); purple-blue gradients, neon on dark, glass cards, floating blobs, icons in circles, emoji, stock-looking illustration. Name the default you are reaching for and ask what this story would choose instead.
+- A frame that would pass unchanged as a corporate slide. A metaphor that only works because of its label.
+- Full-frame dark gradients that band after encoding; a long crossfade between a light and a dark scene that passes through grey.
 - A preset's example video with the words swapped.
 
 Aim at work you admire and borrow its thinking, not its look: title design (Saul Bass, Kyle Cooper, Elastic), motion studios (Buck, ManvsMachine, Oddfellows, Ordinary Folk, Giant Ant), editorial motion (Vox, The New York Times, Kurzgesagt), Swiss posters (Josef Müller-Brockmann), Apple product films, and Chinese visual traditions (留白 in ink painting, 书法, 1930s Shanghai posters).
@@ -50,17 +53,24 @@ Aim at work you admire and borrow its thinking, not its look: title design (Saul
 
 **Good**
 - Every move has a job (it points, explains a change, gives a hold life) and the screen is never dead.
+- Every cut carries something across: a shape, a colour, a direction, a word. The best transitions are set up inside the shot before them (a push into a jar becomes its inside; a thrown page becomes a boat), and the middle of a transition is itself a designed frame. Across a seam, direction and speed match, and the next shot enters already moving the way the last one left.
+- Cuts are the quiet base. The few narrative transitions are spent where the story turns, each used once.
 - Moves have weight: anticipation, a snap or a long settle, follow-through, arcs. Related elements arrive as one cascade.
 - Speed has contrast: a quick hit then a long drift, a burst of cuts then a held shot.
-- Holds stay alive with a travelling camera, moving light, parallax between layers.
+- Holds stay alive with a travelling camera, moving light, parallax between layers, and not all in the same way. The one moment everything stops dead, a breath before the big hit, can be the strongest in the film.
+- The camera changes shot size for real (wide, then close) rather than drifting 2% on every shot.
+- Things that belong together still move as individuals: one side leads by a few frames, timings differ a little. Key poses read as good stills before they move.
 - Cuts happen on action; secondary elements leave before the cut.
 - A few signature moves that belong to this video, usually the device transforming, are what people remember.
 - Hits land on their words and beats.
 
 **Not good**
 - Everything fading in together; text that sits on a still frame; scenes shoved off by the next one.
-- Motion added because a frame felt empty: wobbling text, particles, everything pulsing to the beat.
+- Motion added because a frame felt empty: wobbling text, particles, pulsing rings and ripples, heartbeats, everything pulsing to the beat.
 - Bounce on numbers or data; a different transition at every cut.
+- The same slow push on every scene. Zooming in, then straight back out. Two shots in a row that end the same way.
+- Twins: parts moving identically because they share the same numbers.
+- The answer on screen before the voice has reasoned towards it; a list shown all at once before it is read out.
 
 The language and the vocabulary are in [motion-design.md](motion-design.md).
 
@@ -95,8 +105,8 @@ Deliver when it meets this page. If something still falls short, rebuild that pa
 - The line: "{the sentence someone would repeat}"
 - Angle: {the chosen telling} (also considered: {…}; {…})
 - Audience and format: {who} · {1920×1080 | 1080×1920 | …} · {N} s
-- The device: {the visual idea and how it changes across the video}
-- Look: {style or preset} · palette {hex…} · type {display + label} · references {…}
+- The device: {the visual idea, why it comes from this story, and how it changes across the video}
+- Look: {style or preset} · palette {hex…} and its colour events · light {direction} · type {display + label, sizes hero / secondary / label} · references {…}
 - Motion: {its character in a sentence} · signature moves {…}
 - Voice: {voice id, rate} · captions {burn | file | none}
 - Score: {feel in three words} · {reference} · {bpm} BPM {key} {mode} · {the hook} · {how it builds}

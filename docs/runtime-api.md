@@ -161,7 +161,7 @@ Custom: `type: (ctx, A, B, p, opts) => {…}`, where A and B are canvases of the
 
 ## Drawing — `CV.draw`, `CV.color`
 
-- `draw.roundRect, drawOn(ctx, pts, p)` (progressive stroke), `arrow(ctx, x1, y1, x2, y2, p, {bend, head, width})` (draws on, head arrives last), `arc(ctx, cx, cy, r, a0, a1, p)`, `sketchLine(x1,y1,x2,y2,{seed, roughness})`, `sketchCircle(cx,cy,r,{seed, roughness, steps})`, `grain(ctx, frame, amount, {blend})`, `vignette(ctx, W, H, amount, color)`, `camera(ctx, W, H, {zoom, x, y, rotate, focusX, focusY}, fn)`.
+- `draw.roundRect, drawOn(ctx, pts, p)` (progressive stroke), `arrow(ctx, x1, y1, x2, y2, p, {bend, head, width})` (draws on, head arrives last), `arc(ctx, cx, cy, r, a0, a1, p)`, `sketchLine(x1,y1,x2,y2,{seed, roughness})`, `sketchCircle(cx,cy,r,{seed, roughness, steps})`, `grain(ctx, frame, amount, {blend})`, `vignette(ctx, W, H, amount, color)`, `camera(ctx, W, H, {zoom, x, y, rotate, focusX, focusY, depth}, fn)` (`depth` 1 is the subject plane; far layers below 1 move less, near layers above 1 move more), `cameraAt(t, [[t0, {zoom, x, y, …}], [t1, {…}, ease], …])` → a keyed camera for `camera()`, with zoom interpolated in log space so pushes move evenly.
 - `CV.noise2(x, y, seed)` — 2D value noise in −1..1.
 - `color.rgba(c, a)`, `color.mix(a, b, p)`, `color.parse(c)`.
 - `CV.image(src)` preloads an image (the renderer waits for it). `CV.drawCover(ctx, img, x, y, w, h, fx, fy)` draws it cover-fit.
