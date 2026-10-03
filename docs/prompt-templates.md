@@ -1,20 +1,20 @@
 # Prompt templates
 
-These patterns are distilled from public prompts people used with Claude (Opus 5.5 in particular, released 2026-09-22) and Claude Code to make code-rendered videos. Each source link below was opened and checked on 2026-09-27. "via compendium" means the text was taken from the curated list [joeseesun/opus-video-prompts](https://github.com/joeseesun/opus-video-prompts), which links to the original post.
+This page is for people writing prompts. The skill itself does not need it. These patterns are distilled from public prompts people used with Claude (Opus 5.5 in particular, released 2026-09-22) and Claude Code to make code-rendered videos. Each source link below was opened and checked on 2026-09-27. "via compendium" means the text was taken from the curated list [joeseesun/opus-video-prompts](https://github.com/joeseesun/opus-video-prompts), which links to the original post.
 
 ## What the best prompts have in common
 
 | Pattern | Seen in | video-gaga equivalent |
 |---|---|---|
-| **Direct, don't describe.** State the length, scene count, what each scene says, and the pace | Alex Prompter's 30-s explainer | Phase 1 questions + the storyboard table |
-| **Storyboard before code**, then revise per shot | Danny Stuart, om_patel5, zero | Phase 3: storyboard approval before building |
-| **Ban list** (no bouncy easing, particle bursts, RGB split, lens flares, neon glow, dead time) | zero (@twoclipping) | `docs/motion-design.md` §13 |
+| **Direct, don't describe.** State the length, scene count, what each scene says, and the pace | Alex Prompter's 30-s explainer | the discovery questions + the storyboard |
+| **Storyboard before code**, then revise per shot | Danny Stuart, om_patel5, zero | storyboard approval before building |
+| **Ban list** (no bouncy easing, particle bursts, RGB split, lens flares, neon glow, dead time) | zero (@twoclipping) | `docs/craft.md` (*Not good* lists) |
 | **Deterministic `seek(t)`**: no CSS transitions, no timers, no state between frames | zero, PDoomVideo guide (via compendium) | the runtime contract: `draw(ctx, s)` is pure |
 | **Closed-form springs**, a sum of springs for re-targeted values | zero | `CV.spring`, `CV.springTrack` |
 | **Sub-frame motion blur** (render sub-frames, blend with `tmix`) | zero | `cv render --motion-blur 5` |
-| **Probe frames before the full render** and fix clutter or overlaps | zero, compendium tips | `cv still --sheet` + the §14 checklist |
+| **Probe frames before the full render** and fix clutter or overlaps | zero, compendium tips | `cv still --sheet` + `docs/motion-design.md` §9 |
 | **Beat grid**: every cut on a downbeat, every hit on a beat | zero | `s.when('word')` (narration) or `beat(n)` (BPM) |
-| **One-liners work, but vary a lot.** "Go all out" showreels | Leon Abboud, Deedy, Stephan Livera | Phase 1 fills in what the one-liner leaves out |
+| **One-liners work, but vary a lot.** "Go all out" showreels | Leon Abboud, Deedy, Stephan Livera | the questions fill in what the one-liner leaves out |
 | **TTS + bilingual captions + export in one go** | WY (@akokoi1) | Edge TTS + cue builder + `cv render` |
 | **Use real assets.** Give the model a gallery of files and paths | om_patel5 | `CV.image()`, and brand assets in the project folder |
 
@@ -114,23 +114,6 @@ No fades, no glow, no bounce. End on a resolved still, held 1 s. Square 1080×10
 
 ---
 
-## The internal "director's brief" (what the skill writes after Phase 1)
+## The brief
 
-After the discovery questions, write a brief like this into `<project>/BRIEF.md`. It drives the storyboard and makes later revisions cheap.
-
-```markdown
-# {Title}
-- Format: {1920×1080 | 1080×1920 | 1080×1080}, {30} fps, target {N} s
-- Audience / goal: {…} — the one thing they must remember: "{…}"
-- Style: {preset or custom}; accent {hex}; fonts {display + label}
-- Voice: {voice id}, rate {±%}; captions: {burn/soft/file}, style {box/outline/karaoke}
-- Pace: {calm | medium | punchy}; transitions: {1–2 types} + at most one special; signature move: {…}
-- Music: {feel in 3 words} · {bpm} BPM {key} {mode} · progression {…} · layers {instrument @ from-energy, …} · lead {instrument or none} (or: licensed file + its BPM); music-only moments: {pre-roll, breath before …, end card}
-- Assets: {logo.svg, screenshots/…}
-- Banned: {…}
-
-| # | Scene id | Voice line (or — music only) | Visual (focus) | Motion & sync (word / beat) | Exit | Transition in | Energy · sfx | ~s |
-|---|---|---|---|---|---|---|---|---|
-| 1 | hook | … (after 1 bar of music) | … | … on "word" | kicker leaves before the cut | — | 0.35 · — | 4 |
-| 4 | breath | — | the result alone | lands on beat 2 | — | iris from the number | 0.8 · shimmer | 3.6 |
-```
+The skill writes its own brief before building; the template and what goes into it are in [craft.md](craft.md), *The brief*.

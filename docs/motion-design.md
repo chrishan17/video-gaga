@@ -1,227 +1,107 @@
-# Motion design guide
+# Motion design
 
-This is the bar every video-gaga composition must clear. Read it before you write a single `draw()`.
+Motion does two jobs: it tells the eye where to look and what changed, and it gives the piece life and a character of its own. The two don't conflict. A slow push during a hold has a job (it keeps the shot alive while the viewer reads), and so does a word that slams up from a mask (it says "this one"). What has no job is motion added because a frame felt empty: wobbling text, random particles, everything pulsing to the beat. A frame that feels empty usually needs a better idea, not more movement.
 
-> **Motion exists to direct attention and explain change.** If you can't say what a move tells the viewer, it doesn't belong in the video. A cool move that serves the content is great. A cool move that exists only to be cool is noise.
->
-> **But don't be timid.** A video where every scene is "text fades in, holds, gets pushed off" is monotonous, and it looks cheap next to what people scroll past every day. Aim for full, designed motion:
->
-> - **Every frame is alive.** During a hold the camera still travels (a 5–10% push, a slow pan, parallax across a foreground, the subject and a background) and the background has quiet life that belongs to the concept (light sweeping, paper fibres, drifting shapes, a slowly rotating grid). Nothing sits perfectly still for more than about a second, except the final poster frame.
-> - **Type with character.** Titles and key lines arrive per word or per character with masks, scale, blur and a little overshoot; numbers roll; underlines draw on; the payoff word gets its own move.
-> - **Layers.** Build each shot from 3+ layers (background texture, supporting shapes, the hero, small accents) that move at different speeds and arrive in a cascade, so a single beat reads as a rich moment.
-> - **Signature moves.** Give each video 3–5 moves that make it memorable *and* explain something: a camera that follows the head of a growing line, an iris that opens from the key number, a match cut, a 3D turn that shows the back of the product, a list that lands on the beat, a type burst on the payoff.
-> - **On the music.** Land entrances, cuts and accents on beats; let the energy of the motion follow the score's energy.
->
-> Rich is not cluttered: there is still one focal point at a time, and the richness lives in the layers around it.
+Aim for motion that looks designed by a person with taste: a clear focal point, layers moving at different speeds, moves with weight and timing, cuts on action. Look at studio work you admire and ask how they would move this.
 
----
+## 1. A well-made scene
 
-## 1. The five questions (answer before animating)
+- **One idea, one focal point at a time.** At every moment the eye knows where to go; everything else is quieter (smaller, dimmer, slower).
+- **Things arrive in the order the viewer needs them:** subject before detail, cause before effect, question before answer, axis before data.
+- **Every animated property means something:** an arrival, an emphasis, a transformation, a relationship or a departure.
+- **Hits land** on a spoken word (`s.when('word')`), a beat (`s.onBeat(i)`), or the end of the previous move.
+- **It leaves on action.** Secondary elements are gone before the cut (`s.out()`, `exit:` on reveals) and the hero is carried by the transition. A scene that is only shoved off by the next one feels like a slideshow.
 
-1. **What is the one idea of this scene?** One scene, one idea. If you need "and", you need two scenes.
-2. **Where should the eye be, second by second?** At any moment, exactly one element should be the focus. Everything else is quieter (smaller, dimmer, still).
-3. **In what order does the viewer need the information?** Reveal in *reading and causal* order: the subject before the detail, the cause before the effect, the question before the answer, the axis before the data.
-4. **What changes, and why?** Every animated property should map to a real change: arrival, emphasis, transformation, relationship, or departure.
-5. **When does it land?** Tie every important visual hit to a beat: a spoken word, a music beat, or the end of the previous move.
+## 2. Easing: the hand of the video
 
----
+| Intent | Runtime name | Feel |
+|---|---|---|
+| arrives and settles | `ease.enter` | fast in, long settle. The default for reveals |
+| moves A → B | `ease.standard` | quick start, soft landing |
+| leaves | `ease.exit` | accelerates away; exits are shorter than entrances |
+| snap, push, cut on action | `ease.swift` | anticipation, then a snap |
+| ambient drift, breathing light | `ease.gentle`, `inOutSine` | slow, low amplitude, never the main event |
+| physical objects | `CV.spring(spring.presets.…)` | real weight and overshoot; `CV.springTrack` for a value that re-targets |
+| mechanical things | `linear` | tickers, clocks, conveyor grids only |
 
-## 2. Easing — the texture of motion
+Choose one family per video so the motion has a consistent hand. Heavy things move slowly and settle long; light things snap. Overshoot belongs to objects and titles, not to numbers or data, which look wrong when they wobble.
 
-Nothing in the real world starts or stops instantly. Pick easing by *intent*, not by habit:
+## 3. Principles that make motion feel made
 
-| Intent | Easing (runtime name) | Curve | Notes |
-|---|---|---|---|
-| Element **arrives** and settles | `ease.enter` | `cubic-bezier(.05,.7,.1,1)` | Fast in, long gentle settle. Default for reveals. |
-| General UI or graphic **move** A→B | `ease.standard` | `cubic-bezier(.2,0,0,1)` | Quick start, soft landing. |
-| Element **leaves** | `ease.exit` | `cubic-bezier(.3,0,.8,.15)` | Accelerates away. Exits are ~30% shorter than entrances. |
-| **Punchy** scene move, camera push, cut-on-action | `ease.swift` | `cubic-bezier(.55,0,.1,1)` | Strong anticipation, then a snap. |
-| Ambient drift, breathing glows | `ease.gentle` / `inOutSine` | symmetric | Slow and low amplitude. Never the main event. |
-| Physical objects, UI toggles | `CV.spring(spring.presets.snappy)` | closed-form spring | Use `smooth` for no overshoot. Use `bouncy` rarely. |
-| Constant motion (tickers, scrolling grids, clocks) | `linear` | — | Only for things that are *meant* to be mechanical. |
+- **Anticipation and follow-through.** A small move against the direction before a big one; a settle, a lag or a secondary wobble after it. This is the difference between an object and a rectangle.
+- **Overlap and cascade.** Related elements arrive staggered, with parts of one object trailing the lead part. A cascade of three layers reads as one rich moment; three separate events read as clutter. Stagger tightly (tens of milliseconds) so they belong together.
+- **Contrast of speed.** Fast against slow is what gives rhythm: a quick hit, then a long drift; a burst of three cuts, then a held shot. Constant speed is flat.
+- **Arcs.** Natural motion travels on curves. Straight-line moves read as UI.
+- **Depth.** Build shots from layers (background, supporting shapes, the hero, small accents) that move at different rates, so even a hold has parallax.
+- **Holds are alive, not frozen.** During a hold the camera still drifts, light moves, texture breathes. Only the final poster frame sits perfectly still.
+- **Signature moves.** Give each video a few moves that are its own and that explain something: the camera following the head of a growing line, an iris opening out of the key number, a match cut where one shape becomes the next, the visual device ([craft.md](craft.md), *Picture*) transforming. These are what people remember.
 
-**Do**
-- Match easing to the metaphor: heavy things (`heavy` spring) move slowly and settle long, light UI snaps.
-- Keep one easing family per video so the motion has a consistent "hand".
-- For values that change target several times, use `CV.springTrack` (a sum of springs). It stays a pure function of time.
+## 4. Readability
 
-**Don't**
-- `linear` on things that arrive or leave. It reads as a computer, not as design.
-- Elastic or bounce easing on text or data. Overshoot on a number makes it look wrong.
-- Easing in *and* out on every element. Arrivals decelerate and departures accelerate.
+Motion is wasted if the viewer can't read what lands.
+- Something meaningful is visible or moving within the first ~0.3 s; vertical social video needs the hook in the first second.
+- Hold every information beat at least ~1 s after it lands (longer for numbers and charts) before anything competes with it. Use `tail` so the last beat isn't cut off.
+- On-screen text that isn't spoken needs reading time: roughly 4–5 CJK characters or 3 English words per second.
+- Nothing smaller than ~24 px on a 1080p frame. Keep critical content inside the title-safe 90%, and clear of the caption zone (bottom ~12% at 16:9; the lower 18% and right 12% at 9:16 for platform UI).
 
----
+## 5. Camera
 
-## 3. Timing — durations that feel right
+A virtual camera (`CV.draw.camera`) turns a layout into a shot. Keep camera motion slower than content motion, but keep it moving.
 
-At 30 fps, one frame is 33 ms. Durations scale with distance and size:
-
-| Move | Duration |
+| Move | Says |
 |---|---|
-| Micro feedback (tick, highlight, underline) | 150–250 ms |
-| Small element enters (label, icon, caption word) | 250–400 ms |
-| Headline line reveal | 500–800 ms |
-| Large element or panel moves across frame | 600–900 ms |
-| Scene transition | 400–800 ms (cuts: 0) |
-| Camera push-in over a hold | the whole shot (slow, 2–6% scale) |
+| push-in over a hold | importance, intimacy, "look closer" |
+| arrive-push on entry | the hero appears |
+| pan / track | the next item is related, in the same space |
+| pull-out | context, the bigger picture |
+| parallax drift | depth and life |
+| match cut | continuity: shape A becomes shape B |
+| a short, damped shake | a literal impact, once |
 
-- **Stagger** related items by 40–90 ms (characters 30–60 ms, list rows 80–140 ms). Staggers longer than 150 ms read as separate events.
-- **Hold.** After an information beat lands, hold it for **at least 1.0 s** (1.5 s+ for numbers and charts) before anything competes with it. The viewer needs time to read. Use `tail` on scenes so the last beat isn't cut off.
-- **Reading time.** Budget ≈ 4–5 CJK characters/s or ≈ 3 English words/s of on-screen text that isn't also being spoken.
-- **The first second matters.** Something meaningful must be visible or moving by 0.3 s. Social verticals need the hook in the first second.
-- Total length: say it in the shortest time that still breathes. Cut words before you speed up the voice.
+## 6. Cuts and transitions
 
----
+A cut on the beat is the default and almost always works. Every other transition says something, so choose it for what it says and keep the vocabulary small (one or two types, plus at most one special move for the biggest change). The full list is in [runtime-api.md](runtime-api.md#transitions).
 
-## 4. Rhythm & pacing
+| Transition | Says |
+|---|---|
+| `cut` | the default: energy, continuity, anything on a beat |
+| `fade` / dissolve | time passes, a mood shifts, the ending |
+| `dip` to black or colour | a chapter break, a reveal after a hook |
+| `push`, `whip` | next, in sequence (whip: with energy) |
+| `wipe`, `stripes`, `blinds` | graphic and editorial energy, a grid |
+| `iris` | a focus point grows into the next scene (once) |
+| `ink`, dissolve | memory, an idea spreading |
+| `zoom`, `zoomBlur` | going into something |
+| `split` | the frame opens onto a reveal |
+| `flash` light leak | warmth, a premium reveal |
+| `glitch`, `pixelate` | digital worlds only, short |
+| custom (a paper slide, a morph, a handscroll) | the style's own physical metaphor |
 
-- **Build on a beat grid.** Set `music: { bpm, … }` and the runtime puts every cut and every voice onset on the grid. Inside a scene, the words are the fine grid (`s.when('word')`) and the beats are the coarse one (`s.onBeat(i)`, `s.nextBeat(t)`): voiced hits follow the words, music-only moves follow the beats.
-- **Vary density.** Alternate fast clusters (a burst of 3 hits) with rests (a hold, a slow push). Constant intensity feels flat. Raise the scene `energy` where the story climbs and drop it before the payoff.
-- **Leave room.** Plan music-only moments: a pre-roll before the first word, a held beat after the big number, an end card that rings out. See [music-and-sound.md](music-and-sound.md) §5.
-- **Cut on action.** Start a transition while something is moving, not after everything has stopped dead.
-- **Exits.** Every element that enters should leave in a way that matches its entrance (rise in → rise out, draw on → draw off, or simply stay and be carried by the transition). Use `s.out(d, ease.exit, overlap)` to drive exits in the last moments of a scene. Secondary elements (kickers, footnotes, labels) leave first, 0.3–0.5 s before the cut; the hero is carried by the transition. Exits are ~30% faster than entrances.
-- **Beat accents are seasoning.** `s.pulse()` may breathe a dot, a glow or a cursor on the beat. Never pulse whole layouts or text.
-- **End on a still.** The final frame is a poster: the logo or conclusion fully resolved, held ≥ 1 s while the final chord rings.
+With music on, each transition plays its natural sound at its midpoint, which lands on the beat.
 
----
+## 7. Type in motion
 
-## 5. Hierarchy — one focus at a time
+- Animate lines or words for anything longer than a title; per-character reveals are for a hero word.
+- Mask reveals (`fx.lineReveal`), scale and blur arrivals, tracking that closes in on one word, a highlighter or underline that draws on: these look designed. A plain opacity fade looks default.
+- Reveal words as they are spoken (`fx.wordReveal({ sync: s })`). Numbers count up (`fx.countUp`, `fx.roll`) and then hold, with the unit arriving with or after the number.
+- CJK: wrap with `CV.text.wrap` (kinsoku-aware), don't letter-space body text, and prefer short lines with a deliberate break.
 
-- **Scale, weight, colour, motion, position** are the levers. Motion is the loudest, so when something new moves in, everything else should be still.
-- **Subtract to emphasise.** Dim what's already been said (see the Swiss preset's final ledger, where nine rows recede and row 10 turns red). This is stronger than enlarging the new thing.
-- **Accent colour is a pointer.** Use it for *the one thing*: the number, the answer, the brand. If everything is accent-coloured, nothing is.
-- Text sizes on a 1080p frame: headline 90–160 px, key number 150–260 px, body 40–56 px, labels 24–32 px (mono or tracked caps). Nothing below 24 px.
-- **Safe areas.** Keep critical content inside 90% of the frame (title-safe). Keep captions clear of content: bottom 10% for 16:9, and for 9:16 keep the lower 18% and right 12% clear for platform UI.
+## 8. Sound and picture
 
----
+- The voice sets the clock. Visual hits are pinned to their words; a visual may lead the word slightly (the eye is faster than the ear) but should not trail it.
+- The music sets the pulse. Cuts and the first syllable of every line land on the grid; music-only moves follow the beats. Let the energy of the motion follow the score's energy.
+- Beat accents are seasoning: a dot, a glow or a cursor may pulse; whole layouts and text never do.
+- Sound effects mark what matters: a transition, a counted item, the one big reveal. Not every element.
 
-## 6. Camera language
+## 9. What holds on every probe
 
-A virtual camera (`CV.draw.camera`) turns a flat layout into a shot:
-
-| Move | Meaning | How |
-|---|---|---|
-| **Push-in** (zoom 1.00→1.08 over a hold) | importance, intimacy, "look closer" | `zoom: lerp(1, 1.08, ease.inOutSine(s.p))` |
-| **Parallax drift** | depth and life during a hold | move background, mid and foreground layers at 0.3×, 0.6× and 1× of one slow camera offset |
-| **Arrive-push** (0.9→1 on entry) | the hero appears | `ease.enter`, 1–1.5 s |
-| **Pan / track** | move to the next item in space, show that items are related | translate the camera, not every element |
-| **Pull-out** | reveal context, "the bigger picture" | zoom < 1 at the end of a sequence |
-| **Match cut** | continuity: shape A becomes shape B | end A and start B with the same shape in the same place (Swiss: the square becomes the full stop) |
-| **Whip / push transition** | energy, sequence | `push` transition with `ease.swift` |
-
-Keep camera motion slower than content motion, but keep it moving: a locked-off camera on a still layout reads as a slide. Never shake the camera for "energy" unless the story is literally an impact (a hit on the beat can earn a short, damped shake).
-
----
-
-## 7. Transitions — each one means something
-
-| Transition | Use it when | Avoid when |
-|---|---|---|
-| **Cut** | the default. On a beat, between related shots, anything energetic | — |
-| **Fade / crossfade** | time passes, mood shifts, the ending | between every scene (it turns mushy) |
-| **Dip to black/colour** | a chapter break, a reveal after a hook | fast sequences |
-| **Push / slide** | sequential steps, "next" | unrelated topics |
-| **Whip** (`whip`) | a fast "next" with motion blur: social, energetic lists | calm pieces, more than every other cut |
-| **Wipe** | a graphic, editorial energy (angled, with a colour edge) | calm pieces |
-| **Stripes** (`stripes`) | brand-coloured bands sweep the frame: pop, promos | serious topics |
-| **Blinds** (`blinds`) | structured, typographic, grid-based styles | organic styles |
-| **Split** (`split`) | the old frame opens onto a reveal (doors) | sequences |
-| **Clock** (`clock`) | time passing, a process cycle | more than once |
-| **Iris** | a focus point grows into the next scene (open from the key number) | more than once per video |
-| **Ink / dissolve** | organic spread, memory, an idea taking hold | crisp tech pieces |
-| **Zoom through** (`zoom`, `zoomBlur`) | going "into" something (an idea, a product) | lateral moves |
-| **Cube / flip** | rotating to the next face of a topic, a before/after card | more than one per video |
-| **Light leak** (`flash`) | warmth, a premium reveal, film looks | data, UI |
-| **Glitch / pixelate** | digital or cyber aesthetics only, ≤ 0.4 s | anything serious or calm |
-| **Custom (paper slide, morph)** | the style has a physical metaphor | if it costs readability |
-
-Use **one or two** transition types per video, plus at most one special for the single most important change (for example an iris out of the payoff number). Consistency is style. With music on, every transition plays its natural sound at its midpoint, which lands on the beat.
-
----
-
-## 8. Information reveal order
-
-- **Frame, then content.** Axes before data. Container before items. Question before answer.
-- **Build equations term by term** on the spoken words (the explainer's `72 ÷ 8% = 9`).
-- **Draw lines in reading direction** (left→right, top→bottom), and draw charts in the direction time flows.
-- **Numbers count up** over 0.6–1.2 s with `ease.outQuart`, then hold. Show units and labels *with* or *after* the number, never before it.
-- **Label on arrival.** A marker gets its label as it appears, not in a batch at the end.
-- **Never reveal what you'll immediately hide.** If it's on screen, it should matter.
-
----
-
-## 9. Typography in motion
-
-- Animate **lines or words, not letters**, for anything longer than a short title. Per-character reveals are for a hero word.
-- **Mask reveals** (text rising out of an invisible box, `fx.lineReveal`) look designed. Plain fade-ins look default.
-- **Tracking animation** (wide → tight) is a strong move for a single display word.
-- **CJK:** use `CV.text.wrap` (kinsoku-aware, never starts a line with `，。！？`). Don't letter-space Chinese body text. Chinese headlines hold 8–12 characters per line at 110–150 px.
-- Use font weights for hierarchy (900/700/400). Two families maximum: display + mono/label.
-- Specify the webfonts in `<link>`. The runtime waits for every font and glyph actually drawn. The render warns if a font fell back.
-
----
-
-## 10. Colour & atmosphere
-
-- **One dominant field, one accent, one neutral.** Add a second accent only if it has a job (for example coral = the point, teal = the evidence).
-- Add depth with gradients, vignettes and a touch of grain (`draw.grain` 0.03–0.06), not with drop shadows everywhere.
-- Grain also prevents gradient banding after H.264 compression.
-- Light and dark themes are both valid. Choose by content and mood, not by default.
-
----
-
-## 11. Sound ↔ picture
-
-- **Narration drives the timeline.** Scene duration comes from the voice (`voiceDelay + speech + tail`). Never cut a voice line mid-word.
-- **Sync visual hits to words** with `s.when('phrase')`: the number counts up *as it is said*, the term appears *as it is named*. A visual may lead the word by 0–150 ms (the eye is faster than the ear). It should never trail by more than 200 ms.
-- Leave 150–300 ms of air before the first word of a scene, and 400–800 ms after the last one.
-- **Music is on by default.** You design a score for each video (`music: { bpm, key, mode, progression, layers, lead }`) and it is arranged from the timeline: it dips 12 dB under speech, plays its melody only in the gaps, crashes into rising sections and resolves on the last downbeat. Design it from the content's emotion, not from the visual preset. See [music-and-sound.md](music-and-sound.md) §2.
-- **Sound effects mark what matters**: transitions whoosh, counted items tick, the one big reveal gets a `hit` (the music breathes for half a beat before it). Never put a sound on every element.
-- Balance: the bed sits 10–18 dB under the voice while it speaks. `cv render` measures it.
-
----
-
-## 12. Captions (subtitles)
-
-- Burned-in captions are part of the design. Use the preset's typography, keep contrast ≥ 4.5:1 (box or stroke), and place them consistently.
-- One line of CJK per cue (≤ 18 characters for 16:9, ≤ 12 for 9:16). English ≤ 42 characters per line.
-- Chinese captions drop commas and full stops (spaces instead) and keep `？！`.
-- A cue must be on screen ≥ 0.8 s and must never overlap with the next cue.
-- Karaoke highlight (word-level) suits social shorts. Plain captions suit explainers and brand pieces.
-- Don't say the same words twice on screen. When the narrator's line is already set as type (a title question, the closing tagline), or the picture already shows what is heard, the type replaces the burned caption. Use `captions: 'file'` so the line still reaches the .srt/.vtt.
-
----
-
-## 13. Anti-patterns ("motion slop") — do not ship
-
-- ❌ Everything fades in at once from opacity 0 over 1 s, with the same ease and the same delay.
-- ❌ Constant floating/bobbing of every element "to feel alive" (life comes from the camera, light and layered entrances, not from wobbling text).
-- ❌ Static frames: a layout that sits perfectly still for more than ~1 s with no camera drift, no background life and nothing arriving.
-- ❌ Particle bursts, lens flares, shockwave rings, RGB split, camera shake, used as decoration.
-- ❌ Bouncy or elastic easing on text, numbers or UI chrome.
-- ❌ Crossfades between every scene. Random transition types in one video.
-- ❌ Neon-glow-on-dark as a default, or purple→blue gradients as a default. Choose them only if the brief calls for them.
-- ❌ Text on screen for less time than it takes to read it, or text that's never given focus.
-- ❌ Numbers that never hold, or charts without axes and units.
-- ❌ Visuals that ignore the narration (the chart draws before the voice mentions it, or long after).
-- ❌ Dead air at the end, or cut-off voice at the end.
-- ❌ Wall-to-wall narration with no music-only moment, or a dry voice with no music bed.
-- ❌ Scenes that only enter and hold, then get shoved off: no exits, no cut on action.
-- ❌ Everything pulsing to the beat, or a sound effect on every element.
-- ❌ 3D for decoration (a spinning logo that could be flat).
-- ❌ More than 3 flashes per second, or big full-screen luminance flicker (photosensitivity).
-- ❌ Internal words on screen: "Scene 1", "Title here", "preset", "Option A", placeholders.
-
-## 14. Quality checklist (run on the probes before the full render)
-
-- [ ] Each scene has one clear focal point in every probe frame.
-- [ ] Nothing overlaps unintentionally, and no text collides with the caption zone.
-- [ ] Every word on screen is readable at the probe's size and holds long enough.
-- [ ] Visual hits land on their spoken words (check `when()` targets).
-- [ ] Transitions are consistent, the cut lands on action, and the last frame is a resolved still.
-- [ ] The middle probe of every scene shows motion in progress (a drifting camera, background life or a layer arriving), and the video has 3–5 signature moves.
-- [ ] Secondary elements exit before the cut; nothing pops off abruptly.
-- [ ] At least one music-only moment; `cv music` shows energy rising and falling with the story.
-- [ ] The render reports the music 10–18 dB under the voice and sync < 120 ms median.
-- [ ] Fonts loaded (no fallback warning) and CJK line breaks are clean.
-- [ ] The video fits the requested length, and the voice isn't rushed.
+This is the floor, not the bar: it rules out broken output. Whether the video is good is described in [craft.md](craft.md).
+- [ ] One clear focal point in every probe frame; nothing overlaps by accident; no text in the caption zone.
+- [ ] Every word on screen is readable at the probe's size and holds long enough to read.
+- [ ] Visual hits land on their spoken words (check the `when()` targets).
+- [ ] Nothing internal on screen: no "Scene 1", "Option A", preset names, placeholders or file names.
+- [ ] Secondary elements leave before the cut; nothing pops off abruptly.
+- [ ] The middle probe of each scene shows motion in progress.
+- [ ] The last frame is a resolved still held ≥ 1 s.
+- [ ] Fonts loaded (no fallback warning); CJK line breaks are clean.
+- [ ] No more than 3 flashes per second and no big full-screen luminance flicker (photosensitivity).

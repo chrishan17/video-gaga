@@ -62,43 +62,21 @@ CV.create({
 | `ending` | `'resolve'` | `'resolve'` lands the tonic chord on the last downbeat and lets the score's own instruments ring. `'none'` lets the groove run to the end |
 | `file` | — | A licensed track instead of the generated score (side-chain ducked, faded) |
 
-The thirteen presets each carry the score designed for their own example video. Read them as worked examples of the spec, not as styles to reuse: a new video gets a new score.
+Each preset's example video carries a score written for that video. Read one only to see the spec in use; start every new score from this brief (§2.1).
 
 ## 2. Designing the score
 
-### 2.1 From the brief to the sound
+### 2.1 From a sound to a spec
 
-Aim for what people hear in good short videos today: **a produced track with a groove and a hook**, not a sound bed. It has a clear pulse early on (a kick and a clap or snare, or a rhythmic piano or guitar figure), a bass that locks with the kick, one or two harmonic instruments with a character that fits the subject, and a memorable melody in the gaps. It builds, peaks, and lands. Quiet and serious subjects still move: a felt piano ostinato and brushed drums are calm, but they are not a drone.
+What a good score sounds like is in [craft.md](craft.md), *Sound*: produced, with a reference you can name, a hook, and an arc that follows the story. This section is how that sound becomes a spec.
 
-Design from the **content's emotion and the audience**, not from the visual preset. Decide these in order, and say them in one line in the storyboard (Phase 3) and in the music question (Phase 1):
+**A reference** is a genre, an era, an artist or a soundtrack that a music supervisor would license for this exact video ("Joe Hisaishi strings over a felt piano", "lo-fi hip hop with a dusty Rhodes", "2010s indie folk, hand claps and a stomp", "city pop bass and bright keys", "Nils Frahm, a repeating piano figure that grows", "trap hats and an 808 under a koto line", "bossa nova guitar, brushes"). It comes from the story's feeling and the audience, not from the visual preset or the subject: a video about running can be a lazy bossa nova. Translate it into tempo, mode, a progression, the instruments that carry that sound (§2.2), a groove pattern and swing.
 
-1. **Feeling in three words** ("curious, bright, trustworthy"; "tense, then relieved"; "warm, homemade").
-2. **Tempo** from the pace of the edit and the voice:
+**The hook** is a layer: a one- or two-bar `pattern` with `notes` (an arpeggio, a bass line, a plucked riff, a chord rhythm) that plays from the first scene. The `lead` answers it in the gaps (§2.3).
 
-   | Feel | BPM |
-   |---|---|
-   | reflective, wellness, documentary, cinematic | 70–90 |
-   | clear, friendly, explanatory, warm | 90–110 |
-   | upbeat, social, lifestyle, promotional | 110–126 |
-   | urgent, hype, sport, gaming | 126–150 |
+**The arc** is the scenes' `energy` against each layer's `from`: a layer enters in every bar whose energy reaches its `from`. So the energy values are the arrangement: low where the story holds its breath, the groove in early, a change at the turn (more layers, or all but one falling away, or a new `part`), and a landing.
 
-3. **Mode** for the colour: `major` bright and open (most videos); `lydian` wonder, space, lift; `mixolydian` relaxed, sunny, a little rough; `dorian` cool, minimal, confident; `minor` serious, cinematic, premium-dark; `phrygian` tense, exotic, ominous (rarely). Vary the key between videos: there is no default key.
-4. **Progression**: 4 chords suit most videos. Loops that work: `[0, 4, 5, 3]` (I–V–vi–IV, anthemic), `[5, 3, 0, 4]` (vi–IV–I–V, pop), `[0, 5, 3, 4]` (I–vi–IV–V, warm), `[0, 3, 5, 4]` (lydian/major float), `[3, 4, 0, 0]` (IV–V–I, uplifting), `[0, 5, 2, 6]` (minor, cinematic), `[0, 0, 5, 6]` (dorian vamp). `chordBars: 2` slows the harmony for calm pieces. A single chord (`[0]`) is a drone: avoid it for a whole video.
-5. **Instruments** that belong to the subject. Two or three pitched timbres plus drums is plenty, and one of them is the signature sound:
-
-   | Subject / feel | Instruments that work |
-   |---|---|
-   | warm, human, lifestyle, story | `piano` or `felt`, `guitar` / `acoustic`, `strings`, `kit: 'room'` or `'brush'` |
-   | tech, product, startup | `epiano`, `synthpad`, `bass` `kind: 'synth'`, `bell` `kind: 'vibes'` or `'glock'`, `kit: 'electronic'` or `'808'` |
-   | playful, kids, food, how-to | `bell` `marimba` / `kalimba` / `xylophone`, `pizz`, `acoustic`, `clap`, `kit: 'room'` |
-   | cinematic, documentary, history | `strings`, `piano` or `felt`, `cello`, `horn`, `timpani` hits, `kit: 'orchestra'` |
-   | Chinese / East Asian themes | `koto` (guzheng-like), `shakuhachi` or `flute`, `bell` `celesta`, `strings`, soft `kit: 'brush'` |
-   | hype, sport, gaming | `synthbrass` or `brass` stabs, `lead` saw arps, `bass` `kind: 'synth2'`, `kit: 'power'` or `'808'` |
-   | luxury, calm premium | `felt`, `strings`, `harp`, `bass` `kind: 'upright'`, `kit: 'jazz'` with ride |
-
-6. **The build**: assign each layer a `from` energy so the score grows with the story, typically in 3–4 tiers: the harmonic figure (`from: 0`), then bass (≈0.3), then the groove (≈0.45), then the lift (16th shakers, open hats, arps at ≈0.65–0.8). Then give scenes `energy` values that follow the emotional arc, **mostly between 0.4 and 0.9**: the groove should be in by the second scene of a 30 s piece. Keep one or two low-energy moments for contrast, not the whole first half.
-
-**What sounds cheap or creepy, and why:** a sustained pad or strings alone for long stretches (a drone), a low `tom` as the only pulse (a horror-film heartbeat), `minor`/`phrygian` with slow chords and lots of reverb, melodies that never resolve, and every scene at low energy. `cv music` warns about the first two.
+Say it in one line in the brief: *feel in three words · reference · BPM key mode · the hook · how it builds*.
 
 ### 2.2 Layers
 
@@ -140,8 +118,7 @@ And these are **design rules** (warnings from `cv music`, and things to check yo
 - Layers enter with energy (`from`), so the score builds and breathes with the story rather than playing flat.
 - Leave the voice its band: keep busy parts (arps, 16ths) at `from` ≥ 0.45 or in music-only scenes, and prefer piano, guitar, bass and soft drums under narration.
 - Balance by numbers: in `cv music`'s `mix:` line, drums usually sit around −4 to −8 dB of the whole when the groove is in, the lead around −10 to −15, and the reverb below −10 (above that it washes out).
-- One signature sound per video (a marimba ostinato, a felt-piano arpeggio, a koto line, a saw arp), not five.
-- Ask, don't assume: in Phase 1 offer three concrete score designs for *this* brief (one recommended), e.g. "A. 104 BPM A major, felt piano arpeggios + nylon guitar + brushed kit, glockenspiel melody (recommended: warm and homemade, like the topic)".
+- One signature sound carries the identity (the hook's instrument); the rest supports it.
 
 ### 2.5 Parts: a long score in chapters
 
@@ -207,7 +184,7 @@ sfx: [
 | `type` | a key press | typewriter text (one per character burst, not per letter) |
 | `glitch` | stuttered digital bursts | glitch transitions, cyber styles only |
 
-**Restraint.** Sound effects follow the same rule as motion: each one marks something that matters. A good budget is one per transition, a tick per counted item, and **at most one `hit`** per video.
+**Each one marks something that matters,** like motion does: a transition, a counted item, the big reveal. A `hit` is strongest when it is the only one in the video.
 
 ## 5. Pacing: let it breathe
 
