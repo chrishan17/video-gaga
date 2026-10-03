@@ -1,68 +1,99 @@
-# Craft
+# What good looks like
 
-The runtime can draw anything. Whether the video is any good is decided by four crafts (story, picture, motion and sound) and by how hard you look at your own work before you hand it over. This file covers the story, the picture and the review loop. Motion has its own guide ([motion-design.md](motion-design.md)), and so does the score ([music-and-sound.md](music-and-sound.md) §2).
+This page describes the finished video you are aiming for, not the steps to get there. Get there however you like. Before you deliver, hold the real output (the frames, the motion, the score report, the encode) against it, and keep going until the video meets it.
 
 The bar is what people scroll past every day: work by good studios, editors and creators. A video that is only correct (on time, readable, in sync) still looks like a template next to that.
 
-## 1. Story
+## The whole
 
-**Find the specific thing.** "Why I run every day" told with a sunrise, a pair of shoes and the word 坚持 is every video on the topic. Ask whose story it is, which moment, which object, which number. Specific beats general every time: 5:40 on a dark street, the third lamp post where the lungs give up, a phone that shows 2.1 km on the day it all started. One true, odd detail makes a viewer believe the rest.
+A good video is about one thing and is told by someone. After 30 seconds the viewer can say what it was about in a sentence, remembers one image and one line, and felt something change between the start and the end. It could not be swapped for another video on the same topic.
 
-**Write three angles, then choose.** Before any storyboard, write three different one-line concepts for the same brief: say, a confession, a counter-intuitive claim, and one object followed through time. Keep the one that has tension *and* a picture. Note the other two in the brief so the user can see the choice.
+Not good: a sequence of true statements with pictures, which is a slideshow with music. A video whose every part is fine but which leaves nothing behind.
 
-**Give it a shape**, even at 15 seconds:
-- an opening that makes the viewer want something: a question, a gap, a small mystery, a problem they recognise;
-- a **turn**: the moment something changes (a reversal, a reveal, a reframe). A video without a turn is a list;
-- a landing that pays off the opening. A callback (the first image, changed) closes the loop better than a moral.
+## Story
 
-**Words and pictures split the work.** The narration says what the picture can't, and the picture shows what words would make dull. If the voice describes the image on screen, one of them is wasted.
+**Good**
+- It is specific: a person, a moment, an object, a number. 5:40 on a dark street, the third lamp post where the lungs gave up, 0.12 km on day one. One true, odd detail makes the viewer believe the rest.
+- It has a shape: an opening that makes the viewer want something (a question, a gap, a problem they recognise), a **turn** where something changes (a reversal, a reveal, a reframe), and a landing that pays off the opening, often by bringing back the first image, changed.
+- The angle is a choice. Of the several ways to tell it (a confession, a counter-intuitive claim, one object followed through time), it is the one with tension and a picture.
+- Every line is concrete and sounds like a person talking to one person. One line is worth repeating, and it lands with silence before it.
+- Words and pictures split the work: the voice says what the picture can't, and the picture shows what words would make dull.
+- When the brief is only a topic, the invented specifics are plausible, humane and modest, and they are listed as assumptions the user can swap for their own. Facts, figures and quotes are real and sourced.
 
-**Concrete words, no slogans.** Cut any line that could close any advert: 梦想, 坚持, 改变, 未来, 成就更好的自己, "unlock", "journey", "seamless", "the future of …". Replace it with a thing that happened, a number or an image. Write like a person talking to one person.
+**Not good**
+- Lines that could close any advert: 梦想, 坚持, 改变, 未来, 成就更好的自己, "unlock", "journey", "seamless".
+- A list with no turn. A moral at the end instead of an image.
+- The voice describing what is already on screen.
+- Facts invented about real people or products.
 
-**One line worth repeating.** Every video needs a sentence someone would quote. Put it at the turn or at the end, and give it silence before it lands.
+[examples/take-your-time/BRIEF.md](../examples/take-your-time/BRIEF.md) is a story at this level: a specific person, a device that carries the story, a turn, a callback.
 
-**When you only get a topic,** invent the specifics: a person, a moment, a detail. Make them plausible and humane, keep them modest, and list them as assumptions so the user can swap in their own. Never invent facts, figures or quotes about real people or products; data must be exact and sourced.
+## Picture
 
-[examples/take-your-time/BRIEF.md](../examples/take-your-time/BRIEF.md) is a brief at the level to aim for: a specific person, a device that carries the story, a turn, a callback.
+**Good**
+- One visual idea carries the video: a device that recurs and changes as the story moves. A red caret that is a man's voice and a red slab that is the wall in front of it. A grey world where one colour survives and floods back. A roll of film with 35 of 36 frames shot. A row of street lamps. Scenes are moments in the life of the device, not slides about the topic.
+- Every frame would work as a poster: scale contrast (one thing huge, the rest small), deliberate empty space, crops that run off the edge, asymmetry, a clear grid, one place the eye goes first.
+- Type is image: one word filling the frame, weight contrast, tracking and line breaks chosen for the word that matters.
+- Shots vary the way an editor varies them: wide, close and extreme close; dense and empty. When two scenes share a layout, it is on purpose (a match cut, a before and after).
+- The palette is small, so colour can carry meaning: the accent marks the one thing that matters, and a shift of the whole palette marks a shift in the story.
+- Light and contrast let the subject read at a glance, even in a dark, moody piece.
 
-## 2. Picture
+**Not good**
+- A centred title over a centred subtitle on every frame.
+- The subject too small or too dark to read in the first second.
+- The generic AI look: purple-blue gradients, neon on dark, glass cards, floating blobs, icons in circles, emoji, stock-looking illustration, unless the brief truly asks for it.
+- A preset's example video with the words swapped.
 
-**One visual idea carries the video.** Before you design scenes, find the device: a metaphor or object that comes back and changes as the story moves. A red caret that is a man's voice and a red slab that is the wall in front of it. A grey world where one colour survives and then floods back. A roll of film with 35 of 36 frames shot. The device turns the story into pictures, and it is what people remember. Scenes are moments in the life of the device, not slides about the topic.
+Aim at work you admire and borrow its thinking, not its look: title design (Saul Bass, Kyle Cooper, Elastic), motion studios (Buck, ManvsMachine, Oddfellows, Ordinary Folk, Giant Ant), editorial motion (Vox, The New York Times, Kurzgesagt), Swiss posters (Josef Müller-Brockmann), Apple product films, and Chinese visual traditions (留白 in ink painting, 书法, 1930s Shanghai posters).
 
-**Design every frame like a poster.** Strong frames have scale contrast (one thing huge, the rest small), deliberate empty space, a crop that runs off the edge, asymmetry and a clear grid. A centred title over a centred subtitle on every frame is a slide deck.
+## Motion
 
-**Type is image.** One word filling the frame is stronger than a sentence at body size. Set type with intent: weight contrast, tight or wide tracking, a line break that lands on the right word.
+**Good**
+- Every move has a job (it points, explains a change, gives a hold life) and the screen is never dead.
+- Moves have weight: anticipation, a snap or a long settle, follow-through, arcs. Related elements arrive as one cascade.
+- Speed has contrast: a quick hit then a long drift, a burst of cuts then a held shot.
+- Holds stay alive with a travelling camera, moving light, parallax between layers.
+- Cuts happen on action; secondary elements leave before the cut.
+- A few signature moves that belong to this video, usually the device transforming, are what people remember.
+- Hits land on their words and beats.
 
-**Edit like a film editor.** Vary scale (wide, close, extreme close), density and layout from shot to shot. If two consecutive scenes share a layout, the second should be there for a reason (a match cut, a before/after).
+**Not good**
+- Everything fading in together; text that sits on a still frame; scenes shoved off by the next one.
+- Motion added because a frame felt empty: wobbling text, particles, everything pulsing to the beat.
+- Bounce on numbers or data; a different transition at every cut.
 
-**Colour means something.** Keep the palette small so a change of colour can carry the story: the accent marks the one thing that matters, and a shift in the whole palette marks a shift in the story.
+The language and the vocabulary are in [motion-design.md](motion-design.md).
 
-**Avoid the generic AI look:** purple-blue gradients, neon on dark, glass cards, floating blobs, icons in circles, emoji, stock-looking illustrations. Choose any of them only when the brief truly calls for it.
+## Sound
 
-**Look up, not sideways.** Aim at the work you admire, not at the preset's example. Some reference points worth asking "how would they frame this?": title design (Saul Bass, Kyle Cooper, Elastic), motion studios (Buck, ManvsMachine, Oddfellows, Ordinary Folk, Giant Ant), editorial motion (Vox, The New York Times, Kurzgesagt), Swiss posters (Josef Müller-Brockmann), Apple product films, and Chinese visual traditions (留白 in ink painting, 书法, poster design from 1930s Shanghai). Borrow the thinking, not the look.
+**Good**
+- The score sounds produced and chosen: like something a music supervisor would license for this exact video, with a reference you can name.
+- It has a hook (a figure of a bar or two that is its identity), a pulse early on, a bass that locks with the kick, and a melody that answers in the gaps.
+- Its arc follows the story: what plays first, where the groove arrives, what happens at the turn (a drop, a key change, everything but one instrument falling away), what it lands on.
+- The voice is clear and unhurried; the music sits under it and fills the pauses. There is silence where a line needs to land.
+- Sound effects mark what matters, and the one big hit is the only one.
 
-## 3. The review loop
+**Not good**
+- A drone (pads or strings alone for long stretches), a low tom as the only pulse, slow minor chords drowned in reverb by default, a melody that never resolves, every scene at low energy. These read as cheap or creepy.
+- Wall-to-wall narration; a sound on every element.
+- Instruments chosen by subject cliché (a guzheng because the topic is China) rather than by feeling.
 
-Look at your own work the way a demanding creative director would, at every stage, and fix by redoing rather than patching. A first draft is a draft.
+The spec and how to direct it are in [music-and-sound.md](music-and-sound.md) §2.
 
-1. **Concept.** Three angles, one chosen (§1). Can you say the one line, the turn and the device in three sentences?
-2. **Script.** Read it aloud and time it. For each line: is it concrete, does it do something the picture can't, would anyone remember it? Cut a fifth of the words. Check for slogans.
-3. **Storyboard.** Can each frame be described in one sentence that someone could draw? Do neighbouring frames differ in scale or layout? Where does the device appear, and how does it change?
-4. **Frames.** `cv still --sheet` gives three probes per scene. Ask of each frame: would it work as a poster? Where does the eye go first? Is anything generic, crowded or timid? Name the **weakest scene and rebuild it**. Make at least two full passes over the sheets, and check the mechanical list in [motion-design.md](motion-design.md) §9 too.
-5. **Motion.** Stills hide motion. For each signature move, probe 6–8 close moments (`cv still --at 3.0,3.1,3.2,3.3,3.4,3.5 --sheet`) and read the sheet like a filmstrip: does it anticipate, accelerate, overshoot, settle? Does each cut happen on action? A half-scale draft render (`--scale 0.5`) and a few frames around each cut catch the rest.
-6. **Sound.** Read `cv music`: the energy per bar should rise and fall with the story, and the `mix:` line should be balanced. You cannot hear the result, so when you deliver, say what you intended (where the hook plays, where the build peaks) and ask the user to listen and tell you which part is off.
-7. **The encode.** Pull frames from the final MP4 at the key moments and look at them.
+## How you know
 
-When you deliver, say honestly which part you think is weakest and what you would try next.
+Intent is not evidence: judge what was rendered. The contact sheets show composition and readability; a strip of close probes shows whether a move has weight; a half-scale draft shows the cuts; frames pulled from the final MP4 show what the viewer gets; `cv music` shows the arc and the mix. You cannot hear the audio, so say what you intended and ask the user to listen.
 
-## 4. The brief
+Deliver when it meets this page. If something still falls short, rebuild that part rather than patch it, or say plainly what it is.
 
-Write `<project>/BRIEF.md` before you build. Keep it short and specific:
+## The brief
+
+`<project>/BRIEF.md` records the target for this video, short and specific:
 
 ```markdown
 # {Title}
 - The line: "{the sentence someone would repeat}"
-- Angle: {the chosen concept} (also considered: {angle 2}; {angle 3})
+- Angle: {the chosen telling} (also considered: {…}; {…})
 - Audience and format: {who} · {1920×1080 | 1080×1920 | …} · {N} s
 - The device: {the visual idea and how it changes across the video}
 - Look: {style or preset} · palette {hex…} · type {display + label} · references {…}

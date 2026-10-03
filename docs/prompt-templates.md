@@ -6,15 +6,15 @@ This page is for people writing prompts. The skill itself does not need it. Thes
 
 | Pattern | Seen in | video-gaga equivalent |
 |---|---|---|
-| **Direct, don't describe.** State the length, scene count, what each scene says, and the pace | Alex Prompter's 30-s explainer | Phase 1 questions + the storyboard table |
-| **Storyboard before code**, then revise per shot | Danny Stuart, om_patel5, zero | Phase 3: storyboard approval before building |
-| **Ban list** (no bouncy easing, particle bursts, RGB split, lens flares, neon glow, dead time) | zero (@twoclipping) | `docs/motion-design.md` §13 |
+| **Direct, don't describe.** State the length, scene count, what each scene says, and the pace | Alex Prompter's 30-s explainer | the discovery questions + the storyboard |
+| **Storyboard before code**, then revise per shot | Danny Stuart, om_patel5, zero | storyboard approval before building |
+| **Ban list** (no bouncy easing, particle bursts, RGB split, lens flares, neon glow, dead time) | zero (@twoclipping) | `docs/craft.md` (*Not good* lists) |
 | **Deterministic `seek(t)`**: no CSS transitions, no timers, no state between frames | zero, PDoomVideo guide (via compendium) | the runtime contract: `draw(ctx, s)` is pure |
 | **Closed-form springs**, a sum of springs for re-targeted values | zero | `CV.spring`, `CV.springTrack` |
 | **Sub-frame motion blur** (render sub-frames, blend with `tmix`) | zero | `cv render --motion-blur 5` |
-| **Probe frames before the full render** and fix clutter or overlaps | zero, compendium tips | `cv still --sheet` + the §14 checklist |
+| **Probe frames before the full render** and fix clutter or overlaps | zero, compendium tips | `cv still --sheet` + `docs/motion-design.md` §9 |
 | **Beat grid**: every cut on a downbeat, every hit on a beat | zero | `s.when('word')` (narration) or `beat(n)` (BPM) |
-| **One-liners work, but vary a lot.** "Go all out" showreels | Leon Abboud, Deedy, Stephan Livera | Phase 1 fills in what the one-liner leaves out |
+| **One-liners work, but vary a lot.** "Go all out" showreels | Leon Abboud, Deedy, Stephan Livera | the questions fill in what the one-liner leaves out |
 | **TTS + bilingual captions + export in one go** | WY (@akokoi1) | Edge TTS + cue builder + `cv render` |
 | **Use real assets.** Give the model a gallery of files and paths | om_patel5 | `CV.image()`, and brand assets in the project folder |
 
@@ -116,4 +116,4 @@ No fades, no glow, no bounce. End on a resolved still, held 1 s. Square 1080×10
 
 ## The brief
 
-The skill writes its own brief before building; the template and what goes into it are in [craft.md](craft.md) §4.
+The skill writes its own brief before building; the template and what goes into it are in [craft.md](craft.md), *The brief*.

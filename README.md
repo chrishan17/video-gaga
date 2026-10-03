@@ -38,7 +38,7 @@ During style discovery the agent also offers a *wildcard*: a custom system desig
 
 ### Longer videos
 
-The presets show 15–30 s pieces. [`examples/take-your-time`](examples/take-your-time/video.html) (慢慢说) is a three-minute personal story in the Swiss Kinetic style: a man who stutters, the wall his words hit, and the wedding toast that took eight seconds to start (33 scenes in six chapters, two Chinese voices). It shows a chapter card and a corner tag per chapter, music-only breaths, a score whose harmony changes per chapter (`music.parts`), and motifs that come back: the red caret, the wall, the opening line. SKILL.md's *Long videos* notes cover planning one. [▶ video](docs/media/take-your-time.mp4)
+The presets show 15–30 s pieces. [`examples/take-your-time`](examples/take-your-time/video.html) (慢慢说) is a three-minute personal story in the Swiss Kinetic style: a man who stutters, the wall his words hit, and the wedding toast that took eight seconds to start (33 scenes in six chapters, two Chinese voices). It shows a chapter card and a corner tag per chapter, music-only breaths, a score whose harmony changes per chapter (`music.parts`), and motifs that come back: the red caret, the wall, the opening line. SKILL.md (*Useful numbers*) covers planning one. [▶ video](docs/media/take-your-time.mp4)
 
 ## How it works
 

@@ -4,13 +4,13 @@ Motion does two jobs: it tells the eye where to look and what changed, and it gi
 
 Aim for motion that looks designed by a person with taste: a clear focal point, layers moving at different speeds, moves with weight and timing, cuts on action. Look at studio work you admire and ask how they would move this.
 
-## 1. Before you animate a scene
+## 1. A well-made scene
 
-- **What is the one idea, and where is the eye, second by second?** One focal point at a time; everything else is quieter (smaller, dimmer, slower).
-- **In what order does the viewer need things?** Subject before detail, cause before effect, question before answer, axis before data.
-- **What changes, and why?** Every animated property maps to a change in meaning: arrival, emphasis, transformation, relationship, departure.
-- **When does it land?** On a spoken word (`s.when('word')`), on a beat (`s.onBeat(i)`), or on the end of the previous move.
-- **How does it leave?** Secondary elements leave before the cut (`s.out()`, `exit:` on reveals), so the cut happens on action. A scene that is only shoved off by the next one feels like a slideshow.
+- **One idea, one focal point at a time.** At every moment the eye knows where to go; everything else is quieter (smaller, dimmer, slower).
+- **Things arrive in the order the viewer needs them:** subject before detail, cause before effect, question before answer, axis before data.
+- **Every animated property means something:** an arrival, an emphasis, a transformation, a relationship or a departure.
+- **Hits land** on a spoken word (`s.when('word')`), a beat (`s.onBeat(i)`), or the end of the previous move.
+- **It leaves on action.** Secondary elements are gone before the cut (`s.out()`, `exit:` on reveals) and the hero is carried by the transition. A scene that is only shoved off by the next one feels like a slideshow.
 
 ## 2. Easing: the hand of the video
 
@@ -34,7 +34,7 @@ Choose one family per video so the motion has a consistent hand. Heavy things mo
 - **Arcs.** Natural motion travels on curves. Straight-line moves read as UI.
 - **Depth.** Build shots from layers (background, supporting shapes, the hero, small accents) that move at different rates, so even a hold has parallax.
 - **Holds are alive, not frozen.** During a hold the camera still drifts, light moves, texture breathes. Only the final poster frame sits perfectly still.
-- **Signature moves.** Give each video a few moves that are its own and that explain something: the camera following the head of a growing line, an iris opening out of the key number, a match cut where one shape becomes the next, the visual device ([craft.md](craft.md) §2) transforming. These are what people remember.
+- **Signature moves.** Give each video a few moves that are its own and that explain something: the camera following the head of a growing line, an iris opening out of the key number, a match cut where one shape becomes the next, the visual device ([craft.md](craft.md), *Picture*) transforming. These are what people remember.
 
 ## 4. Readability
 
@@ -93,9 +93,9 @@ With music on, each transition plays its natural sound at its midpoint, which la
 - Beat accents are seasoning: a dot, a glow or a cursor may pulse; whole layouts and text never do.
 - Sound effects mark what matters: a transition, a counted item, the one big reveal. Not every element.
 
-## 9. Mechanical checks (on the probe sheets)
+## 9. What holds on every probe
 
-These catch broken output. Taste is judged separately ([craft.md](craft.md) §3).
+This is the floor, not the bar: it rules out broken output. Whether the video is good is described in [craft.md](craft.md).
 - [ ] One clear focal point in every probe frame; nothing overlaps by accident; no text in the caption zone.
 - [ ] Every word on screen is readable at the probe's size and holds long enough to read.
 - [ ] Visual hits land on their spoken words (check the `when()` targets).

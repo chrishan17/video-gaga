@@ -66,21 +66,17 @@ Each preset's example video carries a score written for that video. Read one onl
 
 ## 2. Designing the score
 
-### 2.1 Direction: think like a music supervisor, then a producer
+### 2.1 From a sound to a spec
 
-**Start from a reference, not from a table.** Ask what a good music supervisor would license for this exact video, and name it: a genre, an era, an artist or a soundtrack ("Joe Hisaishi strings over a felt piano", "lo-fi hip hop with a dusty Rhodes", "2010s indie folk, hand claps and a stomp", "city pop bass and bright keys", "Nils Frahm, a repeating piano figure that grows", "trap hats and an 808 under a koto line", "bossa nova guitar, brushes"). Then translate it into the spec: tempo, mode, a progression, the instruments that carry that sound, a groove pattern, swing. The reference is what keeps the score from sounding like a library cue.
+What a good score sounds like is in [craft.md](craft.md), *Sound*: produced, with a reference you can name, a hook, and an arc that follows the story. This section is how that sound becomes a spec.
 
-**Design from the story's emotion and the audience,** not from the visual preset or the subject's clichés. A video about running can be a lazy bossa nova; a video about China doesn't need a guzheng. Surprise is fine when it fits the feeling.
+**A reference** is a genre, an era, an artist or a soundtrack that a music supervisor would license for this exact video ("Joe Hisaishi strings over a felt piano", "lo-fi hip hop with a dusty Rhodes", "2010s indie folk, hand claps and a stomp", "city pop bass and bright keys", "Nils Frahm, a repeating piano figure that grows", "trap hats and an 808 under a koto line", "bossa nova guitar, brushes"). It comes from the story's feeling and the audience, not from the visual preset or the subject: a video about running can be a lazy bossa nova. Translate it into tempo, mode, a progression, the instruments that carry that sound (§2.2), a groove pattern and swing.
 
-**Write a hook.** The identity of the track is one figure of a bar or two: an arpeggio, a bass line, a plucked riff, a chord rhythm. It is the first thing heard, it comes back, and the `lead` melody answers it in the gaps.
+**The hook** is a layer: a one- or two-bar `pattern` with `notes` (an arpeggio, a bass line, a plucked riff, a chord rhythm) that plays from the first scene. The `lead` answers it in the gaps (§2.3).
 
-**Arrange the arc to the story.** What is the first sound? Where does the groove come in (early: a 30 s video can't wait half its length for the beat)? What happens at the story's turn: a drop, a key change, a new layer, a sudden thinning to one instrument? What does the ending land on? Contrast does more than density: three layers that enter and leave at the right moments beat eight that play throughout.
+**The arc** is the scenes' `energy` against each layer's `from`: a layer enters in every bar whose energy reaches its `from`. So the energy values are the arrangement: low where the story holds its breath, the groove in early, a change at the turn (more layers, or all but one falling away, or a new `part`), and a landing.
 
-**Sound produced, not generated.** A clear pulse, a bass that locks with the kick, one or two harmonic parts with character, a melody in the gaps, real dynamics. Quiet subjects still move: a brushed kit and a felt-piano ostinato are calm without being a drone.
-
-**What sounds cheap or creepy, and why:** a sustained pad or strings alone for long stretches (a drone), a low `tom` as the only pulse (a horror-film heartbeat), `minor` or `phrygian` with slow chords and lots of reverb by default, melodies that never resolve, every scene at low energy, and every video in the same key and tempo. `cv music` warns about the first two.
-
-Say the design in one line in the brief: *feel in three words · reference · BPM key mode · the hook · how it builds*. In the spec, each layer's `from` decides at which scene `energy` it enters, so the energy values you give the scenes are the arrangement.
+Say it in one line in the brief: *feel in three words · reference · BPM key mode · the hook · how it builds*.
 
 ### 2.2 Layers
 

@@ -1,5 +1,5 @@
 // video-gaga moodboard — one local HTML page that puts the style directions side
-// by side so the user can pick one (SKILL.md, Phase 2).
+// by side so the user can pick one (SKILL.md, *What the user experiences*).
 //
 // Each direction is a style preview project (`cv init .cv-previews/style-a …` plus
 // one scene with the user's own title). `cv moodboard` renders, per direction:

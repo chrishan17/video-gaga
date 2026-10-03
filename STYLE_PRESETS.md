@@ -198,7 +198,7 @@ Native formats: most are 16:9; Swiss Kinetic is 1:1; Neon Circuit and Pop Collag
 
 ## Custom styles
 
-When none fits, design one (and offer it as the wildcard in Phase 2). It needs a visual thesis in one sentence ("a museum wall label that comes alive"), a committed palette and type pairing, a motion character (how things arrive, hold, leave and cut) and one atmospheric device that belongs to the concept. Start from the closest preset (`cv init --preset <slug>`) and rewrite its THEME and KIT: change the grammar, not just the colours.
+When none fits, design one (and offer it as the wildcard direction). It needs a visual thesis in one sentence ("a museum wall label that comes alive"), a committed palette and type pairing, a motion character (how things arrive, hold, leave and cut) and one atmospheric device that belongs to the concept. Start from the closest preset (`cv init --preset <slug>`) and rewrite its THEME and KIT: change the grammar, not just the colours.
 
 ## Another aspect ratio
 
