@@ -14,7 +14,7 @@
 <script src="../../runtime/video-gaga.js"></script>
 <script type="module">
 /* =============================================================================
-   STUDIO 3D — a light seamless sweep, one hero object, light that models it.
+   STUDIO 3D — a coloured seamless sweep, one hero object, light that models it.
    Depth carries meaning: the camera arrives on the reveal, orbits while the
    features are named, and the object separates into its layers on the words
    that name them. 2D type stays crisp on top. One accent. Nothing bounces.
@@ -27,16 +27,14 @@ const { ease, clamp, lerp, fx, draw, color } = CV;
 
 // === THEME (swap for brand) ==================================================
 const T = {
-  sweepTop: '#F3F0EA',
-  sweepBottom: '#DCD5CA',
-  ink: '#1E1C1A',
-  dim: '#857F76',
+  sweepTop: '#C9D5E0',    // a cool slate-blue paper sweep: the warm accent pops off it
+  sweepBottom: '#97A9BA',
+  ink: '#111720',
+  dim: '#4E5B69',
   accent: '#FF5A1F',     // the one signal colour: ring, labels, tagline
   display: '"Bricolage Grotesque", sans-serif',
-  mono: '"IBM Plex Mono", ui-monospace, monospace',
 };
 const F = (w, px) => `${w} ${px}px ${T.display}`;
-const M = (w, px) => `${w} ${px}px ${T.mono}`;
 // === EXAMPLE: the product's colourways =======================================
 const COLOURWAYS = [
   { name: 'Bone', base: '#E6E0D4', grille: '#D3CBBC' },
@@ -55,7 +53,7 @@ world.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 world.environmentIntensity = 0.55;
 const cam = new THREE.PerspectiveCamera(28, W / H, 0.1, 100);
 
-const hemi = new THREE.HemisphereLight('#ffffff', '#b8b0a4', 0.6);
+const hemi = new THREE.HemisphereLight('#ffffff', '#93a3b3', 0.6);
 const key = new THREE.DirectionalLight('#fff6ea', 2.4);
 key.castShadow = true;
 key.shadow.mapSize.set(2048, 2048);
@@ -232,11 +230,9 @@ function callout(ctx, [ax, ay], lx, label, value, p, out = 0) {
   const q = ease.enter(clamp((p - 0.45) / 0.5));
   ctx.globalAlpha = a * q;
   ctx.textAlign = 'left';
-  ctx.font = M(500, 24);
-  ctx.letterSpacing = '4px';
+  ctx.font = F(500, 28);
   ctx.fillStyle = T.dim;
   ctx.fillText(label, lx, ay - 70 + (1 - q) * 10);
-  ctx.letterSpacing = '0px';
   ctx.font = F(700, 46);
   ctx.fillStyle = T.ink;
   ctx.fillText(value, lx, ay - 22 + (1 - q) * 10);
@@ -252,7 +248,7 @@ CV.create({
   width: W, height: H, fps: 30,
   background: T.sweepBottom,
   lang: 'en-US',
-  fonts: [F(800, 120), F(700, 46), M(500, 24)],
+  fonts: [F(800, 120), F(700, 46), F(500, 28)],
   // the score designed for this video: dark stage, pulse and light: a minor-key pad, a ticking synth bass, the kick only when it lifts
   music: {
     bpm: 92, seed: 7, key: 'A', mode: 'minor', progression: [0, 5, 2, 6],
@@ -267,7 +263,7 @@ CV.create({
     lead: { inst: 'keys', range: [69, 84], rhythm: 'sparse', vel: 0.11, bright: 0.6, echo: 0.3 },
   },
   subtitles: {
-    style: { font: `500 38px ${T.display}`, color: T.ink, box: 'rgba(243,240,234,0.86)', y: 0.93, radius: 10 },
+    style: { font: `500 38px ${T.display}`, color: T.ink, box: 'rgba(233,239,245,0.88)', y: 0.93, radius: 10 },
   },
   scenes: [
     // --- 1. Reveal: one bar of music, the light comes up, the camera arrives ---
@@ -295,12 +291,10 @@ CV.create({
         ctx.letterSpacing = '-3px';
         fx.charReveal(ctx, 'Tessel One', W / 2, H * 0.83, t - tn + 0.05, { stagger: 0.04, dur: 0.55, blur: 10, rise: 0.25, align: 'center', exit: s.out(0.35, ease.exit, 0.1) });
         ctx.letterSpacing = '0px';
-        ctx.font = M(500, 24);
+        ctx.font = F(500, 28);
         ctx.fillStyle = T.dim;
-        ctx.letterSpacing = '8px';
         ctx.globalAlpha = s.at(0.4, 0.8) * (1 - s.at(tn - 0.4, 0.3));
-        ctx.fillText('TESSEL AUDIO', W / 2, H * 0.83);
-        ctx.letterSpacing = '0px';
+        ctx.fillText('Tessel Audio', W / 2, H * 0.83);
         ctx.globalAlpha = 1;
       },
     },
@@ -319,11 +313,9 @@ CV.create({
         const q1 = ease.enter(clamp((t - tr) / 0.5)), o = s.out(0.35, ease.exit, 0.1);
         ctx.textAlign = 'left';
         ctx.globalAlpha = q1 * (1 - o);
-        ctx.font = M(500, 24);
-        ctx.letterSpacing = '4px';
+        ctx.font = F(500, 28);
         ctx.fillStyle = T.accent;
-        ctx.fillText('360° SOUND', 160, 700 + (1 - q1) * 14);
-        ctx.letterSpacing = '0px';
+        ctx.fillText('360° sound', 160, 700 + (1 - q1) * 14);
         ctx.font = F(700, 64);
         ctx.fillStyle = T.ink;
         ctx.fillText('Fills the room.', 160, 772 + (1 - q1) * 14);
@@ -368,9 +360,9 @@ CV.create({
         ctx.translate(-W * 0.1 * ease.standard(spread), 0);
         gl.render(ctx, world, cam);
         const lx = W * 0.64;
-        callout(ctx, rimPoint('grille', 0.22, 0.98), lx, 'WOVEN GRILLE', 'Acoustic knit', clamp((t - words.grille - 0.3) / 1.0), o);
-        callout(ctx, rimPoint('driver', 0.12, 0.84), lx, 'FULL-RANGE DRIVER', '20 mm', clamp((t - words.driver - 0.3) / 1.0), o);
-        callout(ctx, rimPoint('battery', 0.22, 0.79), lx, 'BATTERY', '7 days', clamp((t - words.battery - 0.3) / 1.0), o);
+        callout(ctx, rimPoint('grille', 0.22, 0.98), lx, 'Woven grille', 'Acoustic knit', clamp((t - words.grille - 0.3) / 1.0), o);
+        callout(ctx, rimPoint('driver', 0.12, 0.84), lx, 'Full-range driver', '20 mm', clamp((t - words.driver - 0.3) / 1.0), o);
+        callout(ctx, rimPoint('battery', 0.22, 0.79), lx, 'Battery', '7 days', clamp((t - words.battery - 0.3) / 1.0), o);
         ctx.restore();
       },
     },
@@ -411,11 +403,9 @@ CV.create({
         });
         ctx.globalAlpha = q * (1 - o);
         ctx.textAlign = 'center';
-        ctx.font = M(500, 24);
-        ctx.letterSpacing = '6px';
+        ctx.font = F(500, 28);
         ctx.fillStyle = T.dim;
-        ctx.fillText(COLOURWAYS[Math.round(clamp(col, 0, n - 1))].name.toUpperCase(), W / 2, y + 86);
-        ctx.letterSpacing = '0px';
+        ctx.fillText(COLOURWAYS[Math.round(clamp(col, 0, n - 1))].name, W / 2, y + 86);
         ctx.globalAlpha = 1;
       },
     },
@@ -450,12 +440,10 @@ CV.create({
         ctx.fillStyle = T.accent;
         fx.wordReveal(ctx, 'Small stone. Big room.', W / 2, H * 0.74 + 82, t, { sync: s, dur: 0.45, rise: 0.3, align: 'center' });
         const so = ease.enter(clamp((t - s.nextBeat(s.voiceEnd)) / 0.6));
-        ctx.font = M(400, 24);
+        ctx.font = F(500, 28);
         ctx.fillStyle = T.dim;
         ctx.globalAlpha = so;
-        ctx.letterSpacing = '8px';
-        ctx.fillText('AVAILABLE THIS SPRING', W / 2, H * 0.74 + 150);
-        ctx.letterSpacing = '0px';
+        ctx.fillText('Available this spring', W / 2, H * 0.74 + 150);
         ctx.globalAlpha = 1;
       },
     },
