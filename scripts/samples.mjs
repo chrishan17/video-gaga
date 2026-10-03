@@ -211,6 +211,8 @@ export function pick(bank, midi, vel01) {
 export function prepare(bankName, notes, opts = {}) {
   const bank = BANKS[bankName];
   const urls = new Set(notes.map((n) => pick(bank, n.midi, n.vel / 127).url));
+  const missing = [...urls].filter((u) => !memo.has(u) && !fs.existsSync(fileFor(u)));
+  if (missing.length && opts.log) opts.log(`▸ downloading ${missing.length} ${bankName} sample(s) once (${bank.credit})`);
   for (const u of urls) {
     const s = load(u, opts);
     if (s.error) return { error: s.error };

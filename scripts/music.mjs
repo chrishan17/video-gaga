@@ -31,6 +31,7 @@ import * as Multi from './samples.mjs';
 
 const SR = 48000;
 const TAU = Math.PI * 2;
+const BLK = 1200; // 25 ms analysis blocks
 
 // ---------------------------------------------------------------------------
 // deterministic helpers
@@ -215,6 +216,7 @@ class Mixer {
     this.bed = bus(n); this.keys = bus(n); this.drums = bus(n); this.lead = bus(n); this.sfx = bus(n);
     this.verb = new Float32Array(n);  // mono send → stereo reverb
     this.echo = new Float32Array(n);  // mono send → ping-pong delay
+    this.susE = new Float64Array(Math.ceil(n / BLK) + 1); // energy of sustained parts per block (sampled engine)
   }
   // add sample v at index i to bus b, equal-power pan (-1..1), sends
   put(b, i, v, pan = 0, verb = 0, echo = 0) {
@@ -431,7 +433,7 @@ D.conga = (m, t0, o = {}) => D.tom(m, t0, { ...o, f: 210 });
 // The piano, the strings, the harp play from multi-sampled recordings
 // (scripts/samples.mjs) unless `multi` is false; a part whose samples can't be
 // fetched falls back to the SoundFont and the report says so.
-function sampledOrchestra(sf, m, n, kit, { multi = true } = {}) {
+function sampledOrchestra(sf, m, n, kit, { multi = true, log } = {}) {
   const S = new Sampler(sf, SR);
   const tracks = new Map(); // id → { tr, bus, gain, pan, verb, echo, sus, lastCut } (+ bank, notes for a multi-sampled part)
   const patchOf = (inst, o) => {
@@ -517,7 +519,7 @@ function sampledOrchestra(sf, m, n, kit, { multi = true } = {}) {
       const warnings = [];
       for (const T of tracks.values()) {
         if (T.bank) {
-          const ready = T.notes.length ? Multi.prepare(T.bank, T.notes) : { ok: true };
+          const ready = T.notes.length ? Multi.prepare(T.bank, T.notes, { log }) : { ok: true };
           // as loud over time as the SoundFont instrument it replaces (the
           // roles were balanced on those): compared on three notes around the reference
           const refs = [T.ref - 12, T.ref, T.ref + 12];
@@ -535,6 +537,10 @@ function sampledOrchestra(sf, m, n, kit, { multi = true } = {}) {
         }
         const { L, R } = T.out ?? S.render(T.tr, n, { tie: T.sus });
         const b = m[T.bus];
+        if (T.sus && T.bus !== 'sfx') { // for the listening checks: how much of the music is held notes
+          const g2 = T.gain * T.gain;
+          for (let i = 0; i < n; i++) if (L[i] || R[i]) m.susE[(i / BLK) | 0] += (L[i] * L[i] + R[i] * R[i]) * g2;
+        }
         const a = (T.pan + 1) * Math.PI / 4, gl = Math.cos(a) * 1.4142 * T.gain, gr = Math.sin(a) * 1.4142 * T.gain;
         const vs = T.verb * T.gain, es = T.echo * T.gain;
         for (let i = 0; i < n; i++) {
@@ -623,10 +629,10 @@ function recorded(m, type, e, r, { level, verb = 0.06, pan = 0, spread = 0.25, p
 }
 // type → how loud, how much room, where it sits
 const RECORDED = {
-  tick: { level: 0.2, verb: 0.04, pan: 0.1, spread: 0.1 },        // a small mechanical tick (word-synced text, counters)
-  click: { level: 0.16, verb: 0.04, spread: 0.1 },                // a button / mouse click
-  type: { level: 0.22, verb: 0.03, spread: 0.2, pitch: 0.06 },    // a key press
-  pop: { level: 0.26, verb: 0.08 },                               // a small light object set down: a soft clack
+  tick: { level: 0.36, verb: 0.04, pan: 0.1, spread: 0.1 },        // a small mechanical tick (word-synced text, counters)
+  click: { level: 0.28, verb: 0.04, spread: 0.1 },                // a button / mouse click
+  type: { level: 0.36, verb: 0.03, spread: 0.2, pitch: 0.06 },    // a key press
+  pop: { level: 0.34, verb: 0.08 },                               // a small light object set down: a soft clack
   paper: { level: 0.3, verb: 0.06, pitch: 0.03, at: -0.08 },               // a page turning, a sheet sliding
   card: { level: 0.3, verb: 0.06 },                               // a card laid on a table
   book: { level: 0.34, verb: 0.08 },                              // a book closed or set down
@@ -643,7 +649,7 @@ const FX = {
   // midpoint and away, travelling across the stereo field.
   whoosh(m, e, r) {
     const dur = Math.max(0.3, Math.min(1.0, (e.dur ?? 0.6) * 1.1)), pre = dur * 0.6;
-    const n0 = Math.round((e.t - pre) * SR), len = Math.round(dur * SR), vel = 0.2 * (e.gain ?? 1);
+    const n0 = Math.round((e.t - pre) * SR), len = Math.round(dur * SR), vel = 0.28 * (e.gain ?? 1);
     const lo = svf(), hi = svf(), noise = pinkNoise(r);
     for (let j = 0; j < len; j++) {
       const x = j / len;
@@ -1150,9 +1156,16 @@ export async function renderScore(plan, opts = {}) {
   if (opts.engine !== 'synth') {
     const sf = await loadSoundfont({ log: opts.log });
     if (sf.error) engineNote = `played by the built-in synth, which sounds much cheaper: ${sf.error}`;
-    else orch = sampledOrchestra(sf, m, n, KITS[plan.kit ?? 'standard'], { multi: opts.multi !== false && process.env.VIDEO_GAGA_MULTISAMPLE !== '0' });
+    else orch = sampledOrchestra(sf, m, n, KITS[plan.kit ?? 'standard'], { multi: opts.multi !== false && process.env.VIDEO_GAGA_MULTISAMPLE !== '0', log: opts.log });
   }
   orch ??= synthOrchestra(m, R);
+  // where the music articulates (note and drum starts), for the listening checks
+  const onsets = [];
+  {
+    const { note, drum } = orch;
+    orch.note = (id, inst, t, d, midi, vel, o, b) => { if (b !== 'sfx' && !SUSTAINED.has(inst)) onsets.push(t); note(id, inst, t, d, midi, vel, o, b); };
+    orch.drum = (name, t, vel, o = {}) => { if (o.bus !== 'sfx') onsets.push(t); drum(name, t, vel, o); };
+  }
   if (opts.trace) { // every note and hit, for tests and debugging
     const { note, drum } = orch;
     orch.note = (id, inst, t, d, midi, vel, o, b) => { opts.trace.push({ id, inst, t, d, midi, vel }); note(id, inst, t, d, midi, vel, o, b); };
@@ -1453,6 +1466,10 @@ export async function renderScore(plan, opts = {}) {
   };
   finish(out); finish(bedOut);
 
+  // listening checks: what a listener would hear as ghostly, a buried melody,
+  // a flat score, or effects that vanish or poke out (report.listen + warnings)
+  if (!silent) measure({ m, verb, bedOut, onsets, beat, barLen, offset, endT, sfx: plan.sfx || [], energies: sections.map(energyOf), voicedAt, engine: orch.kind, report, warnings });
+
   // loudness: the bed's music-only passages land `gap` dB under the voice
   // (opts.voiceDb = the measured speech RMS; Edge voices sit near -25 dBFS).
   // Without narration the score *is* the soundtrack and plays at full level.
@@ -1472,6 +1489,124 @@ export async function renderScore(plan, opts = {}) {
   report.voiceDuckDb = duck;
   report.gapDb = voice.length ? -gap : null;
   return { left: out.L, right: out.R, bed: { left: bedOut.L, right: bedOut.R }, sampleRate: SR, duration, report };
+}
+
+// ---------------------------------------------------------------------------
+// listening checks
+// ---------------------------------------------------------------------------
+// Numbers for what can't be heard from here, each tied to what a listener
+// notices. Warnings, never errors: a quiet, held passage can be right.
+//   ghost   4-bar windows with few note starts (< 1 per beat), mostly held notes
+//           (> 60% of the energy) and a reverb tail within 12 dB of the dry
+//           sound: the combination people describe as eerie or "阴间"
+//   melody  the lead vs everything else in 500 Hz–4 kHz while it plays (≥ 3 dB)
+//   range   loudness range (LU, 3 s windows) of the music before ducking: a score
+//           whose energy plan rises and falls should not measure flat (≥ 3 LU)
+//   sfx     each effect's loudest 25 ms vs the music around it, in the band it
+//           lives in (2–8 kHz; 60 Hz–2 kHz for hits): about +3 to +10 dB reads
+//           clearly, under −6 dB is lost, over +18 dB jumps out (accents aside)
+function measure({ m, verb, bedOut, onsets, beat, barLen, offset, endT, sfx, energies, voicedAt, engine, report, warnings }) {
+  const n = m.bed.L.length, nb = Math.ceil(n / BLK);
+  const blockE = (bufs, from = 0, to = n) => {
+    const e = new Float64Array(nb);
+    for (const b of bufs) for (let i = from; i < to; i++) e[(i / BLK) | 0] += b.L[i] * b.L[i] + b.R[i] * b.R[i];
+    return e;
+  };
+  const dry = [m.bed, m.keys, m.drums, m.lead];
+  const dryE = blockE(dry), verbE = blockE([verb]);
+  const sum = (a, i0, i1) => { let s = 0; for (let i = Math.max(0, i0); i < Math.min(a.length, i1); i++) s += a[i]; return s; };
+  const listen = {};
+
+  // ghost windows (needs the per-part energies of the sampled engine)
+  if (engine === 'samples') {
+    const ons = onsets.slice().sort((a, b) => a - b).filter((t, i, a) => !i || t - a[i - 1] > 0.03);
+    let peak = 0;
+    for (const v of dryE) peak = Math.max(peak, v);
+    const ghost = [];
+    const w = 4 * barLen;
+    for (let t0 = offset, bar = 1; t0 + 2 * barLen <= endT + 1e-6; t0 += w, bar += 4) {
+      const t1 = Math.min(t0 + w, endT), i0 = Math.floor(t0 * SR / BLK), i1 = Math.floor(t1 * SR / BLK);
+      const d = sum(dryE, i0, i1);
+      if (d < peak * (i1 - i0) * 1e-4) continue; // (near) silence is not a ghost
+      const perBeat = ons.filter((t) => t >= t0 && t < t1).length / ((t1 - t0) / beat);
+      const held = sum(m.susE, i0, i1) / d;
+      const tail = 10 * Math.log10(sum(verbE, i0, i1) / d + 1e-12);
+      if (perBeat < 1 && held > 0.6 && tail > -12) ghost.push({ bars: `${bar}–${bar + Math.round((t1 - t0) / barLen) - 1}`, perBeat: +perBeat.toFixed(2), held: Math.round(held * 100), tailDb: +tail.toFixed(1) });
+    }
+    listen.ghost = ghost;
+    for (const g of ghost) warnings.push(`bars ${g.bars} may sound ghostly: ${g.perBeat} note starts per beat, ${g.held}% held notes, reverb tail ${g.tailDb} dB under the dry sound. Give it a part that articulates (piano, pluck, a pulse) or less reverb`);
+  }
+
+  // band-limited mono copy of some buses
+  const band = (bufs, lo, hi) => {
+    const x = new Float32Array(n);
+    for (const b of bufs) for (let i = 0; i < n; i++) x[i] += (b.L[i] + b.R[i]) * 0.5;
+    const f1 = svf(), f2 = svf();
+    f1.set(lo, 0.707); f2.set(hi, 0.707);
+    for (let i = 0; i < n; i++) x[i] = f2.run(f1.run(x[i], 'hp'), 'lp');
+    return x;
+  };
+  const eOf = (x) => { const e = new Float64Array(nb); for (let i = 0; i < n; i++) e[(i / BLK) | 0] += x[i] * x[i]; return e; };
+
+  // melody vs the rest, 500 Hz – 4 kHz, where the lead plays
+  {
+    const leadE = eOf(band([m.lead], 500, 4000)), restE = eOf(band([m.bed, m.keys, m.drums], 500, 4000));
+    let top = 0;
+    for (const v of leadE) top = Math.max(top, v);
+    const margins = [];
+    for (let i = 0; i < nb; i++) if (top > 0 && leadE[i] > top * 0.03) margins.push(10 * Math.log10(leadE[i] / (restE[i] + 1e-12)));
+    if (margins.length > 20) {
+      margins.sort((a, b) => a - b);
+      listen.melodyDb = +margins[Math.floor(margins.length / 2)].toFixed(1);
+      if (listen.melodyDb < 3) warnings.push(`the melody sits ${listen.melodyDb} dB against the other parts in 500 Hz–4 kHz while it plays (aim for ≥ 3 dB): it will be hard to follow. Thin or lower the keys/pads in its register, or move the lead above them`);
+    }
+  }
+
+  // loudness range of the music itself (before the voice ducks it)
+  {
+    const x = new Float32Array(n);
+    for (const b of [...dry, verb]) for (let i = 0; i < n; i++) x[i] += (b.L[i] * b.L[i] + b.R[i] * b.R[i]) * 0.5;
+    const end = Math.min(n, Math.round(endT * SR)), win = 3 * SR, hop = SR;
+    const st = [];
+    for (let a = 0; a + win <= end; a += hop) { let e = 0; for (let i = a; i < a + win; i++) e += x[i]; st.push(10 * Math.log10(e / win + 1e-12)); }
+    const mean = 10 * Math.log10(st.reduce((acc, v) => acc + 10 ** (v / 10), 0) / Math.max(1, st.length) + 1e-12);
+    const gated = st.filter((v) => v > mean - 20).sort((a, b) => a - b);
+    if (gated.length >= 5) {
+      listen.rangeLU = +(gated[Math.min(gated.length - 1, Math.floor(gated.length * 0.95))] - gated[Math.floor(gated.length * 0.1)]).toFixed(1);
+      const span = Math.max(...energies) - Math.min(...energies);
+      if (span >= 0.3 && listen.rangeLU < 3) warnings.push(`the score's energy plan rises and falls (${Math.min(...energies).toFixed(2)}–${Math.max(...energies).toFixed(2)}) but the music measures nearly flat (${listen.rangeLU} LU loudness range): let the quiet scenes drop parts and the peaks add them`);
+    }
+  }
+
+  // each effect against the music under it (after ducking), in its own band
+  if (sfx.length) {
+    const lowTypes = new Set(['hit', 'boom', 'riser', 'swell', 'thud']);
+    const music = { hi: eOf(band([bedOut], 2000, 8000)), lo: eOf(band([bedOut], 60, 2000)) };
+    const fx = { hi: eOf(band([m.sfx], 2000, 8000)), lo: eOf(band([m.sfx], 60, 2000)) };
+    const lifts = [];
+    for (const e of sfx) {
+      const k = lowTypes.has(e.type) ? 'lo' : 'hi';
+      const i0 = Math.max(0, Math.floor((e.t - 0.5) * SR / BLK)), i1 = Math.min(nb, Math.ceil((e.t + 0.4) * SR / BLK));
+      let best = -1, at = i0;
+      for (let i = i0; i < i1; i++) if (fx[k][i] > best) { best = fx[k][i]; at = i; }
+      if (!(best > 0)) continue;
+      // its loudest 25 ms against the music's average over ~150 ms around it
+      const a = Math.max(0, at - 2), b = Math.min(nb, at + 4);
+      const lift = 10 * Math.log10(best / (sum(music[k], a, b) / (b - a) + 1e-12));
+      lifts.push({ type: e.type, t: +e.t.toFixed(2), db: +Math.max(-60, Math.min(60, lift)).toFixed(1), voiced: voicedAt(e.t) });
+    }
+    if (lifts.length) {
+      const sorted = lifts.map((x) => x.db).sort((a, b) => a - b);
+      listen.sfxDb = { median: sorted[Math.floor(sorted.length / 2)], min: sorted[0], max: sorted[sorted.length - 1] };
+      if (process.env.VIDEO_GAGA_LISTEN_ALL) listen.sfxAll = lifts;
+      // accents (hits, booms, chimes, swells) are meant to stand out, often over a breath in the music
+      const accent = new Set(['hit', 'boom', 'riser', 'swell', 'shimmer', 'chime']);
+      const buried = lifts.filter((x) => x.db < -6), loud = lifts.filter((x) => x.db > 18 && !accent.has(x.type));
+      if (buried.length) warnings.push(`${buried.length} sound effect(s) sit under the music in their band and will barely be heard: ${buried.slice(0, 6).map((x) => `${x.type}@${x.t} (${x.db} dB)`).join(', ')}. Raise their gain or drop them`);
+      if (loud.length) warnings.push(`${loud.length} sound effect(s) stand far above the music (> 18 dB in their band): ${loud.slice(0, 6).map((x) => `${x.type}@${x.t} (+${x.db} dB)`).join(', ')}. They will jump out; lower their gain`);
+    }
+  }
+  report.listen = listen;
 }
 
 function level(out, act, ctl) {

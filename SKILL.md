@@ -44,7 +44,7 @@ Presets give a look and a toolbox ([STYLE_PRESETS.md](STYLE_PRESETS.md)). The st
 | `cv doctor` | Checks node, ffmpeg, Playwright/Chromium, Edge TTS and the instrument samples, and fetches the samples (without them the score falls back to a much cheaper synth). Fix with `npm install` in the skill dir, `npx playwright install chromium`, ffmpeg, `uv` or `pip install edge-tts`. In a sandbox, `doctor`, `still`, `moodboard`, `render`, `tts` and `voices` need permission (Chromium, network); ask once, up front |
 | `cv init <dir> --preset <slug> [--ratio 9:16]` | A project with only the preset's style: THEME, KIT helpers, transition, captions, overlay. The KIT is a toolbox to use, change or extend; `presets/<slug>/video.html` shows how its helpers are called |
 | `cv tts <project>` | Narration from `narration.json` (segments = scene ids), cached; `build/voice/<id>.json` has the word timings ([docs/narration-and-subtitles.md](docs/narration-and-subtitles.md)) |
-| `cv music <project>` | The score from `CV.create({ music })`: key, BPM, energy per bar, the mix by part, every cut and sfx, warnings. A spec that breaks a limit is refused with what to fix |
+| `cv music <project>` | The score from `CV.create({ music })`: key, BPM, energy per bar, the mix by part, listening checks (ghostly stretches, a buried melody, flat range, sfx levels), every cut and sfx, warnings. A spec that breaks a limit is refused with what to fix |
 | `cv still <project> --sheet [--subs]` | Three probes per scene (entering, middle, settled) on contact sheets of six scenes. `--at 3.0,3.1,3.2,…` for exact moments (a strip of close probes shows a move's weight), `--scenes a,b` or `a..c` to re-probe part |
 | `cv moodboard <previewA> <previewB> <previewC> --title "…" [--wait]` | The style directions side by side for the user to pick (each preview: a `cv init` project with one real scene and a `moodboard.json` with `name`, `pitch`, `recommended`, `keywords`, `motion`, `music`). `--wait` serves it and returns their click; without it, send them the HTML |
 | `cv render <project> --subs burn` | The MP4 (`file`, `soft`, `burn+soft`, `none` for captions). `--scale 0.5 --format jpeg` for drafts, `--from/--to` for a range, `--motion-blur 5` for snappy moves, `--music track.mp3` for a licensed track, `--scale 2` for 4K. Ends with `cv check` |
@@ -60,7 +60,8 @@ Useful numbers: speech runs ≈ 4.3 CJK characters/s or ≈ 2.5 English words/s,
 - The checks, each in a line, from runs that actually happened: duration, fps and resolution; audio present and matching the video (±0.1 s); captions (count, no overlaps, last cue inside the video); A/V sync (median < 120 ms) and per-clip voice sync; music 10–18 dB under the voice while it speaks and ≈ −2…−6 dB in the gaps.
 - The score in one line: feel, reference, BPM, key, the hook.
 - Which part is weakest and what you would try next.
-- A request to listen: you can't hear the audio, so ask which part of the music or sound is off.
+- A request to listen: you can't hear the audio, so name the 8 seconds around the key mood change and ask how they feel and which part of the music or sound is off.
+- Credits, when the score used the `piano`: *Piano: Salamander Grand Piano by Alexander Holm, CC BY 3.0*.
 - How to tweak (open `video.html`: Space plays, ←/→ steps frames; colours and fonts in `T`; words in `narration.json`) and the natural next steps: another ratio, a GIF, 4K. `.cv-previews/` is cleaned up once a style is picked.
 
 ## Files
