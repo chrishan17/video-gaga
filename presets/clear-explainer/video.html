@@ -5,7 +5,7 @@
 <title>复利：让时间替你工作（video-gaga · Clear Explainer）</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&family=DM+Mono:wght@400;500&display=block" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&display=block" rel="stylesheet">
 </head>
 <body>
 <script src="build/narration.js"></script>
@@ -13,9 +13,10 @@
 <script>
 /* =============================================================================
    CLEAR EXPLAINER — knowledge / infographic.
-   Warm paper, ink type, two functional accents (coral = the point, teal = the
-   evidence). Every visual appears on the word that introduces it. Charts draw
-   in the direction you read them. One idea per scene, a chapter bar on top.
+   Clean white stock, navy ink, cobalt for the point, green for the evidence
+   and a real highlighter yellow behind the words that matter. Every visual
+   appears on the word that introduces it. Charts draw in the direction you
+   read them. One idea per scene, no chrome: the content is the layout.
    Rhythm: a bright 100 BPM bed; the voice starts on the beat, cuts land on the
    beat, and one music-only beat lets the payoff number sink in.
    ============================================================================= */
@@ -23,14 +24,14 @@ const { ease, clamp, lerp, fx, draw, color } = CV;
 
 // === THEME ===================================================================
 const T = {
-  paper: '#F3EFE6',
-  ink: '#1D2433',
-  muted: '#6B7180',
-  rule: 'rgba(29,36,51,0.12)',
-  coral: '#E4572E',     // the point
-  teal: '#1B998B',      // the evidence
+  paper: '#FCFCFB',
+  ink: '#16213A',
+  muted: '#677086',
+  rule: 'rgba(22,33,58,0.12)',
+  point: '#1F4FFF',     // the point (cobalt)
+  evidence: '#0E9F6E',  // the evidence (green)
+  hi: '#FFD84D',        // highlighter, behind ink type
   sans: '"Noto Sans SC", "PingFang SC", sans-serif',
-  mono: '"DM Mono", ui-monospace, monospace',
 };
 const F = (w, px, fam = T.sans) => `${w} ${px}px ${fam}`;
 const L = 160; // left margin (grid column 1)
@@ -39,21 +40,6 @@ const L = 160; // left margin (grid column 1)
 // Highlighter pill that grows behind a word (drawn before the text).
 function pill(ctx, x, y, w, h, p, fill) {
   fx.highlight(ctx, x - 12, y - h * 0.82, w + 24, h * 1.08, p, { color: fill, radius: 14 });
-}
-
-// === EXAMPLE: chapter kicker =================================================
-// Kicker: chapter number + label. It slides in on the scene's first beat and
-// leaves just before the cut, so the push carries a clean frame.
-function kicker(ctx, s, label, index) {
-  const p = ease.enter(clamp((s.t - s.onBeat(0) + 0.05) / 0.5)), q = s.out(0.3, ease.exit, 0.35);
-  ctx.textAlign = 'left';
-  ctx.font = F(500, 26, T.mono);
-  ctx.fillStyle = T.muted;
-  ctx.globalAlpha = p * (1 - q);
-  ctx.letterSpacing = '4px';
-  ctx.fillText(`${index} / 04   ${label}`, L + (1 - p) * -24, 150);
-  ctx.letterSpacing = '0px';
-  ctx.globalAlpha = 1;
 }
 
 // === EXAMPLE: compound-interest chart ========================================
@@ -100,10 +86,9 @@ CV.create({
   scenes: [
     // --- 1. Hook: one bar of music builds the "30 years" ruler, then the question
     {
-      id: 'hook', chapter: 0, voiceDelay: 2.1, energy: 0.35,
+      id: 'hook', voiceDelay: 2.1, energy: 0.35,
       draw(ctx, s) {
         const { t, W } = s;
-        kicker(ctx, s, 'COMPOUND INTEREST · 复利', '01');
         // the ruler: 30 ticks, one per year, laid down across the first bar
         const RY = 860, b0 = s.onBeat(0), span = s.beatLen * 3;
         for (let i = 0; i <= 30; i++) {
@@ -115,7 +100,7 @@ CV.create({
           const h = (major ? 34 : 16) * q;
           ctx.fillRect(x - (major ? 2 : 1), RY - h, major ? 4 : 2, h);
           if (major) {
-            ctx.font = F(400, 24, T.mono);
+            ctx.font = F(400, 24);
             ctx.textAlign = 'center';
             ctx.globalAlpha = q;
             ctx.fillStyle = T.muted;
@@ -123,11 +108,11 @@ CV.create({
             ctx.globalAlpha = 1;
           }
         }
-        // when "三十年" is spoken the years fill in teal, left to right
+        // when "三十年" is spoken the years fill in green, left to right
         const t30 = s.when('三十', 3.2);
         const fill = ease.inOutCubic(clamp((t - t30) / 0.9));
         if (fill > 0) {
-          ctx.fillStyle = T.teal;
+          ctx.fillStyle = T.evidence;
           ctx.fillRect(L, RY + 6, (W - L * 2) * fill, 6);
         }
         // headline: each word lands as it is said
@@ -136,26 +121,25 @@ CV.create({
         const y1 = 470, y2 = 630;
         const pre = '每年 ', hi = '8%', post = '';
         const xHi = L + ctx.measureText(pre).width, wHi = ctx.measureText(hi).width;
-        pill(ctx, xHi, y1, wHi, 118, ease.enter(clamp((t - s.when('8', 2.6) - 0.15) / 0.45)), color.rgba(T.coral, 0.9));
+        pill(ctx, xHi, y1, wHi, 118, ease.enter(clamp((t - s.when('8', 2.6) - 0.15) / 0.45)), T.hi);
         ctx.fillStyle = T.ink;
         const out = s.out(0.45, ease.exit, 0.3);
-        fx.wordReveal(ctx, pre + hi + post, L, y1, t, { sync: s, dur: 0.4, rise: 0.25, exit: out, colorFor: (w) => (w.text.startsWith('8') ? T.paper : null) });
+        fx.wordReveal(ctx, pre + hi + post, L, y1, t, { sync: s, dur: 0.4, rise: 0.25, exit: out });
         fx.wordReveal(ctx, '30 年后会怎样？', L, y2, t, { sync: s, dur: 0.4, rise: 0.25, exit: out });
       },
     },
     // --- 2. Rule of 72: the equation assembles on the words -----------------
     {
-      id: 'rule', chapter: 1, energy: 0.5,
+      id: 'rule', energy: 0.5,
       sfx: [{ at: (s) => s.when('翻倍', 4.4) - 0.05, type: 'pop' }],
       draw(ctx, s) {
         const { W, t } = s;
-        kicker(ctx, s, 'RULE OF 72 · 七十二法则', '02');
         const parts = [
           { txt: '72', at: s.when('七十二', 0.8), col: T.ink },
           { txt: '÷', at: s.when('除以', 2.4), col: T.muted },
-          { txt: '8%', at: s.when('收益率', 3.0), col: T.coral },
+          { txt: '8%', at: s.when('收益率', 3.0), col: T.point },
           { txt: '=', at: s.when('就是', 3.8), col: T.muted },
-          { txt: '9', at: s.when('翻倍', 4.4), col: T.teal },
+          { txt: '9', at: s.when('翻倍', 4.4), col: T.evidence },
         ];
         ctx.font = F(900, 220);
         const gap = 60;
@@ -173,7 +157,7 @@ CV.create({
             // the answer rolls into place like a counter
             fx.roll(ctx, '9', x, y, clamp(lt / 0.7), { spins: 1 });
             ctx.font = F(700, 44);
-            ctx.fillStyle = T.teal;
+            ctx.fillStyle = T.evidence;
             ctx.globalAlpha = ease.enter(clamp((lt - 0.5) / 0.5)) * (1 - s.out(0.3, ease.exit, 0.35));
             ctx.textAlign = 'center';
             ctx.fillText('年翻一倍', x + widths[i] / 2, y + 100);
@@ -186,7 +170,7 @@ CV.create({
           x += widths[i] + gap;
         });
         ctx.textAlign = 'left';
-        ctx.font = F(400, 30, T.mono);
+        ctx.font = F(400, 30);
         ctx.fillStyle = T.muted;
         ctx.globalAlpha = s.at(s.voiceEnd - 0.4, 0.6) * (1 - s.out(0.3, ease.exit, 0.35));
         ctx.fillText('72 ÷ 年化收益率(%) ≈ 本金翻倍所需年数', L, 900);
@@ -195,11 +179,10 @@ CV.create({
     },
     // --- 3. The curve: draws in step with the sentence; the camera follows it -
     {
-      id: 'curve', chapter: 2, tail: 0.5, energy: 0.6,
+      id: 'curve', tail: 0.5, energy: 0.6,
       sfx: [9, 18, 27].map((yr) => ({ at: (s) => yearTime(s, yr), type: 'tick', gain: 0.8 })),
       draw(ctx, s) {
         const { t, W, H } = s;
-        kicker(ctx, s, '10,000 × 1.08ⁿ', '03');
         const years = curveYears(s);
         const head = [px(years), py(Math.pow(1.08, years))];
         // slow push toward the head of the line (where the news is)
@@ -213,7 +196,7 @@ CV.create({
           ctx.strokeStyle = T.ink;
           ctx.lineWidth = 3;
           draw.drawOn(ctx, [[X0, Y0], [X1, Y0]], ax);
-          ctx.font = F(400, 26, T.mono);
+          ctx.font = F(400, 26);
           ctx.fillStyle = T.muted;
           ctx.globalAlpha = ax;
           ctx.textAlign = 'right';
@@ -231,11 +214,11 @@ CV.create({
             ctx.lineTo(px(years), Y0);
             ctx.closePath();
             const g = ctx.createLinearGradient(0, Y1, 0, Y0);
-            g.addColorStop(0, color.rgba(T.teal, 0.22));
-            g.addColorStop(1, color.rgba(T.teal, 0.02));
+            g.addColorStop(0, color.rgba(T.evidence, 0.22));
+            g.addColorStop(1, color.rgba(T.evidence, 0.02));
             ctx.fillStyle = g;
             ctx.fill();
-            ctx.strokeStyle = T.teal;
+            ctx.strokeStyle = T.evidence;
             ctx.lineWidth = 7;
             ctx.lineJoin = 'round';
             ctx.lineCap = 'round';
@@ -247,18 +230,18 @@ CV.create({
             const q = ease.outBack(clamp((years - yr) / 1.6));
             if (q <= 0) return;
             const x = px(yr), y = py(Math.pow(1.08, yr));
-            ctx.strokeStyle = color.rgba(T.coral, 0.75);
+            ctx.strokeStyle = color.rgba(T.point, 0.75);
             ctx.lineWidth = 3;
             draw.arrow(ctx, prev[0] + 14, prev[1] - 24, x - 10, y - 30, ease.inOutCubic(clamp((years - yr) / 2.2)), { bend: -40, head: 12 });
-            ctx.font = F(700, 28, T.mono);
-            ctx.fillStyle = T.coral;
+            ctx.font = F(700, 28);
+            ctx.fillStyle = T.point;
             ctx.textAlign = 'center';
             ctx.globalAlpha = clamp((years - yr - 0.8) / 1);
             ctx.fillText('×2', (prev[0] + x) / 2, Math.min(prev[1], y) - 74);
             ctx.globalAlpha = 1;
             prev = [x, y];
             ctx.fillStyle = T.paper;
-            ctx.strokeStyle = T.teal;
+            ctx.strokeStyle = T.evidence;
             ctx.lineWidth = 5;
             ctx.beginPath();
             ctx.arc(x, y, 13 * q, 0, Math.PI * 2);
@@ -274,17 +257,17 @@ CV.create({
           // live value riding the head of the line
           if (years > 0.05) {
             const v = Math.pow(1.08, years), done = years >= 29.9;
-            ctx.fillStyle = T.coral;
+            ctx.fillStyle = T.point;
             ctx.beginPath();
             ctx.arc(head[0], head[1], 11 + (done ? 0 : 3 * s.pulse(0.12)), 0, Math.PI * 2);
             ctx.fill();
             ctx.font = F(900, done ? 76 : 48);
             ctx.textAlign = 'left';
-            ctx.fillStyle = done ? T.coral : T.ink;
+            ctx.fillStyle = done ? T.point : T.ink;
             ctx.fillText(`${v.toFixed(2)} 万`, head[0] + 28, head[1] + 16);
           }
         });
-        ctx.font = F(400, 24, T.mono);
+        ctx.font = F(400, 24);
         ctx.fillStyle = T.muted;
         ctx.textAlign = 'right';
         ctx.globalAlpha = s.at(0.3, 0.5);
@@ -294,12 +277,12 @@ CV.create({
     },
     // --- 3b. A breath: no voice, the music lifts and the result stands alone --
     {
-      id: 'breath', chapter: 2, narration: false, beats: 6, energy: 0.8,
+      id: 'breath', narration: false, beats: 6, energy: 0.8,
       transition: { type: 'iris', x: px(30) / 1920, y: py(10.06) / 1080, duration: 0.7, ease: ease.inOutCubic },
       sfx: [{ at: (s) => s.onBeat(2), type: 'shimmer' }],
       draw(ctx, s) {
         const { W, H, t } = s;
-        ctx.fillStyle = T.ink;
+        ctx.fillStyle = T.point;
         ctx.fillRect(0, 0, W, H);
         const b = (i) => s.onBeat(i);
         // "1 万" on beat 1, the arrow on beat 2, "10 万" lands on beat 3
@@ -311,12 +294,12 @@ CV.create({
         ctx.strokeStyle = color.rgba(T.paper, 0.4);
         ctx.lineWidth = 5;
         draw.arrow(ctx, W * 0.26, H * 0.52, W * 0.42, H * 0.52, pa, { head: 22 });
-        ctx.font = F(400, 30, T.mono);
+        ctx.font = F(400, 30);
         ctx.fillStyle = color.rgba(T.paper, 0.5 * clamp((t - b(1) - 0.3) / 0.4));
         ctx.fillText('30 年', W * 0.34, H * 0.46);
         if (p2 > 0) {
           ctx.font = F(900, 220);
-          ctx.fillStyle = T.coral;
+          ctx.fillStyle = T.hi;
           ctx.textAlign = 'right';
           // 1 万 grows into 10.06 万: the number counts, it doesn't just appear
           const v = fx.countUp(ease.outQuart(p2), 1, 10.06, { decimals: 2 });
@@ -326,8 +309,8 @@ CV.create({
           ctx.textAlign = 'left';
           ctx.globalAlpha = clamp((p2 - 0.4) / 0.4);
           ctx.fillText('万', W * 0.81, H * 0.6);
-          ctx.font = F(500, 34, T.mono);
-          ctx.fillStyle = T.teal;
+          ctx.font = F(500, 36);
+          ctx.fillStyle = T.paper;
           ctx.fillText('≈ ×10', W * 0.8 - r, H * 0.6 + 80);
           ctx.globalAlpha = 1;
         }
@@ -335,51 +318,29 @@ CV.create({
     },
     // --- 4. Takeaway -----------------------------------------------------------
     {
-      id: 'takeaway', chapter: 3, tail: 1.6, energy: 0.45,
+      id: 'takeaway', tail: 1.6, energy: 0.45,
       draw(ctx, s) {
         const { t } = s;
-        kicker(ctx, s, 'TAKEAWAY · 结论', '04');
         ctx.font = F(900, 150);
         ctx.fillStyle = T.ink;
         const t2 = s.when('时间', 1.4);
         const w = ctx.measureText('时间').width;
-        pill(ctx, L, 660, w, 150, ease.enter(clamp((t - t2 - 0.35) / 0.5)), color.rgba(T.teal, 0.28));
+        pill(ctx, L, 660, w, 150, ease.enter(clamp((t - t2 - 0.35) / 0.5)), color.rgba(T.hi, 0.9));
         ctx.fillStyle = T.ink;
         fx.wordReveal(ctx, '越早开始，', L, 470, t, { sync: s, dur: 0.45, rise: 0.25 });
         fx.wordReveal(ctx, '时间越站在你这边。', L, 660, t, { sync: s, dur: 0.45, rise: 0.25 });
         // sign-off line arrives as the voice ends, on the beat
         const so = ease.enter(clamp((t - s.nextBeat(s.voiceEnd)) / 0.6));
-        ctx.font = F(500, 28, T.mono);
+        ctx.font = F(500, 28);
         ctx.fillStyle = T.muted;
         ctx.globalAlpha = so;
-        ctx.letterSpacing = '4px';
-        ctx.fillText('RULE OF 72  ·  10,000 × 1.08³⁰ ≈ 100,627', L, 860 + (1 - so) * 16);
-        ctx.letterSpacing = '0px';
+        ctx.fillText('七十二法则 · 1 万元按 8% 复利 30 年 ≈ 100,627 元', L, 860 + (1 - so) * 16);
         ctx.globalAlpha = 1;
       },
     },
   ],
-  // Paper grain; the example adds a chapter progress bar (hidden in the breath)
+  // Paper grain
   overlay(ctx, g) {
-    // <example>
-    const chapters = Math.max(0, ...g.scenes.map((sc) => (sc.chapter ?? -1) + 1)); // scenes carry `chapter: 0…n`
-    const w = (g.W - L * 2 - (chapters - 1) * 12) / chapters;
-    const dark = g.scenes.find((sc) => sc.id === 'breath');
-    const inDark = dark ? clamp(Math.min((g.T - dark.start) / 0.5, (dark.end - g.T) / 0.4)) : 0;
-    const intro = ease.enter(clamp(g.T / 0.6));
-    for (let i = 0; i < chapters; i++) {
-      const own = g.scenes.filter((sc) => sc.chapter === i);
-      if (!own.length) continue;
-      const a = own[0].start, b = own[own.length - 1].end;
-      const x = L + i * (w + 12);
-      ctx.globalAlpha = 1 - inDark;
-      ctx.fillStyle = T.rule;
-      ctx.fillRect(x, 72, w * intro, 6);
-      ctx.fillStyle = T.coral;
-      ctx.fillRect(x, 72, w * clamp((g.T - a) / (b - a)), 6);
-    }
-    ctx.globalAlpha = 1;
-    // </example>
     draw.grain(ctx, g.frame, 0.05, { blend: 'multiply' });
   },
 });

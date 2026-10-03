@@ -287,13 +287,10 @@ function backdrop(ctx, s, glow = 1) {
 function kicker(ctx, s, label) {
   const p = ease.enter(clamp((s.t - s.onBeat(0) + 0.05) / 0.5)), q = s.out(0.3, ease.exit, 0.1);
   ctx.textAlign = 'left';
-  ctx.font = F(500, 24, T.mono);
-  ctx.letterSpacing = '5px';
+  ctx.font = F(500, 30);
   ctx.fillStyle = T.dim;
   ctx.globalAlpha = p * (1 - q);
   ctx.fillText(label, L + (1 - p) * -20, 150);
-  ctx.fillStyle = T.amber;
-  ctx.fillRect(L, 172, 48 * p, 3);
   ctx.letterSpacing = '0px';
   ctx.globalAlpha = 1;
 }
@@ -376,7 +373,6 @@ CV.create({
         backdrop(ctx, s, s.at(0, 2));
         setWorld(hookView(s), { reveal: s.at(0.2, 2.4, ease.inOutSine), atmo: s.at(0.4, 2) });
         gl.render(ctx, world, cam);
-        kicker(ctx, s, "WORLD'S BUSIEST AIRPORTS · 2023");
         ctx.fillStyle = T.ink;
         ctx.font = F(900, 88, T.serif);
         const out = s.out(0.45, ease.exit, 0.1);
@@ -403,7 +399,7 @@ CV.create({
         label(ctx, 'LHR', clamp((t - tL) / 0.5), { dx: -40, dy: -46 });
         label(ctx, 'DXB', clamp((t - tD) / 0.5), { dy: 34 });
         label(ctx, 'HND', clamp((t - tH) / 0.5));
-        kicker(ctx, s, 'TOP 5 · 前五名里的三座');
+        kicker(ctx, s, '前五名里的三座');
         // the list builds in the order the places are named
         const out = s.out(0.35, ease.exit, 0.1);
         [['LHR', tL], ['DXB', tD], ['HND', tH]].forEach(([code, tc], i) => {
@@ -441,7 +437,6 @@ CV.create({
         });
         gl.render(ctx, world, cam);
         label(ctx, 'ATL', clamp((t - tA) / 0.5), { big: true });
-        kicker(ctx, s, 'NO.1 · ATL');
         ctx.fillStyle = T.ink;
         ctx.font = F(500, 44);
         fx.wordReveal(ctx, '但第一名在美国：', L, 380, t, { sync: s, dur: 0.4, rise: 0.25 });
@@ -481,12 +476,10 @@ CV.create({
         });
         gl.render(ctx, world, cam);
         ctx.textAlign = 'left';
-        ctx.font = F(500, 24, T.mono);
-        ctx.letterSpacing = '5px';
+        ctx.font = F(500, 30);
         ctx.fillStyle = T.dim;
         ctx.globalAlpha = s.at(0.1, 0.5);
-        ctx.fillText('2023 年旅客吞吐量 · 前五名（万人次）', L, 230);
-        ctx.letterSpacing = '0px';
+        ctx.fillText('2023 年旅客吞吐量前五名（万人次）', L, 230);
         ctx.globalAlpha = 1;
         // ATL lands on the first beat, the rest follow on the second: the gap is the story
         const MAXW = 900;
@@ -529,7 +522,7 @@ CV.create({
         });
         gl.render(ctx, world, cam);
         label(ctx, 'ATL', 1, { big: true });
-        kicker(ctx, s, 'EVERY DAY · 每一天');
+        kicker(ctx, s, '每一天');
         ctx.fillStyle = T.ink;
         ctx.font = F(700, 56, T.serif);
         fx.wordReveal(ctx, '平均每天', L, 390, t, { sync: s, dur: 0.45, rise: 0.25 });

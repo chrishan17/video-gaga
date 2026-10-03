@@ -27,7 +27,7 @@ Native formats: most are 16:9; Swiss Kinetic is 1:1; Neon Circuit and Pop Collag
 - **Look:** a dark stage, one hero object, light as the storyteller. Calm confidence.
 - **Suits:** launches, feature reveals, teasers, openers. **Avoid:** playful content, dense data.
 - **Palette:** `#050506` stage · `#F5F5F7` ink · `#86868B` dim · one accent `#4D7CFF` (swap for the brand)
-- **Type:** Geist 600/800 display, tight tracking · Geist Mono labels in tracked caps
+- **Type:** Geist 600/800 display, tight tracking · Geist 400/500 for quiet labels in sentence case
 - **Motion character:** slow, weighty arrivals out of the dark; light does the revealing (sweeps, glows, a hairline that opens); earlier items recede as new ones speak.
 - **KIT:** `sweepFill` (a specular sweep across type) · `hairline`
 - **Transitions:** `split`, `push`, `zoomBlur`, hard match cuts
@@ -37,24 +37,24 @@ Native formats: most are 16:9; Swiss Kinetic is 1:1; Neon Circuit and Pop Collag
 
 <img src="docs/media/studio-3d.jpg" width="480" alt="Studio 3D">
 
-- **Look:** a light seamless studio sweep, one hero object, soft key and rim light. Tactile and quiet.
+- **Look:** a coloured seamless studio sweep, one hero object, soft key and rim light. Tactile and quiet.
 - **Suits:** products and hardware, packaging, "what's inside", colour-ways. **Avoid:** topics without an object, dense data.
-- **Palette:** `#F3F0EA` → `#DCD5CA` sweep · `#1E1C1A` ink · `#857F76` dim · one accent `#FF5A1F` (swap for the brand)
-- **Type:** Bricolage Grotesque 800/700 · IBM Plex Mono labels in tracked caps
+- **Palette:** `#C9D5E0` → `#97A9BA` slate-blue sweep (pick the sweep against the product: the accent should pop off it) · `#111720` ink · `#4E5B69` dim · one accent `#FF5A1F` (swap for the brand)
+- **Type:** Bricolage Grotesque 800/700, 500 for labels in sentence case
 - **Motion character:** the camera does the work (arrive-push, slow orbit); 2D stays quiet while it moves; callouts track projected 3D points.
 - **KIT:** `lathe`, `shadowed` (building the object) · `poseStage` (every pose from time) · `project` (3D → 2D) · `sweep` (the backdrop) · `callout`
 - **Transitions:** camera-continuous cuts, `zoomBlur`, `flash`
-- **Captions:** bone box, ink text
+- **Captions:** pale box, ink text
 - **Render tip:** a 3D frame costs ~4× a 2D frame; draft with `--scale 0.5 --format jpeg`.
 
 ## 3. Clear Explainer — `clear-explainer`
 
 <img src="docs/media/clear-explainer.jpg" width="480" alt="Clear Explainer">
 
-- **Look:** a well-edited explainer channel. Warm paper, ink type, functional colour.
+- **Look:** a well-edited explainer channel. Clean white stock, ink type, functional colour, a real highlighter.
 - **Suits:** knowledge and science, finance and data, how-it-works, training. **Avoid:** luxury and mood pieces.
-- **Palette:** `#F3EFE6` paper · `#1D2433` ink · `#6B7180` muted · coral `#E4572E` = the point · teal `#1B998B` = the evidence
-- **Type:** Noto Sans SC 900/700/500 · DM Mono for labels, axes and kickers
+- **Palette:** `#FCFCFB` paper · `#16213A` ink · `#677086` muted · cobalt `#1F4FFF` = the point · green `#0E9F6E` = the evidence · highlighter `#FFD84D` behind ink type
+- **Type:** Noto Sans SC 900/700/500/400, labels and axes in the same family
 - **Motion character:** everything appears on the word that introduces it; diagrams build in reading and causal order; the camera follows what is growing.
 - **KIT:** `pill` (a highlighter pill behind a key term)
 - **Transitions:** `push`, `iris`
@@ -92,12 +92,12 @@ Native formats: most are 16:9; Swiss Kinetic is 1:1; Neon Circuit and Pop Collag
 
 - **Look:** a well-made magazine page that reads itself aloud. Measured, literate, quietly dramatic.
 - **Suits:** history and documentary essays, journalism, culture and brand stories. **Avoid:** hype, dense dashboards.
-- **Palette:** `#F2ECDF` newsprint · `#1A1916` ink · `#6E685C` muted · one editorial red `#C8322B` · tape `#E8DFCC`
-- **Type:** Fraunces 800/600 + italic · IBM Plex Mono tracked caps for datelines and figures · IBM Plex Sans Condensed captions
-- **Motion character:** rules draw on, type is set by masked line reveals on the voice, images print in as halftone, a red mark falls on the key word; silence is part of the layout.
+- **Palette:** `#F8F8F6` white stock · `#111114` ink · `#676A73` muted · one ultramarine `#2436D9` (the key word, the mark, one full-bleed page) · tape `#E6E8EE`
+- **Type:** Newsreader 800/600 + italic · IBM Plex Sans Condensed for datelines, labels and captions, in sentence case · Plex Mono only for the teletype
+- **Motion character:** rules draw on, type is set by masked line reveals on the voice, images print in as halftone, a blue mark falls on the key word and the page turns blue once, at the turn; silence is part of the layout.
 - **KIT:** `rule`, `label` (rules and datelines) · `set` (the type-setting ease) · `inkWash` (an ink-edged transition)
 - **Transitions:** an ink-edged wipe (page turn), `inkWash`
-- **Captions:** ink box, newsprint text
+- **Captions:** ink box, paper text
 
 ## 7. Paper Sketch — `paper-sketch`
 
@@ -199,6 +199,8 @@ Native formats: most are 16:9; Swiss Kinetic is 1:1; Neon Circuit and Pop Collag
 ## Custom styles
 
 When none fits, design one (and offer it as the wildcard direction). It needs a visual thesis in one sentence ("a museum wall label that comes alive"), a committed palette and type pairing, a motion character (how things arrive, hold, leave and cut) and one atmospheric device that belongs to the concept. Start from the closest preset (`cv init --preset <slug>`) and rewrite its THEME and KIT: change the grammar, not just the colours.
+
+A strong style is described as a medium and a process, not as adjectives. Say what it is made of (cut paper and glue, ink soaking into rice paper, a riso print in two drums, light on a black stage) and how that material behaves: what comes first, what can't be undone, where it is imperfect, what it does when it moves. Then the craft follows from the medium, and so does what it is not: a riso print has no gradients, a pencil can't fade in. Direction ideas that differ only in colour are one idea; real alternatives differ in at least three of ground and light, type voice, where the motif comes from, camera language, transition vocabulary and rhythm. Check each against the look models reach for by default ([docs/craft.md](docs/craft.md), *Picture*).
 
 ## Another aspect ratio
 
