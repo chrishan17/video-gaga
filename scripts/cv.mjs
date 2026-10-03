@@ -92,7 +92,7 @@ async function synthMusic(dir, score, { quiet } = {}) {
   const voiceDb = score.voice.length ? speechLevel(dir) : null;
   const sf = soundfontPath();
   const key = crypto.createHash('sha1').update(fs.readFileSync(path.join(ROOT, 'scripts', 'music.mjs'))).update(fs.readFileSync(path.join(ROOT, 'scripts', 'soundfont.mjs')))
-    .update(JSON.stringify(score)).update(String(voiceDb)).update(fs.existsSync(sf) ? `${sf}:${fs.statSync(sf).size}` : 'synth').digest('hex').slice(0, 16);
+    .update(fs.readFileSync(path.join(ROOT, 'scripts', 'samples.mjs'))).update(JSON.stringify(score)).update(String(voiceDb)).update(fs.existsSync(sf) ? `${sf}:${fs.statSync(sf).size}` : 'synth').digest('hex').slice(0, 16);
   const file = path.join(dir, 'build', 'music.wav'), bed = path.join(dir, 'build', 'music-bed.wav');
   const meta = path.join(dir, 'build', 'music.json');
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -105,7 +105,9 @@ async function synthMusic(dir, score, { quiet } = {}) {
   writeWav(file, mix);
   writeWav(bed, { left: mix.bed.left, right: mix.bed.right, sampleRate: mix.sampleRate });
   mix.report.voiceDb = voiceDb;
-  fs.writeFileSync(meta, JSON.stringify({ key, report: mix.report }, null, 1));
+  // a score that fell back to cheaper instruments is not cached: the next render tries again
+  const degraded = mix.report.engine !== 'samples' || (mix.report.warnings || []).some((w) => /could not be loaded/.test(w));
+  fs.writeFileSync(meta, JSON.stringify({ key: degraded ? null : key, report: mix.report }, null, 1));
   if (!quiet) log(`▸ music: ${mix.report.key} · ${mix.report.bpm} BPM · ${mix.report.layers} layers · ${score.sfx.length} sfx · ${mix.report.engine === 'samples' ? 'sampled instruments' : 'built-in synth'} (${Date.now() - t0} ms)`);
   if (!quiet) for (const w of mix.report.warnings || []) log(`  ⚠ music: ${w}`);
   return { file, bed, report: mix.report };
@@ -768,6 +770,8 @@ async function musicCmd(opts) {
   if (report.parts) log(`  parts (name@bar): ${report.parts.join(' ')}`);
   if (report.mixDb) log(`  mix (dB of the whole): ${Object.entries(report.mixDb).map(([k, v]) => `${k} ${v}`).join(' · ')} · ${report.engine === 'samples' ? 'sampled instruments' : 'built-in synth (no samples: run cv doctor)'}`);
   log(`  peak ${report.peakDb} dBFS · gaps ${report.gapDb ?? '—'} dB vs the voice (${report.voiceDb ?? '—'} dBFS speech), dips ${report.voiceDuckDb} dB while it speaks · final chord ${report.endChordAt != null ? `at ${report.endChordAt}s` : 'none'}`);
+  const L = report.listen;
+  if (L) log(`  listen: ${L.ghost ? `${L.ghost.length} ghostly 4-bar window(s)` : 'ghost check needs the samples'} · melody ${L.melodyDb ?? '—'} dB over the rest in 500 Hz–4 kHz (≥ 3) · loudness range ${L.rangeLU ?? '—'} LU · sfx ${L.sfxDb ? `${L.sfxDb.median} dB median over the music (${L.sfxDb.min} … ${L.sfxDb.max})` : '—'}`);
   log(`  sfx: ${info.score.sfx.map((e) => `${e.type}@${e.t.toFixed(2)}`).join(' ') || 'none'}`);
   log(`  cuts on the grid: ${info.scenes.slice(1).map((s) => s.start.toFixed(2)).join(' ')}`);
   if (report.unknownSfx) log(`  ⚠ unknown sfx types: ${report.unknownSfx.join(', ')}`);
@@ -813,6 +817,10 @@ async function doctor() {
   const { loadSoundfont, SOUNDFONT } = await import('./soundfont.mjs');
   const sf = await loadSoundfont({ log });
   row(!sf.error, 'instrument samples', sf.error ? `${sf.error}\n${' '.repeat(23)}→ without them the score falls back to a much cheaper synth` : `${path.basename(sf.file)} (${SOUNDFONT.license})`);
+  // the multi-sampled piano and strings: fetched per note on first use (not required)
+  const { cacheReport } = await import('./samples.mjs');
+  const cached = Object.entries(cacheReport()).map(([k, v]) => `${k} ${v.cached}/${v.total}`).join(' · ');
+  log(`  ${'·'} ${'recorded piano/strings'.padEnd(18)} ${cached} cached (the rest download the first time a score plays them)`);
   log(ok ? '\nReady to render.' : '\nFix the ✖ items above, then re-run doctor.');
   process.exitCode = ok ? 0 : 1;
 }

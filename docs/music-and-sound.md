@@ -2,7 +2,7 @@
 
 A voice alone sounds dry, and wall-to-wall narration is tiring. video-gaga gives every composition a **soundtrack that is arranged from its own timeline**. The music, the cuts and the motion share one clock (the beat grid), and the score leaves room for the voice and fills the moments where nobody speaks.
 
-The score is arranged by [`scripts/music.mjs`](../scripts/music.mjs) and **played by real instrument samples**: a General MIDI SoundFont (MuseScore General, MIT licence) rendered offline by [spessasynth_core](https://github.com/spessasus/spessasynth_core). Grand and felt piano, electric piano, string section, choir, nylon and steel guitars, harp, koto, mallets, basses, brass, winds and eight drum kits. It is seeded and deterministic: the same spec renders the same samples every time. The 40 MB sample bank downloads once to `~/.cache/video-gaga` on the first render (`cv doctor` fetches and checks it; `VIDEO_GAGA_SOUNDFONT=/path/to/bank.sf2` uses another General MIDI bank). Without it the score falls back to a small built-in synthesizer that sounds much cheaper, and `cv music` / `cv render` say so. You can still bring a licensed track with `--music file.mp3`.
+The score is arranged by [`scripts/music.mjs`](../scripts/music.mjs) and **played by real instrument samples**: a General MIDI SoundFont (MuseScore General, MIT licence) rendered offline by [spessasynth_core](https://github.com/spessasus/spessasynth_core). Grand and felt piano, electric piano, string section, choir, nylon and steel guitars, harp, koto, mallets, basses, brass, winds and eight drum kits. The parts a score leans on most play from **multi-sampled recordings**: `piano` from the Salamander Grand Piano (Alexander Holm, CC BY 3.0: credit it when you deliver a video that uses it, e.g. *Piano: Salamander Grand Piano by Alexander Holm, CC BY 3.0*), and `felt`, `strings`, `sinepad`, `violin`, `cello` and `harp` from VSCO 2 Community Edition (CC0). Only the notes a score plays are downloaded, once, into `~/.cache/video-gaga/samples` (a string part is typically 20–60 MB); a part whose samples can't be fetched falls back to the SoundFont and `cv music` says so. `VIDEO_GAGA_MULTISAMPLE=0` turns them off. It is seeded and deterministic: the same spec renders the same samples every time. The 40 MB sample bank downloads once to `~/.cache/video-gaga` on the first render (`cv doctor` fetches and checks it; `VIDEO_GAGA_SOUNDFONT=/path/to/bank.sf2` uses another General MIDI bank). Without it the score falls back to a small built-in synthesizer that sounds much cheaper, and `cv music` / `cv render` say so. You can still bring a licensed track with `--music file.mp3`.
 
 ## 1. Turn it on
 
@@ -45,7 +45,7 @@ CV.create({
 | `sevenths` | false | Four-note chords |
 | `chordBars` | 1 | Bars per chord: 1, 2 or 4 |
 | `layers` | — | The parts (§2.2). `[]` with no `lead` = sound effects only, on the grid |
-| `lead` | none | The melody in the gaps (§2.3), or omit it |
+| `lead` | none | The melody in the gaps (§2.3): written note by note (`line`) or composed from a `rhythm`. Or omit it |
 | `kit` | `'standard'` | The drum kit: `standard`, `room` (live, warm), `power` (big rock), `electronic`, `808` (hip-hop, trap, modern pop), `jazz`, `brush` (soft, intimate), `orchestra` (concert percussion) |
 | `swing` | 0 | 0–0.5: delays every other eighth/sixteenth (0.15–0.3 = a lazy, human groove). Layers can set their own |
 | `seed` | 1 | Change it to hear a different melody in the same design |
@@ -58,7 +58,7 @@ CV.create({
 | `gap` | 6 | How many dB the music-only passages sit under the voice's speech level. The renderer measures the actual voice, so every voice gets the same balance |
 | `volume` | 1 | A gain on top of that (`1.4` ≈ +3 dB) |
 | `sfx` | true | Transitions play their natural sound |
-| `parts` | — | Chapters of a long score: `{ name: { key, mode, progression, chordBars, sevenths, seed, lead } }`, chosen by a scene's `part` (§2.5) |
+| `parts` | — | Chapters of a long score: `{ name: { key, mode, progression, chordBars, sevenths, seed, lead, lines } }`, chosen by a scene's `part` (§2.5) |
 | `ending` | `'resolve'` | `'resolve'` lands the tonic chord on the last downbeat and lets the score's own instruments ring. `'none'` lets the groove run to the end |
 | `file` | — | A licensed track instead of the generated score (side-chain ducked, faded) |
 
@@ -72,7 +72,7 @@ What a good score sounds like is in [craft.md](craft.md), *Sound*: produced, wit
 
 **A reference** is a genre, an era, an artist or a soundtrack that a music supervisor would license for this exact video ("Joe Hisaishi strings over a felt piano", "lo-fi hip hop with a dusty Rhodes", "2010s indie folk, hand claps and a stomp", "city pop bass and bright keys", "Nils Frahm, a repeating piano figure that grows", "trap hats and an 808 under a koto line", "bossa nova guitar, brushes"). It comes from the story's feeling and the audience, not from the visual preset or the subject: a video about running can be a lazy bossa nova. Translate it into tempo, mode, a progression, the instruments that carry that sound (§2.2), a groove pattern and swing.
 
-**The hook** is a layer: a one- or two-bar `pattern` with `notes` (an arpeggio, a bass line, a plucked riff, a chord rhythm) that plays from the first scene. The `lead` answers it in the gaps (§2.3).
+**The hook** is a layer: a one- or two-bar `pattern` with `notes` (an arpeggio, a bass line, a plucked riff, a chord rhythm), or a `line` you write note by note, that plays from the first scene. The `lead` answers it in the gaps (§2.3).
 
 **The arc** is the scenes' `energy` against each layer's `from`: a layer enters in every bar whose energy reaches its `from`. So the energy values are the arrangement: low where the story holds its breath, the groove in early, a change at the turn (more layers, or all but one falling away, or a new `part`), and a landing.
 
@@ -85,6 +85,7 @@ A layer is one part, repeated every bar (or every `bars` bars), playing in the b
 | Key | Meaning |
 |---|---|
 | `inst` | **beds:** `pad` (warm synth pad), `synthpad` (brighter polysynth), `strings` (string section), `sinepad` (soft, slow strings), `choir` · **keys:** `piano` (grand), `felt` (mellow, intimate piano), `epiano` / `keys` (electric piano) · **plucked:** `guitar` / `pluck` (nylon), `acoustic` (steel-string), `harp`, `koto`, `pizz` (pizzicato strings) · **mallets:** `bell` with `kind`: `glock`, `marimba`, `kalimba`, `celesta`, `vibes`, `musicbox`, `xylophone`, `tubular` · **melodic:** `flute`, `shakuhachi`, `violin`, `cello`, `horn`, `brass`, `synthbrass`, `lead` (square; `saw: 1` for a saw), `timpani` · **bass:** `bass` with `kind`: `finger` (default), `picked`, `upright`, `fretless`, `synth`, `synth2` (`synth: true` = `kind: 'synth'`) · **drums:** `kick`, `snare`, `clap`, `snap`, `rim`, `hat`, `openhat`, `shaker`, `tamb`, `ride`, `crash`, `tom` (`pitch` Hz picks floor … high tom), `conga` |
+| `line` | pitched only, instead of `pattern` + `notes`: the part written note by note (notation in §2.3), repeated from the start of each part. For a bass line, a counter-melody or a riff whose exact notes matter. It does not follow chord changes, so a part that changes the harmony rewrites it in its `lines` (§2.5) |
 | `pattern` | Steps across the bar(s), equal length: `X` hit, `x` soft hit (0.6), `1`–`9` hit at n/9, `-` hold the previous note one more step, `.` rest. Spaces are ignored. `'X---'` = a whole-bar note, `'X.x.X.x.'` = eighths, 16 characters = sixteenths |
 | `bars` | 1, 2 or 4: how many bars the pattern spans |
 | `notes` | pitched only: `'chord'` (all chord tones), or a list cycled per hit: `root`, `third`, `fifth`, `seventh`, or a chord-tone index `0`–`7` of the voiced chord (`3` on a triad = the bottom note an octave up); add `^` / `_` for an octave up / down (`'root_'`, `'0^'`). Default: `'chord'` (`'root'` for bass). `[0, 1, 2, 3, 2, 1]` on eighths is an arpeggio |
@@ -98,7 +99,17 @@ A layer is one part, repeated every bar (or every `bars` bars), playing in the b
 
 ### 2.3 The lead
 
-`lead: { inst, range: [lowMidi, highMidi], rhythm, vel, …sound }`: `inst` is any keys, plucked, mallet or melodic instrument (`piano`, `felt`, `epiano`, `guitar`, `harp`, `koto`, `bell`, `flute`, `shakuhachi`, `violin`, `horn`, `lead` …); `rhythm` is `sparse` (long notes, reflective), `melodic` (a singable line) or `rhythmic` (short, syncopated). Two seeded motifs are composed per part and laid out as an eight-bar period (statement, an answer a step higher, a contrast, the statement again landing home), on the key's scale with chord tones on the strong beats, and played **only where nobody is speaking**. Keep the range above the voice (MIDI ≥ 69 for a lead that sings, at least 7 semitones wide).
+**Write it.** `lead: { inst, vel, line, …sound }` plays the melody you wrote, bar by bar from the start of each part, **only where nobody is speaking**:
+
+```js
+lead: { inst: 'violin', vel: 0.12, line: 'E5:1.5 D5:.5 C5:1 G5:1 | A5:3 r:1 | F5:1 E5 D5 C5 | D5:3 r:1' }
+```
+
+A note is a name with its octave (`C4` = middle C, MIDI 60; `F#5`, `Bb3`); `:beats` sets its length and carries over to the next notes until changed (`:1/3` for triplets); `r` is a rest; `[A3 C4 E4]:2` is a chord; `@1.2` accents a note (0.3–1.3 × `vel`); `|` checks that the bar is full. The line must fill whole bars and is at most 16 bars long; it repeats. It is played like a player would: its high points a little stronger, downbeats leaning, off-beats lighter.
+
+A good line is a tune someone could hum after one hearing: a short motif (2–4 notes with a recognisable rhythm) stated, answered (the same rhythm, moved), contrasted, and brought home; mostly steps with one or two leaps that land on a chord tone; chord tones on the strong beats; a peak note reached once, about two-thirds of the way through; phrases that end on long notes and leave rests for breath; the last phrase resolving to the tonic. Write it in the key and against the progression you chose: `cv music` warns when more than a quarter of the notes fall outside the key. It sounds wrong when it wanders by step with no rhythm of its own, sits on one note, leaps on every note, crowds every beat, or never lands.
+
+**Or let it be composed.** `lead: { inst, range: [lowMidi, highMidi], rhythm, vel, …sound }`: `inst` is any keys, plucked, mallet or melodic instrument (`piano`, `felt`, `epiano`, `guitar`, `harp`, `koto`, `bell`, `flute`, `shakuhachi`, `violin`, `horn`, `lead` …); `rhythm` is `sparse` (long notes, reflective), `melodic` (a singable line) or `rhythmic` (short, syncopated). Two seeded motifs are composed per part and laid out as an eight-bar period (statement, an answer a step higher, a contrast, the statement again landing home), on the key's scale with chord tones on the strong beats, and played **only where nobody is speaking**. Keep the range above the voice (MIDI ≥ 69 for a lead that sings, at least 7 semitones wide).
 
 ### 2.4 Rules and limits
 
@@ -107,7 +118,8 @@ A layer is one part, repeated every bar (or every `bars` bars), playing in the b
 - `bpm` 60–150; `progression` 1–8 degrees 0–6; `chordBars` 1, 2 or 4; known `key`, `mode` and `kit`.
 - At most **8 layers**, at most **32 steps per bar** per layer, and at most **40 drum hits per bar** across all drum layers at full energy.
 - Loudest hit per instrument: beds (pad, synthpad, strings, sinepad, choir) 0.12 · keys, plucked and mallets 0.2 · flute, violin, cello, horn, brass 0.15 · lead 0.12 · timpani 0.3 · bass 0.35 · kick 0.7 · snare 0.35 · clap 0.3 · conga 0.3 · snap 0.25 · rim 0.2 · crash 0.15 · hat, shaker, tamb, ride 0.12 · openhat 0.1 · tom 0.5. Lead `vel` ≤ 0.15. (The mix is levelled against the voice afterwards; these keep one part from swamping the others.)
-- Notes stay inside MIDI 28–100 (folded by octaves); sound options stay in safe ranges (e.g. `cutoff` 80–8000 Hz, `echo` ≤ 0.6).
+- Notes stay inside MIDI 28–100 (pattern notes are folded by octaves; a written `line` outside it is refused); sound options stay in safe ranges (e.g. `cutoff` 80–8000 Hz, `echo` ≤ 0.6).
+- A written `line` fills whole bars (each `|` must close a full bar), is at most 16 bars long, and a layer has either a `line` or a `pattern`, not both.
 - Unknown keys are errors, so typos never pass silently.
 
 And these are **design rules** (warnings from `cv music`, and things to check yourself):
@@ -141,7 +153,7 @@ scenes: [
 ]
 ```
 
-- A part may change `key`, `mode`, `progression`, `chordBars`, `sevenths`, `seed` (new melody motifs) and `lead` (merged over the main lead: a different `rhythm`, `range` or `vel`). The **layers stay the same** for the whole video, so it keeps one sound; energy still decides which of them play.
+- A part may change `key`, `mode`, `progression`, `chordBars`, `sevenths`, `seed` (new melody motifs), `lead` (merged over the main lead: a different `rhythm`, `range`, `vel` or its own written `line`) and `lines: { layerName: line }` (new written lines for named layers). A written line doesn't follow chord changes, so a part that changes the harmony gives its lead and its written layers new lines (`cv music` warns when it doesn't). The **layers stay the same** for the whole video, so it keeps one sound; energy still decides which of them play.
 - Put `part` on the first scene of each chapter. It holds until another scene names a part. The cut into that scene moves to the next **bar line** (not just the beat) so the new chords arrive with the new picture; this can hold the previous scene up to one bar longer. Set the scene's `snap` to override.
 - Each part starts on the first chord of its own progression, and the melody in it uses its own two motifs. The ending resolves to the home chord of the part the video ends in.
 - Design parts from the story, not for variety's sake: a relative minor for the low point, a pop loop (`[5, 3, 0, 4]`) for momentum, a slower `chordBars: 2` for reflection, and back home for the ending. Three to six parts suit a 2–5 minute piece.
@@ -176,13 +188,18 @@ sfx: [
 | `boom` | a concert bass drum and a deep sub drop | a title slam, a dramatic number |
 | `riser` | a reversed cymbal and noise opening up, ending at `at` | building into a hit |
 | `swell` | a soft reversed cymbal | ink, dissolve, gentle reveals |
-| `tick` / `click` | short UI tick | markers popping, counters, list items |
-| `pop` | a soft bloop | a result landing, a badge appearing |
+| `tick` / `click` | a small mechanical switch / a mouse click (recorded) | markers popping, counters, list items |
+| `pop` | a small light object set down: a soft clack (recorded) | a result landing, a badge appearing |
 | `shimmer` | a quick celesta arpeggio of the current chord | light, sparkle, a positive payoff |
 | `chime` | two glockenspiel notes, the fifth then the octave | an end card, a notification |
-| `paper` | a sheet sliding | page transitions |
-| `type` | a key press | typewriter text (one per character burst, not per letter) |
+| `paper` | a page turning, a sheet sliding (recorded) | page transitions |
+| `type` | a key press (recorded) | typewriter text (one per character burst, not per letter) |
+| `card` · `book` · `cloth` | a card laid down · a book closed or set down · fabric moving (recorded) | cards dealt, a chapter closing, a reveal |
+| `wood` · `glass` · `metal` | a light knock or tap on that material (recorded) | an object or icon that *is* that material |
+| `thud` · `step` | something solid landing · a footstep (recorded) | a heavy block settling, someone arriving |
 | `glitch` | stuttered digital bursts | glitch transitions, cyber styles only |
+
+The small physical sounds are real recordings (Kenney, CC0; `assets/sfx`), a few takes of each, picked in turn with a little change of pitch and level, so ten ticks never sound copied. Every effect sends to the score's one reverb, so effects and music sit in the same room. A synthesized beep or a pure sine "tick" reads as cheap; a real object in the room reads as made.
 
 **Each one marks something that matters,** like motion does: a transition, a counted item, the big reveal. A `hit` is strongest when it is the only one in the video.
 
@@ -209,5 +226,18 @@ music: 13.8 dB under the voice while it speaks, -3.9 dB vs the voice in the gaps
 ```
 
 Aim for **10–18 dB under the voice** while it speaks (it warns below 9 and above 22 dB) and roughly −2 to −6 dB in the gaps. The score is levelled against the measured speech RMS of your narration, so the defaults land there for any voice. Adjust with `music.volume`, `music.gap` and `music.duck`. Word-synced sound effects are excluded from the measurement (it uses a bed-only stem, `build/music-bed.wav`). The final mix is loudness-normalised to −16 LUFS. Speech onsets are measured on the voice stem, so the sync check still works under music.
+
+**Listening checks.** `cv music` and `cv render` also measure what a listener would notice, from the rendered audio, and warn (never refuse):
+
+| Check | Measured | Reads well | Warned |
+|---|---|---|---|
+| ghost | per 4 bars: note starts per beat, share of held notes, reverb tail vs the dry sound | something articulates at least once a beat, or the reverb sits well back | < 1 start per beat **and** > 60 % held **and** a tail within 12 dB: the slow, washed-out, unresolved sound people call eerie (阴间) |
+| melody | the lead vs the other parts in 500 Hz–4 kHz while it plays | ≥ 3 dB above them | below 3 dB: it gets lost |
+| range | loudness range of the music before ducking (3 s windows) | it follows the energy plan | under 3 LU when the scenes' energy spans ≥ 0.3: the score stays flat |
+| sfx | each effect's loudest 25 ms vs the music around it, in its band | +3 to +10 dB | under −6 dB (lost) or over +18 dB (jumps out; accents like `hit` excepted) |
+
+The numbers are printed on the `listen:` line. They catch the common failures; they don't replace ears.
+
+**The 8-second listen.** Whoever builds the video can't hear it. Before calling a score done, ask a person to listen to 8 seconds around the video's key mood change (the turn, the reveal) and say in a word how it feels and what is off (a sound that's too loud, a melody that's wrong, an effect that's cheap). Their answer beats every number above.
 
 **Honest limits.** The instruments are real samples, so the score sounds like a well-produced library cue rather than a toy synth, but it is still arranged by rules from a spec: it won't match a composer's track or a commercial hit. The renderer verifies what it can measure (levels, ducking, mix balance, sync, peaks, every cut on the grid) but cannot judge taste: read the `mix:` line and the warnings, and design the score as carefully as the pictures. For a flagship piece, use the generated score as the tempo map and swap in a licensed track with the same BPM: `--music track.mp3` plus `music: { bpm: <its bpm>, offset: <first downbeat s> }`.
