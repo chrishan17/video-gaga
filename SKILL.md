@@ -12,17 +12,18 @@ Turn "I want a video about X" into a finished MP4 that helps someone say what th
 The video is compared with what people scroll past every day, and correct is not enough. [docs/craft.md](docs/craft.md) describes the target in full; read it before you write anything. In short, a good video:
 
 - **is about one specific thing, told by someone.** A person, a moment, an object, a number; a turn where something changes; a landing that pays off the opening; concrete lines, no slogans; one line worth repeating.
-- **is carried by one visual idea** that recurs and changes with the story, in frames that would each work as a poster.
+- **is carried by one visual idea** that recurs and changes with the story, in frames that would each work as a poster, in a look that stands on references you can name (a work, a studio, a medium, an era) rather than on adjectives.
 - **moves with weight and character.** Every move has a job, holds stay alive, cuts happen on action, a few signature moves are its own ([docs/motion-design.md](docs/motion-design.md)).
 - **sounds produced.** A score with a reference, a hook and an arc that follows the story, under a clear, unhurried voice, with silence where a line needs to land ([docs/music-and-sound.md](docs/music-and-sound.md) §2).
 - **is judged on what was rendered,** not on what was intended, and delivered only when it meets the target.
 
-Presets give a look and a toolbox ([STYLE_PRESETS.md](STYLE_PRESETS.md)). The story, the structure, the choreography and the score belong to this brief, and the result should not resemble a preset's example video.
+The look is chosen for this story ([docs/craft.md](docs/craft.md), *The look has a name*). The 13 presets ([STYLE_PRESETS.md](STYLE_PRESETS.md)) are worked examples of named looks and a toolbox of helpers, one option among many rather than the starting point. The story, the structure, the choreography and the score belong to this brief, and the result should not resemble a preset's example video.
 
 ## What the user experiences
 
 - They are asked only what changes the video (usually length, format, voice, captions, and whatever about the content can't be inferred), in one round, in their language. Each question has three concrete options, one marked **(Recommended)** with a reason tied to their brief, and they can answer in their own words. What the request already says is confirmed as an assumption. If they say "just make it" / "直接做" or don't answer, the recommendations stand and the assumptions are listed.
-- Before the build they see their own opening in three directions (the best fit, a contrast, a custom wildcard), side by side, and pick one; the frames look like the real start of their video, never like a demo. They are spared this when they named a style, chose quick mode, or are editing.
+- Before the build they see their own opening in three directions (the best fit, a contrast, a wildcard), each standing on a different named reference, side by side, and pick one; the frames look like the real start of their video, never like a demo. They are spared this when they named a style, chose quick mode, or are editing.
+- When they bring a reference (a frame, a clip, a link, a folder of their own work), their video visibly belongs with it: its palette, type, pacing and transitions, with their own subject.
 - They see the brief and storyboard ([docs/craft.md](docs/craft.md), *The brief*) and can change the script or the visuals before it is built.
 - They get the MP4 with an honest account (below).
 
@@ -42,7 +43,7 @@ Presets give a look and a toolbox ([STYLE_PRESETS.md](STYLE_PRESETS.md)). The st
 | Command | What it gives you |
 |---|---|
 | `cv doctor` | Checks node, ffmpeg, Playwright/Chromium, Edge TTS and the instrument samples, and fetches the samples (without them the score falls back to a much cheaper synth). Fix with `npm install` in the skill dir, `npx playwright install chromium`, ffmpeg, `uv` or `pip install edge-tts`. In a sandbox, `doctor`, `still`, `moodboard`, `render`, `tts` and `voices` need permission (Chromium, network); ask once, up front |
-| `cv init <dir> --preset <slug> [--ratio 9:16]` | A project with only the preset's style: THEME, KIT helpers, transition, captions, overlay. The KIT is a toolbox to use, change or extend; `presets/<slug>/video.html` shows how its helpers are called |
+| `cv init <dir> [--ratio 9:16]` | A blank project: the render contract and nothing else, for a look designed from its references. `--preset <slug>` starts from a preset's style instead (THEME, KIT helpers, transition, captions, overlay). Any preset's KIT can be borrowed; `presets/<slug>/video.html` shows how its helpers are called |
 | `cv tts <project>` | Narration from `narration.json` (segments = scene ids), cached; `build/voice/<id>.json` has the word timings ([docs/narration-and-subtitles.md](docs/narration-and-subtitles.md)) |
 | `cv music <project>` | The score from `CV.create({ music })`: key, BPM, energy per bar, the mix by part, listening checks (ghostly stretches, a buried melody, flat range, sfx levels), every cut and sfx, warnings. A spec that breaks a limit is refused with what to fix |
 | `cv still <project> --sheet [--subs]` | Three probes per scene (entering, middle, settled) on contact sheets of six scenes. `--at 3.0,3.1,3.2,…` for exact moments (a strip of close probes shows a move's weight), `--scenes a,b` or `a..c` to re-probe part |
@@ -69,7 +70,7 @@ Useful numbers: speech runs ≈ 4.3 CJK characters/s or ≈ 2.5 English words/s,
 | File | What |
 |---|---|
 | [docs/craft.md](docs/craft.md) | What good looks like: the whole, story, picture, motion, sound; the brief |
-| [STYLE_PRESETS.md](STYLE_PRESETS.md) | The 13 styles: look, palette, type, motion character, KIT |
+| [STYLE_PRESETS.md](STYLE_PRESETS.md) | 13 worked examples of named looks (what each stands on, palette, type, motion, KIT) and how to design a look of your own |
 | [docs/motion-design.md](docs/motion-design.md) | Motion language: easing, camera, transitions, type, readability |
 | [docs/music-and-sound.md](docs/music-and-sound.md) | Score direction, the spec and its limits, parts, sfx, pacing, mix |
 | [docs/narration-and-subtitles.md](docs/narration-and-subtitles.md) | Voices, writing for the ear, captions |

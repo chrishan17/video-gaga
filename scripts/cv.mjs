@@ -8,7 +8,7 @@
 //   node scripts/cv.mjs music  <project>
 //   node scripts/cv.mjs check  <video.mp4> [--srt file.srt]
 //   node scripts/cv.mjs gif    <video.mp4> [--out x.gif] [--width 480] [--fps 12]
-//   node scripts/cv.mjs init   <dir> --preset <slug>
+//   node scripts/cv.mjs init   <dir> [--preset <slug>]
 //   node scripts/cv.mjs voices [--lang zh-CN]
 //
 // Run `node scripts/cv.mjs help` for all options.
@@ -592,19 +592,23 @@ async function gif(opts) {
 }
 
 // ---------------------------------------------------------------------------
-// init — scaffold a project from a preset's style (not its example video)
+// init — a blank project (the render contract only), or a preset's style
+// (not its example video) with --preset
 // ---------------------------------------------------------------------------
 async function init(opts) {
   const dir = path.resolve(opts._[1] || die('missing <dir>'));
-  const slug = opts.preset || 'swiss-kinetic';
-  const tpl = path.join(ROOT, 'presets', slug, 'video.html');
+  const slug = opts.preset && opts.preset !== true ? String(opts.preset) : null;
+  const tpl = slug ? path.join(ROOT, 'presets', slug, 'video.html') : path.join(ROOT, 'scripts', 'templates', 'blank.html');
   if (!fs.existsSync(tpl)) die(`unknown preset "${slug}". Available: ${fs.readdirSync(path.join(ROOT, 'presets')).filter((d) => fs.existsSync(path.join(ROOT, 'presets', d, 'video.html'))).join(', ')}`);
   if (fs.existsSync(path.join(dir, 'video.html')) && !opts.force) die(`${dir}/video.html exists (use --force)`);
   fs.mkdirSync(dir, { recursive: true });
   fs.copyFileSync(path.join(ROOT, 'runtime', 'video-gaga.js'), path.join(dir, 'video-gaga.js'));
   // (older compositions loaded canvas-video.js)
-  const { scaffoldFromPreset } = await import('./scaffold.mjs');
-  const { html, kept, dropped } = scaffoldFromPreset(fs.readFileSync(tpl, 'utf8'), { slug });
+  let html = fs.readFileSync(tpl, 'utf8'), kept = [], dropped = [];
+  if (slug) {
+    const { scaffoldFromPreset } = await import('./scaffold.mjs');
+    ({ html, kept, dropped } = scaffoldFromPreset(html, { slug }));
+  }
   let htmlSrc = html.replace(/src="[^"]*(?:video-gaga|canvas-video)\.js"/, 'src="video-gaga.js"');
   htmlSrc = htmlSrc.replace(/<title>[^<]*<\/title>/, `<title>${path.basename(dir)}</title>`);
   if (opts.ratio) {
@@ -614,9 +618,14 @@ async function init(opts) {
   fs.writeFileSync(path.join(dir, 'video.html'), htmlSrc);
   // the example's narration.json is not copied: the words are written for this brief
   fs.writeFileSync(path.join(dir, '.gitignore'), 'build/\nout/\n');
-  log(`✔ scaffolded ${path.relative(process.cwd(), dir) || '.'} from the "${slug}" style`);
-  log(`  kept:     ${kept.join(' · ')} · CV.create look (size, fonts, transition, captions, overlay)`);
-  log(`  left out: the example's scenes, score and narration${dropped.length ? ` · ${dropped.join(' · ')}` : ''}`);
+  if (slug) {
+    log(`✔ scaffolded ${path.relative(process.cwd(), dir) || '.'} from the "${slug}" style`);
+    log(`  kept:     ${kept.join(' · ')} · CV.create look (size, fonts, transition, captions, overlay)`);
+    log(`  left out: the example's scenes, score and narration${dropped.length ? ` · ${dropped.join(' · ')}` : ''}`);
+  } else {
+    log(`✔ scaffolded ${path.relative(process.cwd(), dir) || '.'} (blank: the render contract only)`);
+    log('  look:     design it for this brief; a preset\'s KIT (presets/<slug>/video.html) can be borrowed');
+  }
   log(`  next:     write the scenes, narration.json and the score (music: { … }) for this brief`);
   log(`  preview:  open ${path.join(dir, 'video.html')}`);
   log(`  render:   node ${path.relative(process.cwd(), path.join(ROOT, 'scripts', 'cv.mjs'))} render ${path.relative(process.cwd(), dir) || '.'}`);
@@ -858,8 +867,9 @@ music <project>               render the generated score to build/music.wav (the
 check <video.mp4> [--srt f]   ffprobe summary + A/V + subtitle sanity checks
                               (render runs it too, adding per-clip voice sync)
 gif <video.mp4>               palette GIF preview  [--out --width 480 --fps 12 --from --dur]
-init <dir> --preset <slug>    scaffold a project in a preset's style: its THEME and KIT helpers,
-                              without the example's scenes, score or narration [--ratio 9:16]
+init <dir>                    scaffold a blank project: the render contract, no look [--ratio 9:16]
+    --preset <slug>           start from a preset's style instead: its THEME and KIT helpers,
+                              without the example's scenes, score or narration
 voices [--lang zh-CN]         list Edge TTS voices
 `;
 

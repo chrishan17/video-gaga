@@ -33,3 +33,22 @@ test('presets declare their own score instead of a style', () => {
     assert.match(src, /^ {2}music: \{\n {4}bpm: \d+/m, slug);
   }
 });
+
+test('cv init without a preset scaffolds a blank project with no look', async () => {
+  const os = await import('node:os');
+  const path = await import('node:path');
+  const { spawnSync } = await import('node:child_process');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cv-blank-'));
+  const cv = new URL('../scripts/cv.mjs', import.meta.url).pathname;
+  const r = spawnSync(process.execPath, [cv, 'init', dir, '--ratio', '9:16'], { encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  const html = fs.readFileSync(path.join(dir, 'video.html'), 'utf8');
+  assert.match(html, /=== THEME/);
+  assert.match(html, /width: 1080, height: 1920/);
+  assert.match(html, /src="video-gaga\.js"/);
+  assert.doesNotMatch(html, /=== KIT|^ {2}music:/m);
+  const scenes = html.match(/^ {2}scenes: \[\n([\s\S]*?)^ {2}\],/m);
+  assert.ok(scenes && scenes[1].split('\n').every((l) => !l.trim() || l.trim().startsWith('//')));
+  assert.ok(fs.existsSync(path.join(dir, 'video-gaga.js')));
+  fs.rmSync(dir, { recursive: true, force: true });
+});

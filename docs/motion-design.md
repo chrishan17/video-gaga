@@ -2,7 +2,7 @@
 
 Motion does two jobs: it tells the eye where to look and what changed, and it gives the piece life and a character of its own. The two don't conflict. A slow push during a hold has a job (it keeps the shot alive while the viewer reads), and so does a word that slams up from a mask (it says "this one"). What has no job is motion added because a frame felt empty: wobbling text, random particles, everything pulsing to the beat. A frame that feels empty usually needs a better idea, not more movement.
 
-Aim for motion that looks designed by a person with taste: a clear focal point, layers moving at different speeds, moves with weight and timing, cuts on action. Look at studio work you admire and ask how they would move this.
+Aim for motion that looks designed by a person with taste: a clear focal point, layers moving at different speeds, moves with weight and timing, cuts on action. The references the look stands on ([craft.md](craft.md), *The look has a name*) usually say how things move too: a stop-motion clay piece steps on twos, an ink painting soaks and settles, a Saul Bass title cuts hard between flat shapes. Move the way that reference moves, then push it further for this story.
 
 ## 1. A well-made scene
 
@@ -24,7 +24,7 @@ Aim for motion that looks designed by a person with taste: a clear focal point, 
 | physical objects | `CV.spring(spring.presets.…)` | real weight and overshoot; `CV.springTrack` for a value that re-targets |
 | mechanical things | `linear` | tickers, clocks, conveyor grids only |
 
-Choose one family per video so the motion has a consistent hand. Heavy things move slowly and settle long; light things snap. Overshoot belongs to objects and titles, not to numbers or data, which look wrong when they wobble.
+The tables are vocabulary, not a menu. What matters is that the video has a consistent hand, the way one animator's work does: heavy things move slowly and settle long; light things snap. Overshoot belongs to objects and titles, not to numbers or data, which look wrong when they wobble.
 
 ## 3. Principles that make motion feel made
 
@@ -49,7 +49,7 @@ Motion is wasted if the viewer can't read what lands.
 
 A virtual camera (`CV.draw.camera`) turns a layout into a shot. Keep camera motion slower than content motion, but keep it moving.
 
-- A camera has a manner. It **chases** (lags behind the subject, catches up, overshoots a little: alive, urgent) or it **follows** (locked to the subject: calm, certain). Pick one for the video.
+- A camera has a manner. It **chases** (lags behind the subject, catches up, overshoots a little: alive, urgent) or it **follows** (locked to the subject: calm, certain). The manner is part of the film's character, so it changes only when the story does.
 - Change shot size for real (wide to close, close to extreme close). A 2% drift on every shot is invisible; one decisive push is felt.
 - Push in or pull out, then keep going or cut. Zooming in and straight back out reads as indecision.
 - Layers sit at depths and move from one camera (`depth` in `CV.draw.camera`), the near ones faster, so the world has space to travel through. A far texture or lattice gives the camera something to slide against.
@@ -68,7 +68,7 @@ A virtual camera (`CV.draw.camera`) turns a layout into a shot. Keep camera moti
 
 ## 6. Cuts and transitions
 
-A cut on the beat is the default and almost always works. Every other transition says something, so choose it for what it says and keep the vocabulary small (one or two types, plus at most one special move for the biggest change). The full list is in [runtime-api.md](runtime-api.md#transitions).
+A cut on the beat almost always works. Every other transition says something, so choose it for what it says; a film reads as made by one hand when its transitions come from a small family that belongs to its look, and the biggest change can get a move of its own. The full list is in [runtime-api.md](runtime-api.md#transitions), and the best transitions are often not on it.
 
 What makes a seam feel made is what crosses it. Something survives the cut: the shape that becomes the next shape, the colour that floods the next frame, the line that keeps travelling. The strongest transitions are built inside the shots on either side rather than laid over them: the camera pushes into an object until it becomes the next world, a word grows until its counter is the next frame. Pause on the midpoint of a transition: it should be a frame worth looking at. Match the motion across a hard cut (same direction, similar speed, a zoom keeps its direction) and the cut disappears; the incoming shot is already moving the way the outgoing one left. Don't end two shots in a row the same way.
 
