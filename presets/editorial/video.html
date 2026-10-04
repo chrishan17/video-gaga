@@ -127,6 +127,15 @@ function inkWash(ctx, A, B, p) {
   ctx.restore();
 }
 
+// Page scroll: the reader's eye travels down the same sheet. The outgoing page
+// leaves upward and the next part of the page arrives from below, at one speed,
+// so the seam reads as one continuous move rather than a slide change.
+function pageScroll(ctx, A, B, p) {
+  const H = ctx.canvas.height;
+  ctx.drawImage(A, 0, -H * p);
+  ctx.drawImage(B, 0, H * (1 - p));
+}
+
 // === VIDEO ===================================================================
 CV.create({
   width: 1920, height: 1080, fps: 30,
@@ -155,9 +164,13 @@ CV.create({
       // the date is set in type, one part per beat, each with a tick
       sfx: [1.5, 2.5, 3.5].map((i) => ({ at: (s) => s.onBeat(i), type: 'tick', gain: 0.8 })),
       draw(ctx, s) {
-        const { t, W } = s;
+        const { t, W, H } = s;
         const b = (i) => s.onBeat(i);
-        const out = s.out(0.45, ease.exit, 0.35);
+        const out = 0; // nothing leaves: the whole page scrolls on into the next scene
+        // the shot opens close on the masthead and pulls back to the page as the date is set
+        const cam = draw.cameraAt(t, [[0, { zoom: 1.9 }], [b(0.9), { zoom: 1.9 }], [b(1.6), { zoom: 1 }, ease.inOutCubic]]);
+        ctx.save();
+        draw.camera(ctx, W, H, { ...cam, focusX: W / 2, focusY: 300, x: 0, y: (H / 2 - 300) / cam.zoom }, () => {
         // double rule + masthead, on the first beats of the bar
         rule(ctx, L, R, 196, (t - b(0)) / 0.9, 3);
         rule(ctx, L, R, 206, (t - b(0) - 0.12) / 0.9, 1);
@@ -188,11 +201,14 @@ CV.create({
         ctx.font = F(400, 54, T.serif, 'italic');
         ctx.fillStyle = T.muted;
         fx.lineReveal(ctx, ['Half past ten at night, Pacific time.'], L, 820, t - b(4.25), { ...set, exit: out, lineHeight: 70 });
+        });
+        ctx.restore();
       },
     },
     // --- 2. The attempt: column, drop cap, the printed map ------------------
     {
-      id: 'attempt', tail: 0.35, energy: 0.45,
+      id: 'attempt', tail: 0.7, energy: 0.45,
+      transition: { type: pageScroll, duration: 0.8, ease: ease.inOutCubic, sfx: 'paper' },
       draw(ctx, s) {
         const { t, W, H } = s;
         const out = s.out(0.4, ease.exit, 0.35);
@@ -215,12 +231,16 @@ CV.create({
         ctx.font = F(400, 44);
         ctx.fillStyle = T.ink;
         lines.forEach((ln, i) => fx.lineReveal(ctx, [ln], i < 3 ? L + dw : L, 560 + i * 60, t - at[i], { ...set, dur: 0.6, lineHeight: 60, exit: out }));
-        // the printed map, with a slow push in
+        // the printed map holds almost still while it is read, then the camera
+        // dives into SRI, accelerating into the cut: the next shot is that machine
         const printed = s.at(0.3, 1.8, ease.inOutSine);
-        const z = lerp(1, 1.035, ease.inOutSine(s.p));
-        // zoom about the block's centre: camera centred on it, then shifted back
-        const cx = BLOCK.x + BLOCK.w / 2, cy = BLOCK.y + BLOCK.h / 2;
-        draw.camera(ctx, W, H, { zoom: z, focusX: cx, focusY: cy, x: (W / 2 - cx) / z, y: (H / 2 - cy) / z }, () => {
+        const dive = s.dur - 0.85;
+        const { zoom: z } = draw.cameraAt(t, [[0, { zoom: 1 }], [dive, { zoom: 1.03 }, ease.inOutSine], [s.dur, { zoom: 10 }, (p) => p * p * p]]);
+        const k = ease.inOutCubic(clamp((t - dive) / 0.85));
+        const [fx0, fy0] = bp(SRI);
+        // SRI stays put, then slides to the centre of the frame as the camera closes in
+        const sxs = lerp(fx0, W / 2, k), sys = lerp(fy0, H / 2, k);
+        draw.camera(ctx, W, H, { zoom: z, focusX: fx0, focusY: fy0, x: (W / 2 - sxs) / z, y: (H / 2 - sys) / z }, () => {
           halftone(ctx, printed);
           // UCLA appears with its name; the link draws up the coast on "computer"
           const pu = ease.outBack(clamp((t - s.when('UCLA', 0.4)) / 0.5));
@@ -238,13 +258,14 @@ CV.create({
           }
           const dot = (x, y, p, txt, dx) => {
             if (p <= 0) return;
+            const tagA = 1 - k; // the tags step back as the camera dives
             ctx.fillStyle = T.accent;
             ctx.beginPath(); ctx.arc(x, y, 12 * p, 0, Math.PI * 2); ctx.fill();
             ctx.strokeStyle = T.paper; ctx.lineWidth = 3; ctx.stroke();
             ctx.fillStyle = T.paper;
             ctx.font = F(600, 26, T.sans);
             const tw = ctx.measureText(txt).width + 24;
-            ctx.globalAlpha = clamp(p);
+            ctx.globalAlpha = clamp(p) * tagA;
             ctx.fillRect(x + dx - (dx < 0 ? tw : 0), y - 20, tw, 40);
             ctx.fillStyle = T.ink;
             ctx.textAlign = 'left';
@@ -259,16 +280,22 @@ CV.create({
     },
     // --- 3. The crash: the camera tracks along the teletype tape -------------
     {
-      id: 'crash', tail: 0.35, energy: 0.65,
+      id: 'crash', tail: 1.2, energy: 0.65,
+      // a hard cut while the camera is still diving: the zoom keeps its direction across it
+      transition: { type: 'cut' },
       sfx: [
         { at: 'L', type: 'type', gain: 1.3 },
         { at: (s) => s.when('O', 2.2), type: 'type', gain: 1.3 },
         { at: (s) => s.when('crashed', 3.9), type: 'hit', gain: 0.8 },
       ],
       draw(ctx, s) {
-        const { t, W } = s;
+        const { t, W, H } = s;
         const tL = s.when('L', 0.7), tO = s.when('O', 2.2), tC = s.when('crashed', 3.9);
         const out = s.out(0.4, ease.exit, 0.35);
+        // the dive from the map lands here: still closing in for the first moments
+        const zin = lerp(0.8, 1, ease.outCubic(clamp(t / 0.7)));
+        ctx.save();
+        ctx.translate(W / 2, H / 2); ctx.scale(zin, zin); ctx.translate(-W / 2, -H / 2);
         label(ctx, '29 October 1969, 22:30 Pacific', L, 230, s.at(0.3, 0.5) * (1 - out), T.accent);
         label(ctx, 'UCLA to SRI', R, 230, s.at(0.4, 0.5) * (1 - out), T.muted, 26, 'right');
         // the camera rides a spring from letter to letter
@@ -277,7 +304,7 @@ CV.create({
         ctx.save();
         ctx.translate(-cam, 0);
         // paper tape with sprocket holes
-        const ty = 380, th = 330, tapeIn = s.at(0.1, 0.9, ease.inOutCubic);
+        const ty = 380, th = 330, tapeIn = s.at(0, 0.45, ease.outCubic); // already running as the dive lands
         ctx.fillStyle = T.paper2;
         ctx.fillRect(-200, ty, 3200 * tapeIn, th);
         ctx.fillStyle = T.paper;
@@ -315,19 +342,29 @@ CV.create({
         ctx.restore();
         // the footnote it earns
         label(ctx, '¹ The host at SRI failed as the “G” of “LOGIN” arrived.', L, 840, clamp((t - tC - 0.6) / 0.6) * (1 - out), T.muted, 26);
+        ctx.restore();
+        // everything holds dead still for a breath, then the crash line floods the
+        // frame: the blue page that follows is that line, grown
+        const fl = ease.inOutCubic(clamp((t - (s.dur - 0.55)) / 0.55));
+        if (fl > 0) {
+          const bx = LX[1] + 170 - cam, by = 380 + 330 / 2 - 4;
+          ctx.fillStyle = T.accent;
+          ctx.fillRect(lerp(bx, 0, fl), lerp(by, 0, fl), lerp(900, W, fl), lerp(8, H, fl));
+        }
       },
     },
     // --- 3b. The breath: two letters, the whole story ------------------------
     {
       id: 'breath', narration: false, beats: 4, energy: 0.55,
-      transition: { type: inkWash, duration: 0.8, ease: ease.inOutSine, sfx: 'swell' },
+      transition: { type: 'cut', sfx: 'swell' },
       draw(ctx, s) {
         const { W, H, t } = s;
         ctx.fillStyle = T.accent;
         ctx.fillRect(0, 0, W, H);
         ctx.font = F(800, 470);
         ctx.fillStyle = T.paper;
-        fx.charReveal(ctx, 'LO', W / 2, H * 0.66, t - s.onBeat(0), { align: 'center', stagger: 0.22, dur: 0.7, rise: 0.12, blur: 10 });
+        // each letter lands with weight on its beat, then nothing moves until the underline
+        fx.charReveal(ctx, 'LO', W / 2, H * 0.66, t - s.onBeat(0), { align: 'center', stagger: 0.22, dur: 0.5, rise: 0.16, ease: ease.outBack });
         const w = ctx.measureText('LO').width;
         ctx.strokeStyle = T.paper;
         ctx.lineWidth = 12;
@@ -377,7 +414,8 @@ CV.create({
     // <example>
     const sc = (id) => g.scenes.find((x) => x.id === id);
     const a = sc('attempt'), br = sc('breath');
-    const on = clamp((g.T - a.start - 0.4) / 0.5) * (1 - clamp((g.T - br.start) / 0.4));
+    // the head leaves just before the crash line floods the frame
+    const on = clamp((g.T - a.start - 0.4) / 0.5) * (1 - clamp((g.T - br.start + 0.6) / 0.3));
     if (on > 0) {
       ctx.globalAlpha = on;
       ctx.fillStyle = T.ink;
