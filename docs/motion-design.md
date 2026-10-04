@@ -43,7 +43,7 @@ Motion is wasted if the viewer can't read what lands.
 - Something meaningful is visible or moving within the first ~0.3 s; vertical social video needs the hook in the first second.
 - Hold every information beat at least ~1 s after it lands (longer for numbers and charts) before anything competes with it. Use `tail` so the last beat isn't cut off.
 - On-screen text that isn't spoken needs reading time: roughly 4–5 CJK characters or 3 English words per second.
-- Nothing smaller than ~24 px on a 1080p frame. Keep critical content inside the title-safe 90%, and clear of the caption zone (bottom ~12% at 16:9; the lower 18% and right 12% at 9:16 for platform UI).
+- Nothing smaller than ~24 px on a 1080p frame. Keep critical content inside the title-safe 90%: the subject and every word to be read sit whole inside it at every moment the viewer is meant to read them (a slam may enter from off frame, but it lands whole), and clear of the caption zone (bottom ~12% at 16:9; the lower 18% and right 12% at 9:16 for platform UI).
 
 ## 5. Camera
 
@@ -109,6 +109,7 @@ With music on, each transition plays its natural sound at its midpoint, which la
 This is the floor, not the bar: it rules out broken output. Whether the video is good is described in [craft.md](craft.md).
 - [ ] One clear focal point in every probe frame; nothing overlaps by accident; no text in the caption zone.
 - [ ] Every word on screen is readable at the probe's size and holds long enough to read.
+- [ ] At 360 px wide the subject and every word to be read are whole inside the frame; only supporting shapes run off the edge.
 - [ ] Visual hits land on their spoken words (check the `when()` targets).
 - [ ] Nothing internal on screen: no "Scene 1", "Option A", preset names, placeholders or file names.
 - [ ] Secondary elements leave before the cut; nothing pops off abruptly.
