@@ -8,6 +8,8 @@ The bar is what people scroll past every day: work by good studios, editors and 
 
 A good video is about one thing and is told by someone. After 30 seconds the viewer can say what it was about in a sentence, remembers one image and one line, and felt something change between the start and the end. It could not be swapped for another video on the same topic.
 
+It earns attention early and keeps paying it back: within the first two seconds there is a picture worth stopping for, and after that something new lands every few seconds (a reveal, a transformation, a change of scale or place), with the quiet stretches chosen rather than left over.
+
 Not good: a sequence of true statements with pictures, which is a slideshow with music. A video whose every part is fine but which leaves nothing behind.
 
 ## Story
@@ -46,8 +48,23 @@ Not good: a sequence of true statements with pictures, which is a slideshow with
 - A frame that would pass unchanged as a corporate slide. A metaphor that only works because of its label.
 - Full-frame dark gradients that band after encoding; a long crossfade between a light and a dark scene that passes through grey.
 - A preset's example video with the words swapped.
+- Labels on everything, and on-screen text that repeats what the voice or the captions already say. The picture tells it; text on screen is either a hero (one word, huge) or quiet, and the composition leaves room for whichever it is.
 
-Aim at work you admire and borrow its thinking, not its look: title design (Saul Bass, Kyle Cooper, Elastic), motion studios (Buck, ManvsMachine, Oddfellows, Ordinary Folk, Giant Ant), editorial motion (Vox, The New York Times, Kurzgesagt), Swiss posters (Josef Müller-Brockmann), Apple product films, and Chinese visual traditions (留白 in ink painting, 书法, 1930s Shanghai posters).
+### The look has a name
+
+A model draws a look it can name far better than one assembled from adjectives. "上海美影《山水情》", "a 1930s Shanghai calendar poster", "Saul Bass's *Anatomy of a Murder* titles", "a two-drum riso zine", "a PC-98 adventure game" each bring palette, line, texture, composition and a way of moving all at once.
+
+**Good**
+- The brief names one or two specific references the look stands on (a work, a studio, a designer's period, a print or craft medium, an era of games or animation) and says what this video takes from them (palette, type, texture, camera, how text enters and leaves) and what this story changes.
+- A frame from the video could sit beside a frame from the reference and look like it belongs to the same family, while the subject, the device and the story are this brief's own.
+- When the user gives a reference (a frame, a clip, a link, a folder of their own work), it outranks every preset: the palette is sampled from it, and its shot lengths, transitions, type and the way text arrives and leaves carry over.
+
+**Not good**
+- A look described only in adjectives (clean, modern, premium, techy), which lands on the default every time.
+- A reference so famous that it is the default ("Apple keynote", "Kurzgesagt"), named without saying what this story changes.
+- Taking the reference's content, characters or logos instead of its grammar; carrying over only its colours.
+
+Places to look, well beyond the presets: title design (Saul Bass, Kyle Cooper, Elastic), motion studios (Buck, ManvsMachine, Oddfellows, Ordinary Folk, Giant Ant), editorial motion (Vox, The New York Times, The Pudding), poster design (Josef Müller-Brockmann, 1930s Shanghai posters, Polish film posters), animation traditions (上海美影, UPA, Ghibli backgrounds, Cartoon Saloon, Spider-Verse), print and craft media (risograph, linocut, cyanotype, cut paper, stop-motion clay, chalk on a blackboard), game eras (NES, Super Famicom, PC-98, PS1 low-poly), and Chinese visual traditions (留白 in ink painting, 书法, 年画, 剪纸).
 
 ## Motion
 
@@ -94,6 +111,8 @@ The spec and how to direct it are in [music-and-sound.md](music-and-sound.md) §
 
 Intent is not evidence: judge what was rendered. The contact sheets show composition and readability; a strip of close probes shows whether a move has weight; a half-scale draft shows the cuts; frames pulled from the final MP4 show what the viewer gets; `cv music` shows the arc and the mix, and its `listen:` line measures what ears would catch (a ghostly stretch, a buried melody, a flat score, effects lost or jumping out). You cannot hear the audio, so say what you intended and ask the user to listen to the 8 seconds around the key mood change.
 
+Look at them as a harsh director, not a proud author. For each of the opening two seconds, the picture (would frames work as posters, does the look hold up beside its reference), motion, variety (does something new land every few seconds), readability on a phone (probes at about 360 px wide, `cv still --scale`) and sound sync, give a score out of 10 and name the three weakest moments with their timestamps. A video is ready when every score is 8 or more; a 6 means that part is rebuilt, not polished.
+
 Deliver when it meets this page. If something still falls short, rebuild that part rather than patch it, or say plainly what it is.
 
 ## The brief
@@ -106,7 +125,7 @@ Deliver when it meets this page. If something still falls short, rebuild that pa
 - Angle: {the chosen telling} (also considered: {…}; {…})
 - Audience and format: {who} · {1920×1080 | 1080×1920 | …} · {N} s
 - The device: {the visual idea, why it comes from this story, and how it changes across the video}
-- Look: {style or preset} · palette {hex…} and its colour events · light {direction} · type {display + label, sizes hero / secondary / label} · references {…}
+- Look: stands on {named references} · takes {…} · this story changes {…} · palette {hex…} and its colour events · light {direction} · type {display + label, sizes hero / secondary / label}
 - Motion: {its character in a sentence} · signature moves {…}
 - Voice: {voice id, rate} · captions {burn | file | none}
 - Score: {feel in three words} · {reference} · {bpm} BPM {key} {mode} · {the hook} · {how it builds}

@@ -1,10 +1,10 @@
 # Style presets
 
-Thirteen visual styles. A preset is a **look and a way of moving**: its palette and type (`THEME`), its reusable drawing and motion helpers (`KIT`), its transitions and its caption style. It never decides the content, the scene structure, the choreography, the pacing or the music; those come from the brief ([docs/craft.md](docs/craft.md)). `cv init <dir> --preset <slug>` copies only the style.
+Thirteen worked examples of a named look. Each preset stands on references you can name (its **Stands on** line), and shows one way to build that look in code: a palette and type (`THEME`), drawing and motion helpers (`KIT`), transitions and a caption style. It never decides the content, the scene structure, the choreography, the pacing or the music; those come from the brief ([docs/craft.md](docs/craft.md)).
+
+A preset is one option, not the starting point. The look of a video starts from the references this story calls for ([docs/craft.md](docs/craft.md), *Picture*): a work, a studio, a medium or an era you can name. When that is close to a preset, `cv init <dir> --preset <slug>` copies its style and you change it; otherwise `cv init <dir>` gives a blank project, and any preset's KIT can be borrowed into it. A reference the user gives outranks every preset.
 
 Each preset also ships an example video in `presets/<slug>/video.html` (the `EXAMPLE` sections, scenes, narration and score). It shows the KIT in use. Treat it as documentation of the helpers, not as a template: your video should not resemble its structure.
-
-A preset is a starting point, not a cage. Mix them (one preset's palette with another's motion), push one further, or design a custom style (below) when none fits.
 
 | Mood | Presets to consider |
 |---|---|
@@ -24,6 +24,7 @@ Native formats: most are 16:9; Swiss Kinetic is 1:1; Neon Circuit and Pop Collag
 
 <img src="docs/media/launch-keynote.jpg" width="480" alt="Launch Keynote">
 
+- **Stands on:** Apple's product reveal films (one object turning in the dark, light doing the reveal); change the object and the light for the story, or it reads as every launch video.
 - **Look:** a dark stage, one hero object, light as the storyteller. Calm confidence.
 - **Suits:** launches, feature reveals, teasers, openers. **Avoid:** playful content, dense data.
 - **Palette:** `#050506` stage · `#F5F5F7` ink · `#86868B` dim · one accent `#4D7CFF` (swap for the brand)
@@ -37,6 +38,7 @@ Native formats: most are 16:9; Swiss Kinetic is 1:1; Neon Circuit and Pop Collag
 
 <img src="docs/media/studio-3d.jpg" width="480" alt="Studio 3D">
 
+- **Stands on:** ManvsMachine and Buck product films, a photographer's seamless sweep.
 - **Look:** a coloured seamless studio sweep, one hero object, soft key and rim light. Tactile and quiet.
 - **Suits:** products and hardware, packaging, "what's inside", colour-ways. **Avoid:** topics without an object, dense data.
 - **Palette:** `#C9D5E0` → `#97A9BA` slate-blue sweep (pick the sweep against the product: the accent should pop off it) · `#111720` ink · `#4E5B69` dim · one accent `#FF5A1F` (swap for the brand)
@@ -51,6 +53,7 @@ Native formats: most are 16:9; Swiss Kinetic is 1:1; Neon Circuit and Pop Collag
 
 <img src="docs/media/clear-explainer.jpg" width="480" alt="Clear Explainer">
 
+- **Stands on:** Vox explainers and The Economist's animated charts: annotated, highlighted, built while the voice reasons.
 - **Look:** a well-edited explainer channel. Clean white stock, ink type, functional colour, a real highlighter.
 - **Suits:** knowledge and science, finance and data, how-it-works, training. **Avoid:** luxury and mood pieces.
 - **Palette:** `#FCFCFB` paper · `#16213A` ink · `#677086` muted · cobalt `#1F4FFF` = the point · green `#0E9F6E` = the evidence · highlighter `#FFD84D` behind ink type
@@ -64,6 +67,7 @@ Native formats: most are 16:9; Swiss Kinetic is 1:1; Neon Circuit and Pop Collag
 
 <img src="docs/media/blueprint.jpg" width="480" alt="Blueprint">
 
+- **Stands on:** patent drawings and cyanotype engineering sheets, Animagraffs cutaways.
 - **Look:** a cyanotype engineering drawing that builds itself, then runs. Precise and quietly impressive.
 - **Suits:** mechanisms, hardware, architecture, technical onboarding. **Avoid:** emotional or lifestyle stories.
 - **Palette:** `#0D3A66` cyanotype field with a 24 px grid · `#EAF4FF` object lines · `#8EC9F2` construction and dimensions · one signal `#FF8A1F` for the moving parts and the point
@@ -77,6 +81,7 @@ Native formats: most are 16:9; Swiss Kinetic is 1:1; Neon Circuit and Pop Collag
 
 <img src="docs/media/data-globe.jpg" width="480" alt="Data Globe">
 
+- **Stands on:** the Bloomberg and Reuters graphics desks, NASA's Earth at night.
 - **Look:** a night-time world in motion. Cartographic and calm; the data glows warm against a cool world.
 - **Suits:** "where in the world" data, rankings across places, trade, travel, networks. **Avoid:** single-location stories, dense text.
 - **Palette:** `#06101D` navy · `#0A1A2D` ocean · `#A7BEDA` land dots · `#2F4B70` graticule · amber `#FFB547` = the data, only
@@ -90,6 +95,7 @@ Native formats: most are 16:9; Swiss Kinetic is 1:1; Neon Circuit and Pop Collag
 
 <img src="docs/media/editorial.jpg" width="480" alt="Editorial">
 
+- **Stands on:** The New York Times Magazine and The Pudding's scrolling stories.
 - **Look:** a well-made magazine page that reads itself aloud. Measured, literate, quietly dramatic.
 - **Suits:** history and documentary essays, journalism, culture and brand stories. **Avoid:** hype, dense dashboards.
 - **Palette:** `#F8F8F6` white stock · `#111114` ink · `#676A73` muted · one ultramarine `#2436D9` (the key word, the mark, one full-bleed page) · tape `#E6E8EE`
@@ -103,6 +109,7 @@ Native formats: most are 16:9; Swiss Kinetic is 1:1; Neon Circuit and Pop Collag
 
 <img src="docs/media/paper-sketch.jpg" width="480" alt="Paper Sketch">
 
+- **Stands on:** RSA Animate whiteboard talks, a teacher's notebook drawn live.
 - **Look:** someone drawing for you on paper. Warm, handmade, patient.
 - **Suits:** education, habits, kids, onboarding, non-technical how-it-works. **Avoid:** premium tech, anything that must feel precise.
 - **Palette:** `#F1E9D8` paper with fibres · `#2B2A28` pencil · marker `rgba(255,216,77,.75)` · watercolour red `#D1495B`, green `#4F8A4B`, blue `#3D6FB6`
@@ -116,6 +123,7 @@ Native formats: most are 16:9; Swiss Kinetic is 1:1; Neon Circuit and Pop Collag
 
 <img src="docs/media/swiss-kinetic.jpg" width="320" alt="Swiss Kinetic">
 
+- **Stands on:** Josef Müller-Brockmann's Tonhalle concert posters, Experimental Jetset, Pentagram's kinetic identities.
 - **Look:** International Typographic Style in motion. A grid, one red, type as image.
 - **Suits:** quotes, manifestos, principles, titles, typographic stories (also long ones: see `examples/take-your-time`). **Avoid:** dense explanation.
 - **Palette:** `#F2F0EB` paper · `#111111` ink · `#E62E2D` red, one red only
@@ -130,6 +138,7 @@ Native formats: most are 16:9; Swiss Kinetic is 1:1; Neon Circuit and Pop Collag
 
 <img src="docs/media/neon-circuit.jpg" width="220" alt="Neon Circuit">
 
+- **Stands on:** Akira's Neo-Tokyo, Tron: Legacy's HUDs, an esports broadcast package.
 - **Look:** night city, CRT and HUD. Energy with discipline.
 - **Suits:** gaming, esports, dev tools, events, music drops, vertical social. **Avoid:** finance, healthcare, calm.
 - **Palette:** `#07060D` violet-black · magenta `#FF2E88` = energy · cyan `#00E5FF` = information · `#EDEBFF` text · `#5B5875` dim
@@ -143,6 +152,7 @@ Native formats: most are 16:9; Swiss Kinetic is 1:1; Neon Circuit and Pop Collag
 
 <img src="docs/media/pop-collage.jpg" width="220" alt="Pop Collage">
 
+- **Stands on:** Matisse's cut-outs, Saul Bass's paper shapes, a zine pasted up by hand.
 - **Look:** cut paper on flat primary colour. Loud, playful and still tidy.
 - **Suits:** social shorts, tips, listicles, consumer brands, community. **Avoid:** luxury, serious or sensitive topics.
 - **Palette:** `#FFC93C` yellow · `#FF5A36` red · `#2D5BFF` blue · `#FFF6E9` cream · `#1A1A1A` ink; each scene can own one field colour
@@ -156,6 +166,7 @@ Native formats: most are 16:9; Swiss Kinetic is 1:1; Neon Circuit and Pop Collag
 
 <img src="docs/media/pixel-retro.jpg" width="480" alt="Pixel Retro">
 
+- **Stands on:** Super Famicom RPGs (Final Fantasy VI, Mother 2), Celeste.
 - **Look:** an 8-bit console game played straight. Nostalgic, a little heroic, and able to carry a real feeling.
 - **Suits:** milestones and year-in-review, games and indie dev, playful onboarding, kids, personal stories told as a quest. **Avoid:** luxury, finance, fine detail.
 - **Palette:** 12 colours and nothing else: `#16122B` night · `#2C2554` shade · `#4B3F86` dusk · `#8C85BD` dim · `#FFF3D6` ink · `#5FA8E8` sky · `#57C98A` mint · `#2E8A5C` leaf · gold `#FFC93C` · coral `#F25F5C` · `#A3473A` rust · `#E8B07A` sand
@@ -171,6 +182,7 @@ Native formats: most are 16:9; Swiss Kinetic is 1:1; Neon Circuit and Pop Collag
 
 <img src="docs/media/ink-wash.jpg" width="480" alt="Ink Wash">
 
+- **Stands on:** 上海美影的水墨动画（《小蝌蚪找妈妈》《山水情》）, 齐白石's shrimp, 八大山人's empty paper.
 - **Look:** a Chinese ink painting (水墨) that paints itself on rice paper. Still, spacious, literate; empty paper is part of the picture.
 - **Suits:** Chinese culture, poetry and philosophy, craft, festivals, reflective essays. **Avoid:** dense data, tech launches, hype.
 - **Palette:** `#EEE7D7` rice paper · one cool ink `#141419` used at tones from 淡墨 to 浓墨 · `#F4EFE4` mist · one cinnabar `#B5342A` for the single thing that matters most
@@ -184,6 +196,7 @@ Native formats: most are 16:9; Swiss Kinetic is 1:1; Neon Circuit and Pop Collag
 
 <img src="docs/media/cinematic-film.jpg" width="480" alt="Cinematic Film">
 
+- **Stands on:** Ken Burns documentaries, 16 mm home movies, Christopher Doyle's warm grades.
 - **Look:** a documentary shot on film and projected in a dark room. Patient, warm, a little nostalgic.
 - **Suits:** brand films, memoir and documentary, places and people, anniversaries, title sequences. **Avoid:** dense data, UI, anything that must feel crisp and digital.
 - **Palette:** `#0B0A08` film black lifted to `#121A1B` teal · `#F1E6D0` cream titles · warm accent `#E3A257` · `#8A7F70` dim · a warm grade with red-orange halation
@@ -198,9 +211,11 @@ Native formats: most are 16:9; Swiss Kinetic is 1:1; Neon Circuit and Pop Collag
 
 ## Custom styles
 
-When none fits, design one (and offer it as the wildcard direction). It needs a visual thesis in one sentence ("a museum wall label that comes alive"), a committed palette and type pairing, a motion character (how things arrive, hold, leave and cut) and one atmospheric device that belongs to the concept. Start from the closest preset (`cv init --preset <slug>`) and rewrite its THEME and KIT: change the grammar, not just the colours.
+Most videos deserve a look of their own. Start by naming what it stands on: one or two specific references (上海美影《山水情》, a 1930s Shanghai calendar poster, Saul Bass's *Vertigo* titles, a two-drum riso zine, a PC-98 adventure game, Cartoon Saloon's *Wolfwalkers*). A name carries a whole set of rules at once (palette, line, texture, composition, how things move) that a list of adjectives never reaches. Then say what this video takes from them and what this story changes, and give it a visual thesis in one sentence ("a museum wall label that comes alive").
 
-A strong style is described as a medium and a process, not as adjectives. Say what it is made of (cut paper and glue, ink soaking into rice paper, a riso print in two drums, light on a black stage) and how that material behaves: what comes first, what can't be undone, where it is imperfect, what it does when it moves. Then the craft follows from the medium, and so does what it is not: a riso print has no gradients, a pencil can't fade in. Direction ideas that differ only in colour are one idea; real alternatives differ in at least three of ground and light, type voice, where the motif comes from, camera language, transition vocabulary and rhythm. Check each against the look models reach for by default ([docs/craft.md](docs/craft.md), *Picture*).
+The name is where the look starts, not where it stops. Say what the reference is made of (cut paper and glue, ink soaking into rice paper, a riso print in two drums, light on a black stage) and how that material behaves: what comes first, what can't be undone, where it is imperfect, what it does when it moves. Then the craft follows from the medium, and so does what it is not: a riso print has no gradients, a pencil can't fade in. Take the reference's grammar, never its content, characters or logos.
+
+A famous name can be the default in disguise: "Apple keynote" is near-black with one accent, "Kurzgesagt" is flat vector on navy, and every agent reaches for them. The more specific the reference (one film, one designer's period, one print process), the more the video looks like someone chose it. Direction ideas that differ only in colour are one idea; real alternatives stand on different references and differ in at least three of ground and light, type voice, where the motif comes from, camera language, transition vocabulary and rhythm.
 
 ## Another aspect ratio
 
