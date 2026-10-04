@@ -540,7 +540,7 @@ CV.create({
       draw(ctx, s) {
         const { t, W, H } = s;
         sheet(ctx, W, H);
-        kicker(ctx, s, '00 — THE QUESTION');
+        kicker(ctx, s, 'THE QUESTION');
         const k = [0, 1, 2, 3].map((i) => ease.inOutCubic(clamp((t - s.onBeat(i)) / 0.5)));
         const te = s.when('engine', 2.8);
         const at = (a, d) => ease.inOutCubic(clamp((t - te - a) / d));
@@ -568,7 +568,7 @@ CV.create({
       draw(ctx, s) {
         const { t, W, H } = s;
         sheet(ctx, W, H);
-        kicker(ctx, s, '01 — ANATOMY');
+        kicker(ctx, s, 'ANATOMY');
         const ti = s.when('inside', 0.3);
         const cut = lerp(455, 820, ease.inOutCubic(clamp((t - ti) / 0.8)));
         const after = (w, d = 0.9) => clamp((t - s.when(w, 2)) / d);
@@ -611,7 +611,7 @@ CV.create({
       draw(ctx, s) {
         const { t, W, H } = s;
         sheet(ctx, W, H);
-        kicker(ctx, s, '02 — THE CYCLE');
+        kicker(ctx, s, 'THE CYCLE');
         const phi = strokePhi(s);
         let info;
         zoomAbout(ctx, EX, 500, lerp(1.04, 1.1, ease.inOutSine(clamp(t / 2.2))), () => {
@@ -650,7 +650,7 @@ CV.create({
       draw(ctx, s) {
         const { t, W, H } = s;
         sheet(ctx, W, H);
-        kicker(ctx, s, '03 — RUNNING');
+        kicker(ctx, s, 'RUNNING');
         const b0 = s.onBeat(0);
         const phi = Math.max(0, (180 * (t - b0)) / s.beatLen);
         let info;
@@ -723,7 +723,7 @@ CV.create({
       draw(ctx, s) {
         const { t, W, H } = s;
         sheet(ctx, W, H);
-        kicker(ctx, s, '04 — THE RESULT');
+        kicker(ctx, s, 'THE RESULT');
         // a two-turn spiral of crank angle; the power stroke is the only orange part
         const cx = 560, cy = 520;
         const sp = ease.inOutSine(clamp((t - s.when('two', 0.4)) / 1.7));

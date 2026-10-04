@@ -33,7 +33,8 @@ Choose one family per video so the motion has a consistent hand. Heavy things mo
 - **Contrast of speed.** Fast against slow is what gives rhythm: a quick hit, then a long drift; a burst of three cuts, then a held shot. Constant speed is flat.
 - **Arcs.** Natural motion travels on curves. Straight-line moves read as UI.
 - **Depth.** Build shots from layers (background, supporting shapes, the hero, small accents) that move at different rates, so even a hold has parallax.
-- **Holds are alive, not frozen.** During a hold the camera still drifts, light moves, texture breathes. Only the final poster frame sits perfectly still.
+- **Holds are alive, not frozen, and not all alike.** During a hold the camera drifts, light moves, texture breathes, each scene in its own way. The same slow push on every scene reads as a filter, not a camera. Stillness is a tool too: a beat where everything stops dead makes the hit after it land, and the final poster frame sits perfectly still.
+- **No twins.** Parts that share the same numbers move identically and look mechanical: a row of bars rising in lockstep, two arms swinging as one. Offset them by a few frames, vary the amount, let one side lead. Strong key poses read as good stills before any motion is added.
 - **Signature moves.** Give each video a few moves that are its own and that explain something: the camera following the head of a growing line, an iris opening out of the key number, a match cut where one shape becomes the next, the visual device ([craft.md](craft.md), *Picture*) transforming. These are what people remember.
 
 ## 4. Readability
@@ -48,6 +49,13 @@ Motion is wasted if the viewer can't read what lands.
 
 A virtual camera (`CV.draw.camera`) turns a layout into a shot. Keep camera motion slower than content motion, but keep it moving.
 
+- A camera has a manner. It **chases** (lags behind the subject, catches up, overshoots a little: alive, urgent) or it **follows** (locked to the subject: calm, certain). Pick one for the video.
+- Change shot size for real (wide to close, close to extreme close). A 2% drift on every shot is invisible; one decisive push is felt.
+- Push in or pull out, then keep going or cut. Zooming in and straight back out reads as indecision.
+- Layers sit at depths and move from one camera (`depth` in `CV.draw.camera`), the near ones faster, so the world has space to travel through. A far texture or lattice gives the camera something to slide against.
+- Key the camera with `CV.draw.cameraAt`: zoom moves evenly in log space, so a long push doesn't speed up as it closes in.
+- Shake once, on a landing: low frequency, a little rotation, quickly damped. Hand-held float stops during a held moment.
+
 | Move | Says |
 |---|---|
 | push-in over a hold | importance, intimacy, "look closer" |
@@ -61,6 +69,8 @@ A virtual camera (`CV.draw.camera`) turns a layout into a shot. Keep camera moti
 ## 6. Cuts and transitions
 
 A cut on the beat is the default and almost always works. Every other transition says something, so choose it for what it says and keep the vocabulary small (one or two types, plus at most one special move for the biggest change). The full list is in [runtime-api.md](runtime-api.md#transitions).
+
+What makes a seam feel made is what crosses it. Something survives the cut: the shape that becomes the next shape, the colour that floods the next frame, the line that keeps travelling. The strongest transitions are built inside the shots on either side rather than laid over them: the camera pushes into an object until it becomes the next world, a word grows until its counter is the next frame. Pause on the midpoint of a transition: it should be a frame worth looking at. Match the motion across a hard cut (same direction, similar speed, a zoom keeps its direction) and the cut disappears; the incoming shot is already moving the way the outgoing one left. Don't end two shots in a row the same way.
 
 | Transition | Says |
 |---|---|
@@ -82,7 +92,8 @@ With music on, each transition plays its natural sound at its midpoint, which la
 ## 7. Type in motion
 
 - Animate lines or words for anything longer than a title; per-character reveals are for a hero word.
-- Mask reveals (`fx.lineReveal`), scale and blur arrivals, tracking that closes in on one word, a highlighter or underline that draws on: these look designed. A plain opacity fade looks default.
+- Mask reveals (`fx.lineReveal`), scale and blur arrivals, tracking that closes in on one word, a highlighter or underline that draws on: these look designed. A plain opacity fade looks default; a word that lands rises a few pixels and settles in scale with a spring.
+- A line of type has a life: it enters, locks still while it is read, takes its emphasis (one word changes weight, colour or size), and leaves or becomes part of the next shot. Spoken lines that matter get a frame of their own instead of competing with the picture.
 - Reveal words as they are spoken (`fx.wordReveal({ sync: s })`). Numbers count up (`fx.countUp`, `fx.roll`) and then hold, with the unit arriving with or after the number.
 - CJK: wrap with `CV.text.wrap` (kinsoku-aware), don't letter-space body text, and prefer short lines with a deliberate break.
 
