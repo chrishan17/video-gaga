@@ -12,7 +12,7 @@ Turn "I want a video about X" into a finished MP4 that helps someone say what th
 The video is compared with what people scroll past every day, and correct is not enough. [docs/craft.md](docs/craft.md) describes the target in full; read it before you write anything. In short, a good video:
 
 - **is about one specific thing, told by someone.** A person, a moment, an object, a number; a turn where something changes; a landing that pays off the opening; concrete lines, no slogans; one line worth repeating.
-- **is carried by one visual idea** that recurs and changes with the story, in frames that would each work as a poster, in a look that stands on references you can name (a work, a studio, a medium, an era) rather than on adjectives.
+- **is carried by one visual idea** that recurs and changes with the story, in frames that would each work as a poster, in a look that stands on references you can name (a work, a studio, a medium, an era) rather than on adjectives, and whose feeling fits what the story is about. On a phone the subject and every word to be read are whole in the frame.
 - **moves with weight and character.** Every move has a job, holds stay alive, cuts happen on action, a few signature moves are its own ([docs/motion-design.md](docs/motion-design.md)).
 - **sounds produced.** A score with a reference, a hook and an arc that follows the story, under a clear, unhurried voice, with silence where a line needs to land ([docs/music-and-sound.md](docs/music-and-sound.md) §2).
 - **is judged on what was rendered,** not on what was intended, and delivered only when it meets the target.

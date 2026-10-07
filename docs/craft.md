@@ -35,7 +35,7 @@ Not good: a sequence of true statements with pictures, which is a slideshow with
 **Good**
 - One visual idea carries the video: a device that recurs and changes as the story moves. A red caret that is a man's voice and a red slab that is the wall in front of it. A grey world where one colour survives and floods back. A roll of film with 35 of 36 frames shot. A row of street lamps. Scenes are moments in the life of the device, not slides about the topic.
 - The device comes from this story, so you can say why: because the story has X, the picture is Y. Its nouns become objects, its verbs become motion, its numbers become something you can see. It reads without a label, and screenshots of the video would lose something important: the meaning is in how it moves.
-- Every frame would work as a poster: scale contrast (one thing huge, the rest small), deliberate empty space, crops that run off the edge, asymmetry, a clear grid, one place the eye goes first.
+- Every frame would work as a poster: scale contrast (one thing huge, the rest small), deliberate empty space, supporting shapes and texture cropped by the edge, asymmetry, a clear grid, one place the eye goes first.
 - Type is image: one word filling the frame, weight contrast, tracking and line breaks chosen for the word that matters. The hierarchy is unmistakable: the hero is around twice the size of the next level, and labels are clearly smaller again. When two typefaces meet, the contrast between them means something (a voice and a record, then and now).
 - Shots vary the way an editor varies them: wide, close and extreme close; dense and empty. When two scenes share a layout, it is on purpose (a match cut, a before and after).
 - The palette is small, so colour can carry meaning: the accent marks the one thing that matters, and a shift of the whole palette marks a shift in the story. Colour moves with the acts, like a score: one colour event per act lands harder than colour everywhere.
@@ -44,6 +44,7 @@ Not good: a sequence of true statements with pictures, which is a slideshow with
 **Not good**
 - A centred title over a centred subtitle on every frame.
 - The subject too small or too dark to read in the first second.
+- The subject or a word the viewer has to read cut off by the frame: a hero word with letters off the edge, a face or object sliced at the frame line, a label half outside. On a phone it reads as a mistake, not as boldness. Crops are for what supports the subject (a background numeral, a texture, a road running out of shot), never for the thing the frame is about.
 - The look models reach for by default, unless the brief truly asks for it: a cream ground with a high-contrast serif and a terracotta or red accent; near-black with one acid accent; a broadsheet of hairline rules; tracked ALL-CAPS eyebrows, mono data labels and middle-dot meta strings; scene counters and chrome (NO. 01, 00 —, 03 / 04, INTRODUCING); purple-blue gradients, neon on dark, glass cards, floating blobs, icons in circles, emoji, stock-looking illustration. Name the default you are reaching for and ask what this story would choose instead.
 - A frame that would pass unchanged as a corporate slide. A metaphor that only works because of its label.
 - Full-frame dark gradients that band after encoding; a long crossfade between a light and a dark scene that passes through grey.
@@ -55,11 +56,13 @@ Not good: a sequence of true statements with pictures, which is a slideshow with
 A model draws a look it can name far better than one assembled from adjectives. "上海美影《山水情》", "a 1930s Shanghai calendar poster", "Saul Bass's *Anatomy of a Murder* titles", "a two-drum riso zine", "a PC-98 adventure game" each bring palette, line, texture, composition and a way of moving all at once.
 
 **Good**
+- The reference fits the content: its own feeling matches what this story is about, so the brief can say in one sentence why this reference and not another. A story about patience takes a reference that is patient; a story about rigour and proof takes one where rigour is the drama. The look carries the meaning instead of fighting it.
 - The brief names one or two specific references the look stands on (a work, a studio, a designer's period, a print or craft medium, an era of games or animation) and says what this video takes from them (palette, type, texture, camera, how text enters and leaves) and what this story changes.
 - A frame from the video could sit beside a frame from the reference and look like it belongs to the same family, while the subject, the device and the story are this brief's own.
 - When the user gives a reference (a frame, a clip, a link, a folder of their own work), it outranks every preset: the palette is sampled from it, and its shot lengths, transitions, type and the way text arrives and leaves carry over.
 
 **Not good**
+- A reference chosen for a surface word in the request and not for the story: "cool and dynamic" answered with racing and speed lines for a tool whose point is going deep and proving it works. The frames look exciting and say the opposite of the voice.
 - A look described only in adjectives (clean, modern, premium, techy), which lands on the default every time.
 - A reference so famous that it is the default ("Apple keynote", "Kurzgesagt"), named without saying what this story changes.
 - Taking the reference's content, characters or logos instead of its grammar; carrying over only its colours.
@@ -111,7 +114,7 @@ The spec and how to direct it are in [music-and-sound.md](music-and-sound.md) §
 
 Intent is not evidence: judge what was rendered. The contact sheets show composition and readability; a strip of close probes shows whether a move has weight; a half-scale draft shows the cuts; frames pulled from the final MP4 show what the viewer gets; `gaga music` shows the arc and the mix, and its `listen:` line measures what ears would catch (a ghostly stretch, a buried melody, a flat score, effects lost or jumping out). You cannot hear the audio, so say what you intended and ask the user to listen to the 8 seconds around the key mood change.
 
-Look at them as a harsh director, not a proud author. For each of the opening two seconds, the picture (would frames work as posters, does the look hold up beside its reference), motion, variety (does something new land every few seconds), readability on a phone (probes at about 360 px wide, `gaga still --scale`) and sound sync, give a score out of 10 and name the three weakest moments with their timestamps. A video is ready when every score is 8 or more; a 6 means that part is rebuilt, not polished.
+Look at them as a harsh director, not a proud author. For each of the opening two seconds, the picture (would frames work as posters, does the look hold up beside its reference), motion, variety (does something new land every few seconds), readability on a phone (probes at about 360 px wide, `gaga still --scale`: every word is legible and the subject of each frame is shown whole) and sound sync, give a score out of 10 and name the three weakest moments with their timestamps. A video is ready when every score is 8 or more; a 6 means that part is rebuilt, not polished.
 
 Deliver when it meets this page. If something still falls short, rebuild that part rather than patch it, or say plainly what it is.
 
