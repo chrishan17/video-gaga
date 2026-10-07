@@ -106,7 +106,7 @@ With music on, each transition plays its natural sound at its midpoint, which la
 
 ## 9. What holds on every probe
 
-This is the floor, not the bar: it rules out broken output. Whether the video is good is described in [craft.md](craft.md).
+This is the floor, not the bar: it rules out broken output. Whether the video is good is described in [craft.md](craft.md). `gaga still` measures the text items on its probes (edges, caption band) and `gaga check` the motion and flashing over every frame; both only point at moments, and the eye decides.
 - [ ] One clear focal point in every probe frame; nothing overlaps by accident; no text in the caption zone.
 - [ ] Every word on screen is readable at the probe's size and holds long enough to read.
 - [ ] Visual hits land on their spoken words (check the `when()` targets).

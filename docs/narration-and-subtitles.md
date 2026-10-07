@@ -5,7 +5,7 @@ video-gaga narrates with Microsoft Edge's online neural voices through [rany2/ed
 ## 1. How it works
 
 1. You write `narration.json` next to `video.html`, with one segment per scene (`id` = scene id).
-2. `cv render` (or `cv tts`) runs `scripts/tts.py` for each segment via the edge-tts Python API with `boundary="WordBoundary"`.
+2. `gaga render` (or `gaga tts`) runs `scripts/tts.py` for each segment via the edge-tts Python API with `boundary="WordBoundary"`.
    - edge-tts ≥ 7.0 defaults to **SentenceBoundary**, and its CLI has no switch for this, which is why we use the API.
    - The audio is `audio-24khz-48kbitrate-mono-mp3` (CBR), so **duration = bytes × 8 / 48000**. That is the exact clip length, with no ffprobe needed. Clips end with 0.4–1.1 s of silence, so the timeline uses the **last word's end** (+0.25 s for the final syllable to decay) as the end of speech, not the clip length.
    - Word offsets and durations arrive in 100-ns ticks (÷ 10,000,000 for seconds).
@@ -34,7 +34,7 @@ Per-segment `voice`, `rate`, `pitch` and `volume` override the defaults, so you 
 
 ## 2. Picking a voice
 
-List them all with `node scripts/cv.mjs voices --lang zh-CN`. These are tested and recommended:
+List them all with `node scripts/gaga.mjs voices --lang zh-CN`. These are tested and recommended:
 
 | Locale | Voice | Gender | Character (Microsoft tags) | Good for |
 |---|---|---|---|---|
@@ -102,7 +102,7 @@ Defaults: CJK 18 characters (16:9) or 12 (9:16). English 42 or 28. Override them
 | Karaoke (social verticals) | `highlight: '#00E5FF'` + outline. Single-line cues only |
 | Position | `y` = baseline as a fraction of height (0.9 for 16:9, 0.78–0.8 for 9:16) |
 
-### Output modes (`cv render --subs …`)
+### Output modes (`gaga render --subs …`)
 
 | Mode | Result |
 |---|---|
@@ -116,12 +116,13 @@ Why canvas burn-in instead of ffmpeg's `subtitles` filter: it needs a libass bui
 
 ## 5. Verifying sync
 
-`cv render` ends with `cv check`, which reports:
+`gaga render` ends with `gaga check`, which reports:
 - video and audio durations (they must match within 0.1 s)
 - loudness (mean and peak dB), with a warning if the track is near-silent
 - **music balance**: dB under the voice while it speaks, and vs the voice in the gaps (see [music-and-sound.md](music-and-sound.md) §6)
 - cue count, overlaps, and whether the last cue fits
-- **A/V sync**: speech onsets found by `silencedetect` on the **voice stem** (music would fill every silence) compared against cue starts. `cv render` leaves the stem in `build/voice-stem.wav`, so a later `cv check out/<name>.mp4` measures the same way. The median is typically 50–90 ms (the detector fires slightly after the consonant attack). The check warns above 300 ms.
+- **A/V sync**: speech onsets found by `silencedetect` on the **voice stem** (music would fill every silence) compared against cue starts. `gaga render` leaves the stem in `build/voice-stem.wav`, so a later `gaga check out/<name>.mp4` measures the same way. The median is typically 50–90 ms (the detector fires slightly after the consonant attack). The check warns above 300 ms.
+- **Picture**: one pass over a small grey copy of the frames. It points at stretches of 1.5 s or more where nothing moves (the closing hold excepted), frames that differ from both neighbours, and blank stretches of 0.3 s or more, with their times; these are things to look at, not failures. More than three flashes in a second fails the check (photosensitivity).
 - **Voice sync** (render only, since it needs the timeline): each clip's own speech onset, shifted to its place on the timeline, compared with the onsets on the voice stem. It covers lines that have no caption cue. It is typically < 20 ms and warns above 150 ms.
 
 ## 6. Troubleshooting

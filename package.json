@@ -7,7 +7,7 @@
   "license": "MIT",
   "author": "Chris Han <chris.han@castlery.org>",
   "bin": {
-    "video-gaga": "scripts/cv.mjs"
+    "gaga": "scripts/gaga.mjs"
   },
   "engines": {
     "node": ">=18"
@@ -17,12 +17,12 @@
     "spessasynth_core": "4.3.22"
   },
   "scripts": {
-    "doctor": "node scripts/cv.mjs doctor",
-    "render": "node scripts/cv.mjs render",
-    "still": "node scripts/cv.mjs still",
-    "examples": "for p in launch-keynote studio-3d clear-explainer blueprint data-globe editorial paper-sketch neon-circuit pop-collage pixel-retro cinematic-film; do node scripts/cv.mjs render presets/$p --subs burn || exit 1; done && node scripts/cv.mjs render presets/swiss-kinetic --motion-blur 5 && node scripts/cv.mjs render presets/ink-wash --subs burn",
+    "doctor": "node scripts/gaga.mjs doctor",
+    "render": "node scripts/gaga.mjs render",
+    "still": "node scripts/gaga.mjs still",
+    "examples": "for p in launch-keynote studio-3d clear-explainer blueprint data-globe editorial paper-sketch neon-circuit pop-collage pixel-retro cinematic-film; do node scripts/gaga.mjs render presets/$p --subs burn || exit 1; done && node scripts/gaga.mjs render presets/swiss-kinetic --motion-blur 5 && node scripts/gaga.mjs render presets/ink-wash --subs burn",
     "test": "node --test test/*.test.mjs",
-    "music": "node scripts/cv.mjs music",
+    "music": "node scripts/gaga.mjs music",
     "showcase": "node scripts/showcase.mjs"
   },
   "keywords": [

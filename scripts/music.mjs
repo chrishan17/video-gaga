@@ -1475,7 +1475,7 @@ export async function renderScore(plan, opts = {}) {
   // Without narration the score *is* the soundtrack and plays at full level.
   // `volume` is applied after this, so it really changes the level.
   const stats = level(bedOut, act, ctl);
-  const gap = plan.gap ?? 6; // vs gated speech RMS ≈ 3–4 dB under the voice as `cv check` measures it
+  const gap = plan.gap ?? 6; // vs gated speech RMS ≈ 3–4 dB under the voice as `gaga check` measures it
   const targetRms = db(opts.targetDb ?? (voice.length ? (opts.voiceDb ?? -25.5) - gap : -18));
   const norm = (stats.rms > 1e-6 ? targetRms / stats.rms : 1) * (plan.volume ?? 1);
   for (const o of [out, bedOut]) {

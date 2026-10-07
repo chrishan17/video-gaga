@@ -49,7 +49,7 @@ test('frames are pure functions of time', { skip: !chromium && 'playwright not i
         const got = await shot(b, f);
         if (hash(got) === fwd[f]) continue;
         // keep the evidence: both frames and both pages' font state
-        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cv-determinism-'));
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gaga-determinism-'));
         const png = (d) => Buffer.from(d.slice(d.indexOf(',') + 1), 'base64');
         fs.writeFileSync(path.join(dir, `${path.basename(slug)}-${f}-forward.png`), png(await shot(a, f)));
         fs.writeFileSync(path.join(dir, `${path.basename(slug)}-${f}-shuffled.png`), png(got));

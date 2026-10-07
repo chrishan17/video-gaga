@@ -2,7 +2,7 @@
 
 Thirteen worked examples of a named look. Each preset stands on references you can name (its **Stands on** line), and shows one way to build that look in code: a palette and type (`THEME`), drawing and motion helpers (`KIT`), transitions and a caption style. It never decides the content, the scene structure, the choreography, the pacing or the music; those come from the brief ([docs/craft.md](docs/craft.md)).
 
-A preset is one option, not the starting point. The look of a video starts from the references this story calls for ([docs/craft.md](docs/craft.md), *Picture*): a work, a studio, a medium or an era you can name. When that is close to a preset, `cv init <dir> --preset <slug>` copies its style and you change it; otherwise `cv init <dir>` gives a blank project, and any preset's KIT can be borrowed into it. A reference the user gives outranks every preset.
+A preset is one option, not the starting point. The look of a video starts from the references this story calls for ([docs/craft.md](docs/craft.md), *Picture*): a work, a studio, a medium or an era you can name. When that is close to a preset, `gaga init <dir> --preset <slug>` copies its style and you change it; otherwise `gaga init <dir>` gives a blank project, and any preset's KIT can be borrowed into it. A reference the user gives outranks every preset.
 
 Each preset also ships an example video in `presets/<slug>/video.html` (the `EXAMPLE` sections, scenes, narration and score). It shows the KIT in use. Treat it as documentation of the helpers, not as a template: your video should not resemble its structure.
 
@@ -219,4 +219,4 @@ A famous name can be the default in disguise: "Apple keynote" is near-black with
 
 ## Another aspect ratio
 
-`cv init <dir> --preset <slug> --ratio 9:16` rewrites the size; re-lay out with `s.W`, `s.H` and `s.u`. Going vertical, stack rows, bring content toward the middle, raise type sizes relative to width and keep the lower 18% clear. Going square, use fewer items and bigger type. For the 3D presets also set the camera aspect and re-frame the hero.
+`gaga init <dir> --preset <slug> --ratio 9:16` rewrites the size; re-lay out with `s.W`, `s.H` and `s.u`. Going vertical, stack rows, bring content toward the middle, raise type sizes relative to width and keep the lower 18% clear. Going square, use fewer items and bigger type. For the 3D presets also set the camera aspect and re-frame the hero.

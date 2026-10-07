@@ -2,7 +2,7 @@
 
 A voice alone sounds dry, and wall-to-wall narration is tiring. video-gaga gives every composition a **soundtrack that is arranged from its own timeline**. The music, the cuts and the motion share one clock (the beat grid), and the score leaves room for the voice and fills the moments where nobody speaks.
 
-The score is arranged by [`scripts/music.mjs`](../scripts/music.mjs) and **played by real instrument samples**: a General MIDI SoundFont (MuseScore General, MIT licence) rendered offline by [spessasynth_core](https://github.com/spessasus/spessasynth_core). Grand and felt piano, electric piano, string section, choir, nylon and steel guitars, harp, koto, mallets, basses, brass, winds and eight drum kits. The parts a score leans on most play from **multi-sampled recordings**: `piano` from the Salamander Grand Piano (Alexander Holm, CC BY 3.0: credit it when you deliver a video that uses it, e.g. *Piano: Salamander Grand Piano by Alexander Holm, CC BY 3.0*), and `felt`, `strings`, `sinepad`, `violin`, `cello` and `harp` from VSCO 2 Community Edition (CC0). Only the notes a score plays are downloaded, once, into `~/.cache/video-gaga/samples` (a string part is typically 20–60 MB); a part whose samples can't be fetched falls back to the SoundFont and `cv music` says so. `VIDEO_GAGA_MULTISAMPLE=0` turns them off. It is seeded and deterministic: the same spec renders the same samples every time. The 40 MB sample bank downloads once to `~/.cache/video-gaga` on the first render (`cv doctor` fetches and checks it; `VIDEO_GAGA_SOUNDFONT=/path/to/bank.sf2` uses another General MIDI bank). Without it the score falls back to a small built-in synthesizer that sounds much cheaper, and `cv music` / `cv render` say so. You can still bring a licensed track with `--music file.mp3`.
+The score is arranged by [`scripts/music.mjs`](../scripts/music.mjs) and **played by real instrument samples**: a General MIDI SoundFont (MuseScore General, MIT licence) rendered offline by [spessasynth_core](https://github.com/spessasus/spessasynth_core). Grand and felt piano, electric piano, string section, choir, nylon and steel guitars, harp, koto, mallets, basses, brass, winds and eight drum kits. The parts a score leans on most play from **multi-sampled recordings**: `piano` from the Salamander Grand Piano (Alexander Holm, CC BY 3.0: credit it when you deliver a video that uses it, e.g. *Piano: Salamander Grand Piano by Alexander Holm, CC BY 3.0*), and `felt`, `strings`, `sinepad`, `violin`, `cello` and `harp` from VSCO 2 Community Edition (CC0). Only the notes a score plays are downloaded, once, into `~/.cache/video-gaga/samples` (a string part is typically 20–60 MB); a part whose samples can't be fetched falls back to the SoundFont and `gaga music` says so. `VIDEO_GAGA_MULTISAMPLE=0` turns them off. It is seeded and deterministic: the same spec renders the same samples every time. The 40 MB sample bank downloads once to `~/.cache/video-gaga` on the first render (`gaga doctor` fetches and checks it; `VIDEO_GAGA_SOUNDFONT=/path/to/bank.sf2` uses another General MIDI bank). Without it the score falls back to a small built-in synthesizer that sounds much cheaper, and `gaga music` / `gaga render` say so. You can still bring a licensed track with `--music file.mp3`.
 
 ## 1. Turn it on
 
@@ -34,7 +34,7 @@ CV.create({
 });
 ```
 
-`cv render` renders the score (cached in `build/music.wav`), mixes it with the voice and checks the balance. `cv music <project>` renders only the score, so the preview player can play it, and prints the arrangement: key, BPM, chords, layers, energy per bar, **how loud each part of the mix is** (`mix: bed · keys · drums · lead · reverb`, dB of the whole), the cut times, every sound effect and any **warnings** about the spec. A spec that breaks a limit (§2.4) is refused with a list of exactly what to fix.
+`gaga render` renders the score (cached in `build/music.wav`), mixes it with the voice and checks the balance. `gaga music <project>` renders only the score, so the preview player can play it, and prints the arrangement: key, BPM, chords, layers, energy per bar, **how loud each part of the mix is** (`mix: bed · keys · drums · lead · reverb`, dB of the whole), the cut times, every sound effect and any **warnings** about the spec. A spec that breaks a limit (§2.4) is refused with a list of exactly what to fix.
 
 | `music` key | Default | Meaning |
 |---|---|---|
@@ -107,7 +107,7 @@ lead: { inst: 'violin', vel: 0.12, line: 'E5:1.5 D5:.5 C5:1 G5:1 | A5:3 r:1 | F5
 
 A note is a name with its octave (`C4` = middle C, MIDI 60; `F#5`, `Bb3`); `:beats` sets its length and carries over to the next notes until changed (`:1/3` for triplets); `r` is a rest; `[A3 C4 E4]:2` is a chord; `@1.2` accents a note (0.3–1.3 × `vel`); `|` checks that the bar is full. The line must fill whole bars and is at most 16 bars long; it repeats. It is played like a player would: its high points a little stronger, downbeats leaning, off-beats lighter.
 
-A good line is a tune someone could hum after one hearing: a short motif (2–4 notes with a recognisable rhythm) stated, answered (the same rhythm, moved), contrasted, and brought home; mostly steps with one or two leaps that land on a chord tone; chord tones on the strong beats; a peak note reached once, about two-thirds of the way through; phrases that end on long notes and leave rests for breath; the last phrase resolving to the tonic. Write it in the key and against the progression you chose: `cv music` warns when more than a quarter of the notes fall outside the key. It sounds wrong when it wanders by step with no rhythm of its own, sits on one note, leaps on every note, crowds every beat, or never lands.
+A good line is a tune someone could hum after one hearing: a short motif (2–4 notes with a recognisable rhythm) stated, answered (the same rhythm, moved), contrasted, and brought home; mostly steps with one or two leaps that land on a chord tone; chord tones on the strong beats; a peak note reached once, about two-thirds of the way through; phrases that end on long notes and leave rests for breath; the last phrase resolving to the tonic. Write it in the key and against the progression you chose: `gaga music` warns when more than a quarter of the notes fall outside the key. It sounds wrong when it wanders by step with no rhythm of its own, sits on one note, leaps on every note, crowds every beat, or never lands.
 
 **Or let it be composed.** `lead: { inst, range: [lowMidi, highMidi], rhythm, vel, …sound }`: `inst` is any keys, plucked, mallet or melodic instrument (`piano`, `felt`, `epiano`, `guitar`, `harp`, `koto`, `bell`, `flute`, `shakuhachi`, `violin`, `horn`, `lead` …); `rhythm` is `sparse` (long notes, reflective), `melodic` (a singable line) or `rhythmic` (short, syncopated). Two seeded motifs are composed per part and laid out as an eight-bar period (statement, an answer a step higher, a contrast, the statement again landing home), on the key's scale with chord tones on the strong beats, and played **only where nobody is speaking**. Keep the range above the voice (MIDI ≥ 69 for a lead that sings, at least 7 semitones wide).
 
@@ -122,14 +122,14 @@ A good line is a tune someone could hum after one hearing: a short motif (2–4 
 - A written `line` fills whole bars (each `|` must close a full bar), is at most 16 bars long, and a layer has either a `line` or a `pattern`, not both.
 - Unknown keys are errors, so typos never pass silently.
 
-And these are **design rules** (warnings from `cv music`, and things to check yourself):
+And these are **design rules** (warnings from `gaga music`, and things to check yourself):
 
 - Something harmonic plays at low energy (a piano, keys, guitar or pad with `from` ≤ 0.3), so quiet scenes are not empty.
 - Something articulates the beat: a score of only pads/strings and bass drones (warned).
 - A low tom is not the only pulse (warned): that is a horror-film heartbeat.
 - Layers enter with energy (`from`), so the score builds and breathes with the story rather than playing flat.
 - Leave the voice its band: keep busy parts (arps, 16ths) at `from` ≥ 0.45 or in music-only scenes, and prefer piano, guitar, bass and soft drums under narration.
-- Balance by numbers: in `cv music`'s `mix:` line, drums usually sit around −4 to −8 dB of the whole when the groove is in, the lead around −10 to −15, and the reverb below −10 (above that it washes out).
+- Balance by numbers: in `gaga music`'s `mix:` line, drums usually sit around −4 to −8 dB of the whole when the groove is in, the lead around −10 to −15, and the reverb below −10 (above that it washes out).
 - One signature sound carries the identity (the hook's instrument); the rest supports it.
 
 ### 2.5 Parts: a long score in chapters
@@ -153,11 +153,11 @@ scenes: [
 ]
 ```
 
-- A part may change `key`, `mode`, `progression`, `chordBars`, `sevenths`, `seed` (new melody motifs), `lead` (merged over the main lead: a different `rhythm`, `range`, `vel` or its own written `line`) and `lines: { layerName: line }` (new written lines for named layers). A written line doesn't follow chord changes, so a part that changes the harmony gives its lead and its written layers new lines (`cv music` warns when it doesn't). The **layers stay the same** for the whole video, so it keeps one sound; energy still decides which of them play.
+- A part may change `key`, `mode`, `progression`, `chordBars`, `sevenths`, `seed` (new melody motifs), `lead` (merged over the main lead: a different `rhythm`, `range`, `vel` or its own written `line`) and `lines: { layerName: line }` (new written lines for named layers). A written line doesn't follow chord changes, so a part that changes the harmony gives its lead and its written layers new lines (`gaga music` warns when it doesn't). The **layers stay the same** for the whole video, so it keeps one sound; energy still decides which of them play.
 - Put `part` on the first scene of each chapter. It holds until another scene names a part. The cut into that scene moves to the next **bar line** (not just the beat) so the new chords arrive with the new picture; this can hold the previous scene up to one bar longer. Set the scene's `snap` to override.
 - Each part starts on the first chord of its own progression, and the melody in it uses its own two motifs. The ending resolves to the home chord of the part the video ends in.
 - Design parts from the story, not for variety's sake: a relative minor for the low point, a pop loop (`[5, 3, 0, 4]`) for momentum, a slower `chordBars: 2` for reflection, and back home for the ending. Three to six parts suit a 2–5 minute piece.
-- `cv music` prints where each part takes over (`parts (name@bar): main@1 stuck@9 …`) and warns when a score longer than ~75 s loops one progression more than eight times.
+- `gaga music` prints where each part takes over (`parts (name@bar): main@1 stuck@9 …`) and warns when a score longer than ~75 s loops one progression more than eight times.
 
 ## 3. How the score follows the video
 
@@ -218,7 +218,7 @@ A 30 s explainer typically carries 20–24 s of speech. A 15 s teaser might have
 
 ## 6. Mix and verification
 
-`cv render` reports the balance from separate voice and music stems:
+`gaga render` reports the balance from separate voice and music stems:
 
 ```
 a/v sync: 4 cue onsets vs speech onsets — median 93 ms, worst 96 ms
@@ -227,7 +227,7 @@ music: 13.8 dB under the voice while it speaks, -3.9 dB vs the voice in the gaps
 
 Aim for **10–18 dB under the voice** while it speaks (it warns below 9 and above 22 dB) and roughly −2 to −6 dB in the gaps. The score is levelled against the measured speech RMS of your narration, so the defaults land there for any voice. Adjust with `music.volume`, `music.gap` and `music.duck`. Word-synced sound effects are excluded from the measurement (it uses a bed-only stem, `build/music-bed.wav`). The final mix is loudness-normalised to −16 LUFS. Speech onsets are measured on the voice stem, so the sync check still works under music.
 
-**Listening checks.** `cv music` and `cv render` also measure what a listener would notice, from the rendered audio, and warn (never refuse):
+**Listening checks.** `gaga music` and `gaga render` also measure what a listener would notice, from the rendered audio, and warn (never refuse):
 
 | Check | Measured | Reads well | Warned |
 |---|---|---|---|
