@@ -11,11 +11,11 @@ This page is for people writing prompts. The skill itself does not need it. Thes
 | **Ban list** (no bouncy easing, particle bursts, RGB split, lens flares, neon glow, dead time) | zero (@twoclipping) | `docs/craft.md` (*Not good* lists) |
 | **Deterministic `seek(t)`**: no CSS transitions, no timers, no state between frames | zero, PDoomVideo guide (via compendium) | the runtime contract: `draw(ctx, s)` is pure |
 | **Closed-form springs**, a sum of springs for re-targeted values | zero | `CV.spring`, `CV.springTrack` |
-| **Sub-frame motion blur** (render sub-frames, blend with `tmix`) | zero | `cv render --motion-blur 5` |
-| **Probe frames before the full render** and fix clutter or overlaps | zero, compendium tips | `cv still --sheet` + `docs/motion-design.md` §9 |
+| **Sub-frame motion blur** (render sub-frames, blend with `tmix`) | zero | `gaga render --motion-blur 5` |
+| **Probe frames before the full render** and fix clutter or overlaps | zero, compendium tips | `gaga still --sheet` + `docs/motion-design.md` §9 |
 | **Beat grid**: every cut on a downbeat, every hit on a beat | zero | `s.when('word')` (narration) or `beat(n)` (BPM) |
 | **One-liners work, but vary a lot.** "Go all out" showreels | Leon Abboud, Deedy, Stephan Livera | the questions fill in what the one-liner leaves out |
-| **TTS + bilingual captions + export in one go** | WY (@akokoi1) | Edge TTS + cue builder + `cv render` |
+| **TTS + bilingual captions + export in one go** | WY (@akokoi1) | Edge TTS + cue builder + `gaga render` |
 | **Use real assets.** Give the model a gallery of files and paths | om_patel5 | `CV.image()`, and brand assets in the project folder |
 
 ## Sources
@@ -105,8 +105,8 @@ No fades, no glow, no bounce. End on a resolved still, held 1 s. Square 1080×10
 <build>
 1. One HTML file using runtime/video-gaga.js; every pixel is a pure function of t inside draw(ctx, s).
 2. Narration in narration.json (Edge TTS, WordBoundary); pin hits with s.when('word').
-3. Probe with `cv still --sheet` before rendering; fix overlaps, clutter, unreadable text.
-4. Render with `cv render --subs burn --motion-blur 5`; verify with `cv check`.
+3. Probe with `gaga still --sheet` before rendering; fix overlaps, clutter, unreadable text.
+4. Render with `gaga render --subs burn --motion-blur 5`; verify with `gaga check`.
 </build>
 <gotchas>Hold every info beat ≥ 1 s. Captions never collide with content. Last frame is a still.</gotchas>
 <start>Ask me for the inputs, then show me the storyboard with every timing before writing code.</start>

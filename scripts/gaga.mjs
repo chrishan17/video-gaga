@@ -1,17 +1,17 @@
 #!/usr/bin/env node
-// video-gaga CLI — HTML Canvas composition → MP4 (+ Edge TTS narration, subtitles).
+// gaga, the video-gaga CLI — HTML Canvas composition → MP4 (+ Edge TTS narration, subtitles).
 //
-//   node scripts/cv.mjs render <project|video.html> [options]
-//   node scripts/cv.mjs still  <project> [--at 1,2.5] [--sheet]
-//   node scripts/cv.mjs moodboard <preview> <preview> … [--wait]
-//   node scripts/cv.mjs tts    <project>
-//   node scripts/cv.mjs music  <project>
-//   node scripts/cv.mjs check  <video.mp4> [--srt file.srt]
-//   node scripts/cv.mjs gif    <video.mp4> [--out x.gif] [--width 480] [--fps 12]
-//   node scripts/cv.mjs init   <dir> [--preset <slug>]
-//   node scripts/cv.mjs voices [--lang zh-CN]
+//   node scripts/gaga.mjs render <project|video.html> [options]
+//   node scripts/gaga.mjs still  <project> [--at 1,2.5] [--sheet]
+//   node scripts/gaga.mjs moodboard <preview> <preview> … [--wait]
+//   node scripts/gaga.mjs tts    <project>
+//   node scripts/gaga.mjs music  <project>
+//   node scripts/gaga.mjs check  <video.mp4> [--srt file.srt]
+//   node scripts/gaga.mjs gif    <video.mp4> [--out x.gif] [--width 480] [--fps 12]
+//   node scripts/gaga.mjs init   <dir> [--preset <slug>]
+//   node scripts/gaga.mjs voices [--lang zh-CN]
 //
-// Run `node scripts/cv.mjs help` for all options.
+// Run `node scripts/gaga.mjs help` for all options.
 
 import { spawn, spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
@@ -154,14 +154,14 @@ async function launch() {
   }
 }
 
-// A project keeps the runtime `cv init` copied. After the skill is updated that
+// A project keeps the runtime `gaga init` copied. After the skill is updated that
 // copy is stale, and newer options (music.parts, scene.part …) are silently ignored.
 const staleWarned = new Set();
 function checkRuntime(html) {
   const local = path.join(path.dirname(html), 'video-gaga.js');
   if (staleWarned.has(local) || !fs.existsSync(local) || !/src="video-gaga\.js"/.test(fs.readFileSync(html, 'utf8'))) return;
   staleWarned.add(local);
-  if (!fs.readFileSync(local).equals(fs.readFileSync(path.join(ROOT, 'runtime', 'video-gaga.js')))) log(`  ⚠ ${path.relative(process.cwd(), local)} differs from the skill's runtime (copied by an older \`cv init\`?): newer options may be ignored. Update it: cp ${path.relative(process.cwd(), path.join(ROOT, 'runtime', 'video-gaga.js'))} ${path.relative(process.cwd(), local)}`);
+  if (!fs.readFileSync(local).equals(fs.readFileSync(path.join(ROOT, 'runtime', 'video-gaga.js')))) log(`  ⚠ ${path.relative(process.cwd(), local)} differs from the skill's runtime (copied by an older \`gaga init\`?): newer options may be ignored. Update it: cp ${path.relative(process.cwd(), path.join(ROOT, 'runtime', 'video-gaga.js'))} ${path.relative(process.cwd(), local)}`);
 }
 
 async function openComposition(browser, html, q) {
@@ -252,9 +252,11 @@ async function render(opts) {
     segFiles.push(seg);
     jobs.push(renderChunk({ browser, html, q, a, b, fps, mb, shutter, fmt, quality, seg, crf, x264preset, tick }));
   }
-  await Promise.all(jobs);
+  // errors a scene or transition logs while frames render (the probe page only saw boot)
+  const renderErrors = [...new Set((await Promise.all(jobs)).flat())].filter((e) => !probe.errors.includes(e));
   process.stdout.write('\n');
   await browser.close();
+  if (renderErrors.length) log(`  ⚠ page errors while rendering:\n    ${renderErrors.slice(0, 10).join('\n    ')}${renderErrors.length > 10 ? `\n    … ${renderErrors.length - 10} more` : ''}`);
 
   // concat video segments
   const list = path.join(tmp, 'list.txt');
@@ -354,7 +356,7 @@ async function render(opts) {
       stems.music = fs.readFileSync(mf);
       stems.ducked = !generated; // a plain track is side-chain ducked in the real mix
     }
-    // keep the voice stem next to the build so a later `cv check <mp4>` can measure sync too
+    // keep the voice stem next to the build so a later `gaga check <mp4>` can measure sync too
     const wav = path.join(dir, 'build', 'voice-stem.wav');
     await run('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'f32le', '-ar', '48000', '-ac', '1', '-i', vf, wav]);
     stems.voiceWav = wav;
@@ -364,12 +366,12 @@ async function render(opts) {
   const secs = ((Date.now() - t0) / 1000).toFixed(1);
   log(`✔ ${path.relative(process.cwd(), out)}  (${secs}s)`);
   if (cues.length && subsMode !== 'none') log(`  subtitles: ${path.relative(process.cwd(), base)}.srt / .vtt (${cues.length} cues${burn ? ', burned in' : ''}${soft ? ', soft track' : ''})`);
-  report(out, cues.length ? `${base}.srt` : null, stems, voice.map((v) => ({ ...v, file: path.resolve(dir, v.file) })));
+  await report(out, cues.length ? `${base}.srt` : null, stems, voice.map((v) => ({ ...v, file: path.resolve(dir, v.file) })), info.scenes.map((s) => ({ ...s, start: s.start - from / fps })));
   if (!opts.keepTemp) fs.rmSync(tmp, { recursive: true, force: true });
 }
 
 async function renderChunk({ browser, html, q, a, b, fps, mb, shutter, fmt, quality, seg, crf, x264preset, tick }) {
-  const { page } = await openComposition(browser, html, q);
+  const { page, errors } = await openComposition(browser, html, q);
   const rate = fps * mb;
   const vf = [];
   if (mb > 1) vf.push(`tmix=frames=${mb}`, `select='eq(mod(n\\,${mb})\\,${mb - 1})'`, `setpts=N/(${fps}*TB)`);
@@ -397,6 +399,7 @@ async function renderChunk({ browser, html, q, a, b, fps, mb, shutter, fmt, qual
   ff.stdin.end();
   await exited;
   await page.close();
+  return errors;
 }
 
 // ---------------------------------------------------------------------------
@@ -427,7 +430,111 @@ function speechOnsets(file, minSilence) {
 // onsets can't be found under music, so they're measured on the voice stem).
 // voice: [{id, file, start}] from the renderer. Lets sync be checked for every
 // clip, including lines that have no caption cue.
-function report(file, srt, stems = null, voice = []) {
+// Picture checks on the encoded video, for what no single probe shows: a hold
+// where nothing moves, a one-frame glitch, flashing, blank frames. One decoding
+// pass over a small grey copy (long side 192 px), no re-render.
+const PIX_DIFF = 6; // grey levels at 192 px that count as "this pixel changed"
+const STILL = 0.0005; // fraction of pixels changed below which two frames are the same
+async function scanPicture(file, v) {
+  const [n, d] = (v.r_frame_rate || v.avg_frame_rate || '30/1').split('/').map(Number);
+  const fps = n / d;
+  const k = 192 / Math.max(v.width, v.height);
+  const w = Math.max(2, Math.round((v.width * k) / 2) * 2), h = Math.max(2, Math.round((v.height * k) / 2) * 2), N = w * h;
+  // linear-light luminance per grey level, for the flash rule (WCAG: a 10% swing)
+  const lin = Float64Array.from({ length: 256 }, (_, i) => { const c = i / 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; });
+  const moved = [0], skip = [0, 0], blank = [], luma = []; // luma[i] = [whole, 4 quadrants]
+  const frames = [Buffer.alloc(N), Buffer.alloc(N), Buffer.alloc(N)];
+  let i = 0, fill = 0;
+  const changed = (a, b) => { let c = 0; for (let p = 0; p < N; p++) if (Math.abs(a[p] - b[p]) > PIX_DIFF) c++; return c / N; };
+  const frame = (f) => {
+    if (i > 0) moved.push(changed(f, frames[(i - 1) % 3]));
+    if (i > 1) skip.push(changed(f, frames[(i - 2) % 3]));
+    const hist = new Uint32Array(256), q = [0, 0, 0, 0, 0];
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const g = f[y * w + x], l = lin[g];
+      hist[g]++; q[0] += l; q[1 + (y >= h / 2) * 2 + (x >= w / 2)] += l;
+    }
+    luma.push([q[0] / N, ...q.slice(1).map((s) => (s * 4) / N)]);
+    let med = 0;
+    for (let acc = 0; med < 255 && (acc += hist[med]) < N / 2; med++);
+    // blank: almost no pixel stands out from the background (a thin rule or a
+    // small dot still leaves a few at this size, so count pixels, not area)
+    let off = 0;
+    for (let g = 0; g < 256; g++) if (Math.abs(g - med) > 16) off += hist[g];
+    blank.push(off < 8);
+    i++;
+  };
+  await new Promise((resolve, reject) => {
+    const ff = spawn('ffmpeg', ['-v', 'error', '-i', file, '-vf', `scale=${w}:${h}:flags=area,format=gray`, '-f', 'rawvideo', '-'], { stdio: ['ignore', 'pipe', 'inherit'] });
+    ff.stdout.on('data', (chunk) => {
+      for (let o = 0; o < chunk.length;) {
+        const cur = frames[i % 3], take = Math.min(N - fill, chunk.length - o);
+        chunk.copy(cur, fill, o, o + take);
+        fill += take; o += take;
+        if (fill === N) { frame(cur); fill = 0; }
+      }
+    });
+    ff.on('error', reject);
+    ff.on('exit', (c) => (c === 0 ? resolve() : reject(new Error(`ffmpeg exited ${c} while scanning the picture`))));
+  });
+  const total = i;
+  // runs of frames where a test holds, as [first, last] frame indices
+  const runs = (test) => {
+    const out = [];
+    for (let j = 0, s = -1; j <= total; j++) {
+      if (j < total && test(j)) { if (s < 0) s = j; } else if (s >= 0) { out.push([s, j - 1]); s = -1; }
+    }
+    return out;
+  };
+  // frame j is still when it matches the one before; the run starts on the frame before that
+  const still = runs((j) => j > 0 && moved[j] < STILL).map(([a, b]) => [a - 1, b]);
+  // a one-frame glitch: frame j differs from both neighbours, which match each other
+  const blips = [];
+  for (let j = 1; j < total - 1; j++) {
+    const lo = Math.min(moved[j], moved[j + 1]);
+    if (lo > 0.02 && skip[j + 1] < 0.25 * lo) blips.push(j);
+  }
+  // flashing: opposing luminance swings of ≥ 0.1 (darker state < 0.8) in any one second,
+  // in the whole frame or a quarter of it; two swings make a flash
+  let flash = { count: 0, at: 0 };
+  for (let r = 0; r < 5; r++) {
+    const swings = [];
+    let hi = luma[0]?.[r] ?? 0, lo = hi, dir = 0; // dir: the last swing went up (1) or down (-1)
+    for (let j = 1; j < total; j++) {
+      const l = luma[j][r];
+      if (dir >= 0) hi = Math.max(hi, l);
+      if (dir <= 0) lo = Math.min(lo, l);
+      if (dir >= 0 && hi - l >= 0.1 && l < 0.8) { swings.push(j); dir = -1; lo = l; }
+      else if (dir <= 0 && l - lo >= 0.1 && lo < 0.8) { swings.push(j); dir = 1; hi = l; }
+    }
+    for (let a = 0, b = 0; b < swings.length; b++) {
+      while (swings[b] - swings[a] >= fps) a++;
+      const count = Math.floor((b - a + 1) / 2);
+      if (count > flash.count) flash = { count, at: swings[a] / fps };
+    }
+  }
+  return { fps, total, still, blips, flash, blank: runs((j) => blank[j]) };
+}
+
+async function pictureReport(file, v, scenes, issues) {
+  let r;
+  try { r = await scanPicture(file, v); } catch (e) { log(`  picture: not scanned (${e.message})`); return; }
+  const { fps, total } = r;
+  const t = (f) => `${(f / fps).toFixed(2)}s`;
+  const at = (f) => { const s = scenes?.filter((x) => x.start <= f / fps + 1e-6).pop(); return s ? `, "${s.id}"` : ''; };
+  // the last run of still frames is the closing hold the contract asks for
+  const holds = r.still.filter(([a, b]) => b < total - 1 && (b - a) / fps >= 1.5);
+  const longest = r.still.filter(([, b]) => b < total - 1).reduce((m, [a, b]) => Math.max(m, (b - a) / fps), 0);
+  const blank = r.blank.filter(([a, b]) => (b - a + 1) / fps >= 0.3);
+  log(`  picture: ${holds.length ? `${holds.length} still stretch${holds.length > 1 ? 'es' : ''} ≥ 1.5 s` : `still ≤ ${longest.toFixed(1)}s at a stretch`}, ${r.blips.length} one-frame glitch${r.blips.length === 1 ? '' : 'es'}, ${r.flash.count > 3 ? 'FLASHING' : 'no flashing'}, ${blank.length ? `${blank.length} blank stretch${blank.length > 1 ? 'es' : ''}` : 'no blank frames'}`);
+  // pointers to frames worth a look, not failures (a breath before the big hit is a still)
+  for (const [a, b] of holds.slice(0, 6)) log(`    look: nothing moves ${t(a)}–${t(b)} (${((b - a) / fps).toFixed(1)}s${at(a)}): is the hold alive, or meant to stop?`);
+  for (const j of r.blips.slice(0, 6)) log(`    look: frame at ${t(j)}${at(j)} differs from both neighbours (a one-frame glitch?)`);
+  for (const [a, b] of blank.slice(0, 4)) log(`    look: blank ${t(a)}–${t(b + 1)}${at(a)}`);
+  if (r.flash.count > 3) issues.push(`flashing: ${r.flash.count} flashes within one second at ${r.flash.at.toFixed(2)}s (keep it to 3 or fewer: photosensitivity)`);
+}
+
+async function report(file, srt, stems = null, voice = [], scenes = null) {
   const speechSrc = stems?.voiceWav || file;
   const p = ffprobe(file);
   const v = p.streams.find((s) => s.codec_type === 'video');
@@ -458,7 +565,7 @@ function report(file, srt, stems = null, voice = []) {
     if (prevEnd > dur + 0.05) issues.push(`last subtitle ends after video (${prevEnd.toFixed(2)}s > ${dur.toFixed(2)}s)`);
     if (overlaps) issues.push(`${overlaps} overlapping subtitle cues`);
     // A/V sync: every cue that follows a pause should start where speech starts.
-    if (a && times.length && stems?.noSync) log('  a/v sync: n/a (the track has music; re-run `cv render` to measure on the voice stem)');
+    if (a && times.length && stems?.noSync) log('  a/v sync: n/a (the track has music; re-run `gaga render` to measure on the voice stem)');
     else if (a && times.length) {
       const onsets = speechOnsets(speechSrc, 0.18);
       const offs = [];
@@ -509,6 +616,7 @@ function report(file, srt, stems = null, voice = []) {
     log(`  voice sync: ${clips.length} clips vs speech onsets — median ${(med * 1000).toFixed(0)} ms, worst ${(Math.abs(worst.off) * 1000).toFixed(0)} ms (${worst.id})`);
     if (Math.abs(worst.off) > 0.15) issues.push(`voice clip "${worst.id}" starts ${(worst.off * 1000).toFixed(0)} ms off its timeline position`);
   }
+  await pictureReport(file, v, scenes, issues);
   if (issues.length) log(`  ⚠ ${issues.join('\n  ⚠ ')}`);
   else log('  checks: ok');
   return issues;
@@ -547,15 +655,43 @@ async function still(opts) {
     });
   }
   const files = [];
+  // text on each probe: cut off by the frame edge, or sitting where captions go
+  const band = info.captionBand;
+  const textIssues = (boxes) => (boxes || []).flatMap((b) => {
+    const w = b.x1 - b.x0, h = b.y1 - b.y0;
+    if (w <= 0 || h < 9) return [];
+    const vw = Math.min(b.x1, info.width) - Math.max(b.x0, 0), vh = Math.min(b.y1, info.height) - Math.max(b.y0, 0);
+    const shown = vw > 0 && vh > 0 ? (vw * vh) / (w * h) : 0;
+    const out = [];
+    if (shown > 0.1 && shown < 0.9) out.push({ text: b.text, what: 'cut off by the frame edge' });
+    if (band && shown > 0.1 && b.y1 > band.y0 + 4 && b.y0 < band.y1 && b.x1 > band.x0 && b.x0 < band.x1) out.push({ text: b.text, what: `in the caption band (text ${Math.round(b.y0)}–${Math.round(b.y1)} px, captions from ${Math.round(band.y0)})` });
+    return out;
+  });
+  const probeText = (f) => page.evaluate((f) => (window.__CV.textBoxes ? window.__CV.textBoxes(f) : null), f);
+  const flagged = [];
+  let boxesSeen = 0;
   for (const t of times) {
     const f = Math.min(info.totalFrames - 1, Math.max(0, Math.round(t * info.fps)));
-    const url = await page.evaluate(async (f) => { await window.__CV.renderFrame(f); return window.__CV.capture('image/png'); }, f);
+    const boxes = await probeText(f);
+    if (!boxes) await page.evaluate((f) => window.__CV.renderFrame(f), f);
+    const url = await page.evaluate(() => window.__CV.capture('image/png'));
     const file = path.join(outDir, `t${(f / info.fps).toFixed(2).padStart(6, '0')}.png`);
     fs.writeFileSync(file, Buffer.from(url.split(',')[1], 'base64'));
     files.push(file);
+    boxesSeen += boxes?.length || 0;
+    const found = textIssues(boxes);
+    // still there 0.3 s later: not text on its way in or out
+    if (found.length) {
+      const later = textIssues(await probeText(Math.min(info.totalFrames - 1, f + Math.round(0.3 * info.fps)))).map((x) => x.text + x.what);
+      for (const x of found) if (later.includes(x.text + x.what)) flagged.push({ t: f / info.fps, ...x });
+    }
   }
   await browser.close();
   log(`✔ ${files.length} stills → ${path.relative(process.cwd(), outDir)}`);
+  if (boxesSeen) {
+    log(`  text: ${flagged.length ? `${flagged.length} to look at` : 'clear of the frame edges'}${band ? (flagged.length ? '' : ' and the caption band') : ''} (${boxesSeen} strings on ${files.length} probes)`);
+    for (const x of flagged) log(`    look: ${x.t.toFixed(2)}s "${x.text}" ${x.what}`);
+  }
   if (opts.sheet) {
     // a long video makes one sheet too tall to read: split it into pages of
     // `--rows` rows (default 6, i.e. 6 scenes at 3 probes each)
@@ -628,7 +764,7 @@ async function init(opts) {
   }
   log(`  next:     write the scenes, narration.json and the score (music: { … }) for this brief`);
   log(`  preview:  open ${path.join(dir, 'video.html')}`);
-  log(`  render:   node ${path.relative(process.cwd(), path.join(ROOT, 'scripts', 'cv.mjs'))} render ${path.relative(process.cwd(), dir) || '.'}`);
+  log(`  render:   node ${path.relative(process.cwd(), path.join(ROOT, 'scripts', 'gaga.mjs'))} render ${path.relative(process.cwd(), dir) || '.'}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -636,7 +772,7 @@ async function init(opts) {
 // ---------------------------------------------------------------------------
 async function moodboard(opts) {
   const dirs = opts._.slice(1).map((p) => resolveProject(p));
-  if (dirs.length < 2) die('give two or more preview projects: cv moodboard .cv-previews/style-a .cv-previews/style-b .cv-previews/style-c');
+  if (dirs.length < 2) die('give two or more preview projects: gaga moodboard .gaga-previews/style-a .gaga-previews/style-b .gaga-previews/style-c');
   if (!has('ffmpeg')) die('ffmpeg not found (macOS: brew install ffmpeg)');
   const { themeFromHtml, describeScore, buildMoodboardPage } = await import('./moodboard.mjs');
   const out = path.resolve(opts.out || path.join(path.dirname(dirs[0].dir), 'moodboard.html'));
@@ -777,7 +913,7 @@ async function musicCmd(opts) {
   log(`✔ ${path.relative(process.cwd(), file)}  ${info.duration.toFixed(2)}s`);
   log(`  ${report.key} · ${report.bpm} BPM · chords ${report.progression} · ${report.layers} layers${report.lead ? ` + ${report.lead} lead` : ''} · bar energy ${report.bars.join(' ')}`);
   if (report.parts) log(`  parts (name@bar): ${report.parts.join(' ')}`);
-  if (report.mixDb) log(`  mix (dB of the whole): ${Object.entries(report.mixDb).map(([k, v]) => `${k} ${v}`).join(' · ')} · ${report.engine === 'samples' ? 'sampled instruments' : 'built-in synth (no samples: run cv doctor)'}`);
+  if (report.mixDb) log(`  mix (dB of the whole): ${Object.entries(report.mixDb).map(([k, v]) => `${k} ${v}`).join(' · ')} · ${report.engine === 'samples' ? 'sampled instruments' : 'built-in synth (no samples: run gaga doctor)'}`);
   log(`  peak ${report.peakDb} dBFS · gaps ${report.gapDb ?? '—'} dB vs the voice (${report.voiceDb ?? '—'} dBFS speech), dips ${report.voiceDuckDb} dB while it speaks · final chord ${report.endChordAt != null ? `at ${report.endChordAt}s` : 'none'}`);
   const L = report.listen;
   if (L) log(`  listen: ${L.ghost ? `${L.ghost.length} ghostly 4-bar window(s)` : 'ghost check needs the samples'} · melody ${L.melodyDb ?? '—'} dB over the rest in 500 Hz–4 kHz (≥ 3) · loudness range ${L.rangeLU ?? '—'} LU · sfx ${L.sfxDb ? `${L.sfxDb.median} dB median over the music (${L.sfxDb.min} … ${L.sfxDb.max})` : '—'}`);
@@ -834,7 +970,7 @@ async function doctor() {
   process.exitCode = ok ? 0 : 1;
 }
 
-const HELP = `video-gaga — Canvas motion graphics → MP4
+const HELP = `gaga (video-gaga) — Canvas motion graphics → MP4
 
 doctor                        check node, ffmpeg, Playwright/Chromium, Edge TTS and the instrument samples
 
@@ -853,7 +989,8 @@ render <project|video.html>   render to MP4 (runs Edge TTS first if narration.js
     --crf 18 --x264-preset medium
     --no-tts                  skip TTS even if narration.json exists
     --keep-temp
-still <project>               export PNG probes (3 per scene) for review
+still <project>               export PNG probes (3 per scene) for review, and point at text cut off by
+                              the frame edge or sitting in the caption band
     --at 1.2,3.4  --scenes a,b | a..c  --sheet [--rows 6]  --subs  --scale 0.5  --tts
 moodboard <preview> <preview> …   the style directions side by side on one HTML page (motion
                               sample, frames, palette, type, music direction) for the user to pick
@@ -864,7 +1001,8 @@ moodboard <preview> <preview> …   the style directions side by side on one HTM
                               writes pick.json)  [--timeout 600 --port 0 --no-open]
 tts <project>                 synthesize narration.json with Edge TTS (cached)
 music <project>               render the generated score to build/music.wav (the preview player plays it)
-check <video.mp4> [--srt f]   ffprobe summary + A/V + subtitle sanity checks
+check <video.mp4> [--srt f]   ffprobe summary + A/V + subtitle sanity checks, and a scan of the picture
+                              (still stretches, one-frame glitches, blank frames, flashing)
                               (render runs it too, adding per-clip voice sync)
 gif <video.mp4>               palette GIF preview  [--out --width 480 --fps 12 --from --dur]
 init <dir>                    scaffold a blank project: the render contract, no look [--ratio 9:16]
@@ -876,8 +1014,8 @@ voices [--lang zh-CN]         list Edge TTS voices
 const opts = parseArgs(process.argv.slice(2));
 const cmd = opts._[0];
 // Standalone check: speech onsets can't be found on a track with music, so use
-// the voice stem `cv render` leaves in <project>/build when it belongs to this MP4.
-function checkCmd(o) {
+// the voice stem `gaga render` leaves in <project>/build when it belongs to this MP4.
+async function checkCmd(o) {
   const file = path.resolve(o._[1] || die('missing file'));
   let stems = null;
   for (const b of [path.join(path.dirname(file), '..', 'build'), path.join(path.dirname(file), 'build')]) {
@@ -889,7 +1027,7 @@ function checkCmd(o) {
       break;
     }
   }
-  const issues = report(file, o.srt ? path.resolve(o.srt) : null, stems);
+  const issues = await report(file, o.srt ? path.resolve(o.srt) : null, stems);
   process.exitCode = issues.length ? 2 : 0;
 }
 

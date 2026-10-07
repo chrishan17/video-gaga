@@ -1638,8 +1638,38 @@
       c.restore();
     }
 
+    // text probe (`gaga still`): boxes of the text drawn straight onto the frame,
+    // in design px. Captions are left out; text drawn into an offscreen layer
+    // first (sprites, transition buffers, 3D textures) isn't seen.
+    let textProbe = false, textLog = null;
+    function logText(c, txt, x, y, maxW) {
+      if (c !== ctx || !textLog || c.globalAlpha < 0.15 || !String(txt).trim()) return;
+      const m = c.measureText(txt), M = c.getTransform();
+      let x0 = x - m.actualBoundingBoxLeft, x1 = x + m.actualBoundingBoxRight;
+      if (maxW != null && x1 - x0 > maxW) x1 = x0 + maxW;
+      const y0 = y - m.actualBoundingBoxAscent, y1 = y + m.actualBoundingBoxDescent;
+      const xs = [], ys = [];
+      for (const [px, py] of [[x0, y0], [x1, y0], [x0, y1], [x1, y1]]) {
+        xs.push((M.a * px + M.c * py + M.e) / scale);
+        ys.push((M.b * px + M.d * py + M.f) / scale);
+      }
+      textLog.push({ text: String(txt).slice(0, 40), x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) });
+    }
+    // where burned captions can sit: the tallest cue at the style's position
+    function captionBand() {
+      if (!cues.length) return null;
+      const s = Object.assign(subtitleStyleDefaults(W, H), config.subtitles?.style || {});
+      ctx.save();
+      ctx.font = s.font;
+      const lines = Math.max(...cues.map((c) => wrap(ctx, c.text, s.maxWidth).length));
+      ctx.restore();
+      const size = parseFloat(s.font.match(/(\d+(?:\.\d+)?)px/)[1]), lh = size * s.lineHeight;
+      return { x0: W / 2 - s.maxWidth / 2 - s.padX, x1: W / 2 + s.maxWidth / 2 + s.padX, y0: s.y * H - (lines - 1) * lh - size * 0.95 - s.padY / 2, y1: s.y * H + size * 0.3 + s.padY / 2 };
+    }
+
     function drawAt(T, frame) {
       frame = frame ?? Math.floor(T * fps + 1e-6);
+      if (textProbe) textLog = [];
       const active = scenes.filter((s) => T >= s.start && T < s.end);
       if (!active.length) active.push(T < 0 ? scenes[0] : scenes[scenes.length - 1]);
       ctx.save();
@@ -1675,7 +1705,10 @@
         // a scene may restyle captions over its own field (e.g. a highlight that contrasts with it)
         const cur = scenes.filter((x) => T >= x.start && T < x.end).pop();
         const style = cur && cur.captionStyle ? Object.assign({}, config.subtitles?.style, cur.captionStyle) : config.subtitles?.style;
+        const log = textLog;
+        textLog = null;
         drawSubtitles(ctx, burnCues, T, style);
+        textLog = log;
       }
       ctx.restore();
     }
@@ -1764,11 +1797,25 @@
           drawAt(subTime(f, sub), f);
         }
       },
+      // renders frame f and returns the boxes of the text on it (see logText)
+      textBoxes: async (f) => {
+        const P = CanvasRenderingContext2D.prototype, fill = P.fillText, stroke = P.strokeText;
+        P.fillText = function (...a) { logText(this, ...a); return fill.apply(this, a); };
+        P.strokeText = function (...a) { logText(this, ...a); return stroke.apply(this, a); };
+        textProbe = true;
+        try { await api.renderFrame(f); } finally { P.fillText = fill; P.strokeText = stroke; textProbe = false; }
+        const seen = new Set();
+        return (textLog || []).filter((b) => {
+          const k = [b.text, Math.round(b.x0), Math.round(b.y0), Math.round(b.x1), Math.round(b.y1)].join('|');
+          return !seen.has(k) && seen.add(k);
+        });
+      },
       drawAt,
       ready,
       info: () => ({
         width: W, height: H, fps, duration, totalFrames, scale, lang,
         pixelWidth: canvas.width, pixelHeight: canvas.height,
+        captionBand: captionBand(),
         scenes: scenes.map((s) => ({ id: s.id, start: s.start, dur: s.dur, voiceStart: s.voice ? s.start + s.voiceDelay : null, voiceDuration: s.voice?.duration ?? null, estimated: !!s.voice?.estimated })),
         voice: scenes.filter((s) => s.voice && s.voice.file && !s.voice.estimated).map((s) => ({ id: s.id, file: s.voice.file, start: s.start + s.voiceDelay, duration: s.voice.duration, speech: speechEnd(s.voice) })),
         cues: cues.map((c) => ({ start: c.start, end: c.end, text: c.text })),
@@ -1827,7 +1874,7 @@
       }
       const inf = api.info();
       const tracks = inf.voice.slice();
-      // background music: a licensed file, or the score rendered by `cv music`
+      // background music: a licensed file, or the score rendered by `gaga music`
       const bed = inf.music || (inf.score ? 'build/music.wav' : null);
       if (bed) tracks.push({ id: 'music', file: bed, start: 0, duration });
       const audios = tracks.map((v) => { const a = new Audio(v.file); a.preload = 'auto'; a.onerror = () => { v.dead = true; }; return Object.assign(v, { a }); });

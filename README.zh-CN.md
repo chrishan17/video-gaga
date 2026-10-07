@@ -17,7 +17,7 @@
 - **字幕认真做**：字幕用同一份词级时间生成。中文断行遵守避头尾规则，长句按意群均衡切分，中文字幕去掉逗号和句号、保留问号和感叹号。字幕可以按视频自己的字体样式烧进画面，也可以做卡拉 OK 高亮，同时导出 `.srt`、`.vtt` 或 MP4 软字幕轨。
 - **像设计出来的，不像 AI 生成的**：内置 13 套差异明显的动效风格预设（其中 2 套是 3D），并配有一份成文的动效设计规范，涵盖缓动、时长、层级、镜头、转场、声音和反模式。Agent 会按规范做，并对照规范自查样帧。
 - **先问再做**：按视频类型提 4–7 个问题。每题固定三个具体选项，其中一个标注"推荐"并写明理由。
-- **自己验收**：`cv check` 会核对时长、帧率、音轨、响度、字幕是否重叠、**音画同步**（在人声分轨上检测语音起点，再与字幕起点比对），以及**音乐与人声的音量比例**。渲染后还会逐条核对每段配音是否落在时间线上的位置，没有字幕的配音也会检查。
+- **自己验收**：`gaga check` 会核对时长、帧率、音轨、响度、字幕是否重叠、**画面**里的长时间静止、单帧闪错与频闪、**音画同步**（在人声分轨上检测语音起点，再与字幕起点比对），以及**音乐与人声的音量比例**。渲染后还会逐条核对每段配音是否落在时间线上的位置，没有字幕的配音也会检查。
 - **免费开源**：MIT 许可。依赖 Node、Playwright（Apache-2.0）、ffmpeg 和 edge-tts。不需要 Remotion 公司授权，不需要构建步骤，也不需要注册账号。
 
 ## 风格画廊
@@ -51,8 +51,8 @@
 1. **提问**：4–7 个问题，每题三个选项，其中一个为推荐项并附理由。维度按视频类型挑选，例如时长、画幅、配音、字幕、品牌色、节奏、结尾。
 2. **风格样帧**：用你的真实标题渲染 3 个方向（推荐预设、对比预设、定制野卡），并排放在一个 moodboard 网页里（动态样片、关键帧、配色、字体、配乐方向），你点一下就选好了。
 3. **分镜**：逐场景列出旁白原文（或标明纯音乐）、画面焦点、与哪个词或哪一拍同步、退场、转场、音乐能量和音效，确认后再动手。
-4. **制作**：编写 `video.html`（Canvas 或 three.js 场景）和 `narration.json`。先跑 Edge TTS 拿到词级时间，剪辑点和起句对齐到节拍，`cv music` 按时间轴生成配乐，再生成探针样帧，由 Agent 自己看图挑问题、修改、再检查。
-5. **渲染与验收**：并行渲染、混音（旁白、为人声让位的配乐、loudnorm 响度标准化）、封装，然后用 `cv check` 核对同步与音量比例，最后从成片里抽帧再看一遍。
+4. **制作**：编写 `video.html`（Canvas 或 three.js 场景）和 `narration.json`。先跑 Edge TTS 拿到词级时间，剪辑点和起句对齐到节拍，`gaga music` 按时间轴生成配乐，再生成探针样帧，由 Agent 自己看图挑问题、修改、再检查。
+5. **渲染与验收**：并行渲染、混音（旁白、为人声让位的配乐、loudnorm 响度标准化）、封装，然后用 `gaga check` 核对同步与音量比例，最后从成片里抽帧再看一遍。
 
 ## 安装
 
@@ -62,7 +62,7 @@
 git clone https://github.com/chrishan17/video-gaga.git ~/.claude/skills/video-gaga
 cd ~/.claude/skills/video-gaga && npm install
 npx playwright install chromium      # 本机已有浏览器可跳过
-node scripts/cv.mjs doctor           # 环境自检
+node scripts/gaga.mjs doctor           # 环境自检
 ```
 
 然后直接说：*"用 video-gaga 做一个 30 秒的视频，讲清楚复利"*。
@@ -72,14 +72,14 @@ node scripts/cv.mjs doctor           # 环境自检
 ## 常用命令
 
 ```bash
-node scripts/cv.mjs init my-video --preset clear-explainer [--ratio 9:16]
-node scripts/cv.mjs tts my-video                    # 生成配音与词级时间（带缓存）
-node scripts/cv.mjs music my-video                  # 生成配乐 build/music.wav（预览播放器会播放）
-node scripts/cv.mjs still my-video --sheet --subs   # 探针样帧 + 缩略图拼版，供自检
-node scripts/cv.mjs moodboard .cv-previews/style-a .cv-previews/style-b .cv-previews/style-c --wait  # 在一个网页里并排选风格
-node scripts/cv.mjs render my-video --subs burn     # 渲染 MP4，字幕烧录，同时导出 srt/vtt
-node scripts/cv.mjs check my-video/out/my-video.mp4 --srt my-video/out/my-video.srt
-node scripts/cv.mjs voices --lang zh-CN             # 列出中文音色
+node scripts/gaga.mjs init my-video --preset clear-explainer [--ratio 9:16]
+node scripts/gaga.mjs tts my-video                    # 生成配音与词级时间（带缓存）
+node scripts/gaga.mjs music my-video                  # 生成配乐 build/music.wav（预览播放器会播放）
+node scripts/gaga.mjs still my-video --sheet --subs   # 探针样帧 + 缩略图拼版，供自检
+node scripts/gaga.mjs moodboard .gaga-previews/style-a .gaga-previews/style-b .gaga-previews/style-c --wait  # 在一个网页里并排选风格
+node scripts/gaga.mjs render my-video --subs burn     # 渲染 MP4，字幕烧录，同时导出 srt/vtt
+node scripts/gaga.mjs check my-video/out/my-video.mp4 --srt my-video/out/my-video.srt
+node scripts/gaga.mjs voices --lang zh-CN             # 列出中文音色
 ```
 
 ## 文档

@@ -309,7 +309,7 @@ export function meanRms(L, R, n) {
   return Math.sqrt(e / n) || 1e-6;
 }
 
-// which samples are cached (for `cv doctor`)
+// which samples are cached (for `gaga doctor`)
 export function cacheReport() {
   const out = {};
   for (const [name, bank] of Object.entries(BANKS)) out[name] = { cached: bank.samples.filter((s) => fs.existsSync(fileFor(s.url))).length, total: bank.samples.length };

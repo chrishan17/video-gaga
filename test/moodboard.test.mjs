@@ -1,4 +1,4 @@
-// cv moodboard: the style directions side by side on one page.
+// gaga moodboard: the style directions side by side on one page.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';

@@ -17,7 +17,7 @@
 - **Subtitles done properly.** Cues are built from the same word timings. CJK line breaking follows kinsoku rules, and long lines split into balanced chunks. Captions are burned in with the video's own typography (or karaoke-highlighted) and also exported as `.srt`, `.vtt` or a soft track.
 - **Designed, not generated-looking.** Thirteen distinct motion-design presets, two of them in 3D, plus a written motion-design guide covering easing, timing, hierarchy, camera, transitions, sound and anti-patterns. The agent follows it and checks its own probe frames against it.
 - **Asks before it builds.** 4–7 questions tailored to the video type. Each has three concrete options, one marked *recommended*, with the reason.
-- **Verifies itself.** `cv check` reports duration, fps, the audio track, loudness, caption overlaps, **A/V sync** (speech onsets vs caption onsets, measured on the voice stem) and the **music/voice balance**. After a render it also checks that every voice clip starts where the timeline put it, including lines without a caption.
+- **Verifies itself.** `gaga check` reports duration, fps, the audio track, loudness, caption overlaps, dead holds, glitches and flashing in the **picture**, **A/V sync** (speech onsets vs caption onsets, measured on the voice stem) and the **music/voice balance**. After a render it also checks that every voice clip starts where the timeline put it, including lines without a caption.
 - **Free & open.** MIT. The stack is Node, Playwright (Apache-2.0), ffmpeg and edge-tts. It needs no Remotion license, no build step, and no account.
 
 ## Style gallery
@@ -53,11 +53,11 @@ The presets show 15–30 s pieces. [`examples/take-your-time`](examples/take-you
    ├─ 4. Build ─────── video.html (Canvas or three.js scenes) + narration.json
    │                    Edge TTS → word timings → scene lengths + caption cues
    │                    beat grid → cuts and voice onsets snapped to the music
-   │                    cv music → a score arranged from the timeline (+ sfx)
-   │                    cv still --sheet → the agent reviews probe frames, fixes
+   │                    gaga music → a score arranged from the timeline (+ sfx)
+   │                    gaga still --sheet → the agent reviews probe frames, fixes
    └─ 5. Render ────── N× headless Chromium → PNG → ffmpeg x264 segments → concat
                         voice clips (adelay/amix) + score → loudnorm → AAC
-                        → out/video.mp4 + .srt + .vtt → cv check (sync, balance, loudness…)
+                        → out/video.mp4 + .srt + .vtt → gaga check (sync, balance, loudness…)
 ```
 
 ## Install
@@ -70,14 +70,14 @@ Requirements: **Node ≥ 18**, **ffmpeg** (with libx264) and **uv** (recommended
 git clone https://github.com/chrishan17/video-gaga.git ~/.claude/skills/video-gaga
 cd ~/.claude/skills/video-gaga && npm install
 npx playwright install chromium        # only if you don't already have it
-node scripts/cv.mjs doctor             # checks everything
+node scripts/gaga.mjs doctor             # checks everything
 ```
 
 Then just ask: *"Use video-gaga to make a 15-second launch teaser for …"* (or type `/video-gaga`).
 
 ### Other agents (Codex, Gemini CLI, Cursor, OpenCode, …)
 
-Point the agent at this repo and ask it to follow `SKILL.md`. Everything is plain files plus one CLI: `node scripts/cv.mjs`.
+Point the agent at this repo and ask it to follow `SKILL.md`. Everything is plain files plus one CLI: `node scripts/gaga.mjs`.
 
 ## Usage
 
@@ -93,16 +93,16 @@ Kinetic typography of "Stay hungry, stay foolish", square, no voice.
 ### CLI
 
 ```bash
-node scripts/cv.mjs doctor                         # environment check
-node scripts/cv.mjs init my-video --preset clear-explainer [--ratio 9:16]
-node scripts/cv.mjs tts my-video                   # Edge TTS → build/narration.js (cached)
-node scripts/cv.mjs music my-video                 # the generated score → build/music.wav (the preview plays it)
-node scripts/cv.mjs still my-video --sheet --subs  # probe frames + contact sheet for review
-node scripts/cv.mjs moodboard .cv-previews/style-a .cv-previews/style-b .cv-previews/style-c --wait  # pick a style on one page
-node scripts/cv.mjs render my-video --subs burn    # → my-video/out/my-video.mp4 (+ .srt/.vtt)
-node scripts/cv.mjs check my-video/out/my-video.mp4 --srt my-video/out/my-video.srt
-node scripts/cv.mjs gif my-video/out/my-video.mp4 --width 480
-node scripts/cv.mjs voices --lang zh-CN
+node scripts/gaga.mjs doctor                         # environment check
+node scripts/gaga.mjs init my-video --preset clear-explainer [--ratio 9:16]
+node scripts/gaga.mjs tts my-video                   # Edge TTS → build/narration.js (cached)
+node scripts/gaga.mjs music my-video                 # the generated score → build/music.wav (the preview plays it)
+node scripts/gaga.mjs still my-video --sheet --subs  # probe frames + contact sheet for review
+node scripts/gaga.mjs moodboard .gaga-previews/style-a .gaga-previews/style-b .gaga-previews/style-c --wait  # pick a style on one page
+node scripts/gaga.mjs render my-video --subs burn    # → my-video/out/my-video.mp4 (+ .srt/.vtt)
+node scripts/gaga.mjs check my-video/out/my-video.mp4 --srt my-video/out/my-video.srt
+node scripts/gaga.mjs gif my-video/out/my-video.mp4 --width 480
+node scripts/gaga.mjs voices --lang zh-CN
 ```
 
 Render options: `--subs file|burn|soft|burn+soft|none` · `--music track.mp3` (a licensed track instead of the score, side-chain ducked) · `--no-music` · `--motion-blur 5` · `--scale 0.5` (draft) or `2` (4K) · `--from/--to` · `--workers` · `--format png|jpeg` · `--crf`.
