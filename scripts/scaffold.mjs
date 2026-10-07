@@ -1,6 +1,6 @@
 // video-gaga scaffold — build a new composition from a style preset.
 //
-// A preset's video.html is a finished example video. `cv init` keeps only what
+// A preset's video.html is a finished example video. `gaga init` keeps only what
 // defines the *style* and leaves out what defines *that video*:
 //   kept:    the <head> (fonts, import maps), the `// === THEME` section(s), the
 //            `// === KIT …` sections (the style's reusable motion and drawing
@@ -27,7 +27,7 @@ export function scaffoldFromPreset(src, { slug = 'preset' } = {}) {
 
   const out = lines.slice(0, first);
   out.push(
-    '// Scaffolded by `cv init`: only this preset\'s STYLE was copied. THEME is the palette',
+    '// Scaffolded by `gaga init`: only this preset\'s STYLE was copied. THEME is the palette',
     '// and type. KIT is an optional toolbox of the style\'s signature moves: use, change or',
     '// delete any of it, and write the new helpers this video needs. The scenes, their',
     '// structure, the choreography and the score are designed fresh for this brief.',

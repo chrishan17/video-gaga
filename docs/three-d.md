@@ -59,7 +59,7 @@ CV.create({
 9. **Layered transparency: set `renderOrder`.** three sorts transparent objects by bounding-sphere centre, which flips with orientation (an ocean shell can paint over point-cloud land that doesn't write depth). Give every transparent layer an explicit `renderOrder`.
 10. **Glows on a transparent renderer: no `AdditiveBlending`.** It writes alpha = 1 and shows as a black halo over the 2D backdrop. Use premultiplied one/one `CustomBlending` with a shader that outputs `vec4(color * i, i)`.
 11. **Budget render time.** A lit, shadowed hero scene costs about 2× a 2D preset (≈140 ms per frame per worker at half resolution with shadows and room reflections). Draft at `--scale 0.5 --format jpeg`.
-12. **Probe a 3D frame early** (`cv still --at …`). Lighting is the first thing that goes wrong (too dark from ACES tone mapping: raise `exposure` or the light intensity).
+12. **Probe a 3D frame early** (`gaga still --at …`). Lighting is the first thing that goes wrong (too dark from ACES tone mapping: raise `exposure` or the light intensity).
 
 ## Good uses
 
