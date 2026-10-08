@@ -1642,7 +1642,7 @@
     // in design px. Captions are left out; text drawn into an offscreen layer
     // first (sprites, transition buffers, 3D textures) isn't seen.
     let textProbe = false, textLog = null;
-    function logText(c, txt, x, y, maxW) {
+    function logText(c, txt, x, y, maxW, stroke) {
       if (c !== ctx || !textLog || c.globalAlpha < 0.15 || !String(txt).trim()) return;
       const m = c.measureText(txt), M = c.getTransform();
       let x0 = x - m.actualBoundingBoxLeft, x1 = x + m.actualBoundingBoxRight;
@@ -1653,7 +1653,9 @@
         xs.push((M.a * px + M.c * py + M.e) / scale);
         ys.push((M.b * px + M.d * py + M.f) / scale);
       }
-      textLog.push({ text: String(txt).slice(0, 40), x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) });
+      // the solid colour it is drawn in (null for a gradient or pattern), for the contrast check
+      const style = stroke ? c.strokeStyle : c.fillStyle;
+      textLog.push({ text: String(txt).slice(0, 40), x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys), color: typeof style === 'string' ? style : null, stroke: !!stroke });
     }
     // where burned captions can sit: the tallest cue at the style's position
     function captionBand() {
@@ -1800,8 +1802,8 @@
       // renders frame f and returns the boxes of the text on it (see logText)
       textBoxes: async (f) => {
         const P = CanvasRenderingContext2D.prototype, fill = P.fillText, stroke = P.strokeText;
-        P.fillText = function (...a) { logText(this, ...a); return fill.apply(this, a); };
-        P.strokeText = function (...a) { logText(this, ...a); return stroke.apply(this, a); };
+        P.fillText = function (...a) { logText(this, a[0], a[1], a[2], a[3], false); return fill.apply(this, a); };
+        P.strokeText = function (...a) { logText(this, a[0], a[1], a[2], a[3], true); return stroke.apply(this, a); };
         textProbe = true;
         try { await api.renderFrame(f); } finally { P.fillText = fill; P.strokeText = stroke; textProbe = false; }
         const seen = new Set();

@@ -75,7 +75,7 @@ node scripts/gaga.mjs doctor           # 环境自检
 node scripts/gaga.mjs init my-video --preset clear-explainer [--ratio 9:16]
 node scripts/gaga.mjs tts my-video                    # 生成配音与词级时间（带缓存）
 node scripts/gaga.mjs music my-video                  # 生成配乐 build/music.wav（预览播放器会播放）
-node scripts/gaga.mjs still my-video --sheet --subs   # 探针样帧 + 缩略图拼版，供自检
+node scripts/gaga.mjs still my-video --sheet --subs   # 探针样帧 + 缩略图拼版，供自检（--phone：按手机 390 px 宽出图）
 node scripts/gaga.mjs moodboard .gaga-previews/style-a .gaga-previews/style-b .gaga-previews/style-c --wait  # 在一个网页里并排选风格
 node scripts/gaga.mjs render my-video --subs burn     # 渲染 MP4，字幕烧录，同时导出 srt/vtt
 node scripts/gaga.mjs check my-video/out/my-video.mp4 --srt my-video/out/my-video.srt

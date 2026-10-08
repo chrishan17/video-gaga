@@ -30,6 +30,25 @@ Not good: a sequence of true statements with pictures, which is a slideshow with
 
 [examples/take-your-time/BRIEF.md](../examples/take-your-time/BRIEF.md) is a story at this level: a specific person, a device that carries the story, a turn, a callback.
 
+### When the video explains
+
+An explainer is told by someone too, but its turn happens in the viewer's head: they leave with one new understanding they could pass on, of how something works, why it happens or what follows from it. Everything above holds. What changes is the shape and the discipline.
+
+**Good**
+- It answers one question, written in the viewer's own words ("why does my phone get slower?", not "battery chemistry"), and names what they believe now and what they can say after.
+- The opening is the thing most viewers get wrong, shown as an image, not a title card: the tempting wrong answer in the picture, about to be overturned.
+- The middle builds the smallest correct picture of how it works, one element per beat, then runs it on a real case so cause and effect play out on screen. The turn changes one variable and shows what follows; that is where it clicks. The landing is the opening image again, now read correctly, plus one next step.
+- The facts were sorted before writing: what the viewer must know, and a cut list of true, interesting things that stay out. The cut list is long.
+- A metaphor is used only when it makes the idea more accurate; otherwise the real thing is shown (real UI, real data, the real mechanism). A metaphor that has to be explained away later costs more than it gave.
+- One name per thing, used every time, in the voice and on screen. Plain words come before the term; the term arrives once the picture has earned it.
+- On-screen words are anchors (a term, a number, the label of what is being pointed at), at most two short lines, never the voice line written out.
+- What the viewer has learned stays on screen and changes rather than being replaced: the dot becomes a node, the label becomes an axis ([motion-design.md](motion-design.md) §3).
+- Every number on screen or in the voice has a source or a calculation in `<project>/SOURCES.md`; a number without one is cut.
+
+**Not good**
+- A tour of everything true about the topic. Jargon before the picture that would make it obvious. A new name for the same thing halfway through.
+- A model shown all at once and then described. A metaphor that is cute but wrong in the part that matters.
+
 ## Picture
 
 **Good**
@@ -114,7 +133,15 @@ The spec and how to direct it are in [music-and-sound.md](music-and-sound.md) §
 
 Intent is not evidence: judge what was rendered. The contact sheets show composition and readability; a strip of close probes shows whether a move has weight; a half-scale draft shows the cuts; frames pulled from the final MP4 show what the viewer gets; `gaga music` shows the arc and the mix, and its `listen:` line measures what ears would catch (a ghostly stretch, a buried melody, a flat score, effects lost or jumping out). You cannot hear the audio, so say what you intended and ask the user to listen to the 8 seconds around the key mood change.
 
-Look at them as a harsh director, not a proud author. For each of the opening two seconds, the picture (would frames work as posters, does the look hold up beside its reference), motion, variety (does something new land every few seconds), readability on a phone (probes at about 360 px wide, `gaga still --scale`: every word is legible and the subject of each frame is shown whole) and sound sync, give a score out of 10 and name the three weakest moments with their timestamps. A video is ready when every score is 8 or more; a 6 means that part is rebuilt, not polished.
+Look at them as a harsh director, not a proud author. For each of the opening two seconds, the picture (would frames work as posters, does the look hold up beside its reference), motion, variety (does something new land every few seconds), readability on a phone (`gaga still --phone` shows probes at 390 px wide: every word is legible and the subject of each frame is shown whole; its `text:` line points at text that is small or low in contrast there) and sound sync, give a score out of 10 and name the three weakest moments with their timestamps. A video is ready when every score is 8 or more; a 6 means that part is rebuilt, not polished.
+
+Then take it in the two ways people often do:
+- **Muted.** Most feeds start silent. With the sound off, the frames and captions still carry the story in the right order: read the contact sheet with `--subs` and the voice switched off in your head.
+- **Audio only.** Read `narration.json` on its own: no line leans on the picture to make sense ("this one", "as you can see"), and the order of ideas holds.
+
+For an explainer, read the brief's *adds* column against the frames: each scene adds the one thing it promised, and the viewer can say it afterwards. A scene that adds nothing is cut.
+
+Have a subagent review it cold: give it the contact sheet, the brief's line and audience, and nothing else, and ask who this is for, what it is communicating, what the viewer can now say, and which frame they would stop on. Where its answers differ from the brief, the video is what changes. When you fix something, keep the frame before and after (`gaga still --at <t>` both times) and show the pair in the delivery.
 
 Deliver when it meets this page. If something still falls short, rebuild that part rather than patch it, or say plainly what it is.
 
@@ -127,12 +154,14 @@ Deliver when it meets this page. If something still falls short, rebuild that pa
 - The line: "{the sentence someone would repeat}"
 - Angle: {the chosen telling} (also considered: {…}; {…})
 - Audience and format: {who} · {1920×1080 | 1080×1920 | …} · {N} s
+- Explains (when it does): "{the question, in the viewer's words}" · believed now: {…} · can say after: {…} · cut list: {…} · sources in SOURCES.md
 - The device: {the visual idea, why it comes from this story, and how it changes across the video}
 - Look: stands on {named references} · takes {…} · this story changes {…} · palette {hex…} and its colour events · light {direction} · type {display + label, sizes hero / secondary / label}
 - Motion: {its character in a sentence} · signature moves {…}
 - Voice: {voice id, rate} · captions {burn | file | none}
 - Score: {feel in three words} · {reference} · {bpm} BPM {key} {mode} · {the hook} · {how it builds}
+- Calls made: {each decision taken without asking, one line each, so the user can overturn it}
 
-| # | scene | voice line (or — music only) | picture | motion & sync | transition | energy · sfx | ≈ s |
-|---|---|---|---|---|---|---|---|
+| # | scene | adds (what the viewer can now say) | voice line (or — music only) | picture | motion & sync | transition | energy · sfx | ≈ s |
+|---|---|---|---|---|---|---|---|---|
 ```

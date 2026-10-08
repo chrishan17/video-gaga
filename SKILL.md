@@ -11,7 +11,7 @@ Turn "I want a video about X" into a finished MP4 that helps someone say what th
 
 The video is compared with what people scroll past every day, and correct is not enough. [docs/craft.md](docs/craft.md) describes the target in full; read it before you write anything. In short, a good video:
 
-- **is about one specific thing, told by someone.** A person, a moment, an object, a number; a turn where something changes; a landing that pays off the opening; concrete lines, no slogans; one line worth repeating.
+- **is about one specific thing, told by someone.** A person, a moment, an object, a number; a turn where something changes; a landing that pays off the opening; concrete lines, no slogans; one line worth repeating. An explainer answers one question in the viewer's words: it opens on what most people get wrong, builds the smallest correct model, changes one variable at the turn, and lands on the opening image read correctly ([docs/craft.md](docs/craft.md), *When the video explains*).
 - **is carried by one visual idea** that recurs and changes with the story, in frames that would each work as a poster, in a look that stands on references you can name (a work, a studio, a medium, an era) rather than on adjectives, and whose feeling fits what the story is about. On a phone the subject and every word to be read are whole in the frame.
 - **moves with weight and character.** Every move has a job, holds stay alive, cuts happen on action, a few signature moves are its own ([docs/motion-design.md](docs/motion-design.md)).
 - **sounds produced.** A score with a reference, a hook and an arc that follows the story, under a clear, unhurried voice, with silence where a line needs to land ([docs/music-and-sound.md](docs/music-and-sound.md) §2).
@@ -21,7 +21,7 @@ The look is chosen for this story ([docs/craft.md](docs/craft.md), *The look has
 
 ## What the user experiences
 
-- They are asked only what changes the video (usually length, format, voice, captions, and whatever about the content can't be inferred), in one round, in their language. Each question has three concrete options, one marked **(Recommended)** with a reason tied to their brief, and they can answer in their own words. What the request already says is confirmed as an assumption. If they say "just make it" / "直接做" or don't answer, the recommendations stand and the assumptions are listed.
+- They are asked only what changes the video (usually length, format, voice, captions, and whatever about the content can't be inferred), in one round, in their language. Each question has three concrete options, one marked **(Recommended)** with a reason tied to their brief, and they can answer in their own words. What the request already says is confirmed as an assumption. If they say "just make it" / "直接做" or don't answer, the recommendations stand, and every call made without asking goes into the brief's *Calls made*, one line each.
 - Before the build they see their own opening in three directions (the best fit, a contrast, a wildcard), each standing on a different named reference, side by side, and pick one; the frames look like the real start of their video, never like a demo. They are spared this when they named a style, chose quick mode, or are editing.
 - When they bring a reference (a frame, a clip, a link, a folder of their own work), their video visibly belongs with it: its palette, type, pacing and transitions, with their own subject.
 - They see the brief and storyboard ([docs/craft.md](docs/craft.md), *The brief*) and can change the script or the visuals before it is built.
@@ -34,7 +34,7 @@ The look is chosen for this story ([docs/craft.md](docs/craft.md), *The look has
 - Fonts from Google Fonts `<link>` with `display=block`.
 - Nothing internal on screen: no "Scene 1", "Option A", preset names, placeholders or file names.
 - Captions never collide with content; text holds long enough to read; the last frame is a resolved still held ≥ 1 s.
-- Data and claims are accurate, with a source or calculation on screen when numbers are shown.
+- Data and claims are accurate, with a source or calculation on screen when numbers are shown. Every number in the video is listed in `<project>/SOURCES.md` with its source or calculation; one without is cut.
 
 ## The tools
 
@@ -46,10 +46,10 @@ The look is chosen for this story ([docs/craft.md](docs/craft.md), *The look has
 | `gaga init <dir> [--ratio 9:16]` | A blank project: the render contract and nothing else, for a look designed from its references. `--preset <slug>` starts from a preset's style instead (THEME, KIT helpers, transition, captions, overlay). Any preset's KIT can be borrowed; `presets/<slug>/video.html` shows how its helpers are called |
 | `gaga tts <project>` | Narration from `narration.json` (segments = scene ids), cached; `build/voice/<id>.json` has the word timings ([docs/narration-and-subtitles.md](docs/narration-and-subtitles.md)) |
 | `gaga music <project>` | The score from `CV.create({ music })`: key, BPM, energy per bar, the mix by part, listening checks (ghostly stretches, a buried melody, flat range, sfx levels), every cut and sfx, warnings. A spec that breaks a limit is refused with what to fix |
-| `gaga still <project> --sheet [--subs]` | Three probes per scene (entering, middle, settled) on contact sheets of six scenes. `--at 3.0,3.1,3.2,…` for exact moments (a strip of close probes shows a move's weight), `--scenes a,b` or `a..c` to re-probe part. Ends with a `text:` line: text cut off by the frame edge or sitting in the caption band, on probes where it is still there 0.3 s later |
+| `gaga still <project> --sheet [--subs] [--phone]` | Three probes per scene (entering, middle, settled) on contact sheets of six scenes. `--at 3.0,3.1,3.2,…` for exact moments (a strip of close probes shows a move's weight), `--scenes a,b` or `a..c` to re-probe part, `--phone` for probes at 390 px wide, the size a phone shows. Ends with a `text:` line (text cut off by the frame edge, in the caption band, too small on a phone or under 4.5:1 contrast, where it is still so 0.3 s later) and a `repeat:` line (a few probes drawn again in a fresh page, in reverse order, must come out identical; if not, a frame depends on something other than time) |
 | `gaga moodboard <previewA> <previewB> <previewC> --title "…" [--wait]` | The style directions side by side for the user to pick (each preview: a `gaga init` project with one real scene and a `moodboard.json` with `name`, `pitch`, `recommended`, `keywords`, `motion`, `music`). `--wait` serves it and returns their click; without it, send them the HTML |
 | `gaga render <project> --subs burn` | The MP4 (`file`, `soft`, `burn+soft`, `none` for captions). `--scale 0.5 --format jpeg` for drafts, `--from/--to` for a range, `--motion-blur 5` for snappy moves, `--music track.mp3` for a licensed track, `--scale 2` for 4K. Ends with `gaga check` |
-| `gaga check <mp4>` · `gaga gif <mp4>` · `gaga voices --lang zh-CN` | Re-check an encode (with a `picture:` scan of the frames: stretches ≥ 1.5 s where nothing moves, one-frame glitches, blank frames, flashing) · a GIF preview · list voices |
+| `gaga check <mp4>` · `gaga gif <mp4>` · `gaga voices --lang zh-CN` | Re-check an encode (with a `picture:` scan of the frames: stretches ≥ 1.5 s where nothing moves, one-frame glitches, blank frames, flashing; after `render`, a still frame while its words are read is a `read:` line, not a dead hold) · a GIF preview · list voices |
 
 Writing a composition: [docs/runtime-api.md](docs/runtime-api.md) (scenes, `s.at`, `s.when('spoken words')`, `s.onBeat(i)`, `fx` reveals, `s.out()` exits, transitions, captions), [docs/music-and-sound.md](docs/music-and-sound.md) (the score spec, `energy` per scene, `parts` for chapters, sfx), [docs/three-d.md](docs/three-d.md) (only when depth carries meaning). Several voices in a row: one scene per clip, joined by `cut`s over an identical layout. Key symbols (⌘ ⌥ ⇧) are missing from most fonts: draw them.
 
@@ -58,7 +58,9 @@ Useful numbers: speech runs ≈ 4.3 CJK characters/s or ≈ 2.5 English words/s,
 ## A good delivery
 
 - The MP4 (and .srt/.vtt) paths, length, format, voice and style.
-- The checks, each in a line, from runs that actually happened: duration, fps and resolution; audio present and matching the video (±0.1 s); captions (count, no overlaps, last cue inside the video); A/V sync (median < 120 ms) and per-clip voice sync; music 10–18 dB under the voice while it speaks and ≈ −2…−6 dB in the gaps; the `picture:` line, with each `look:` either fixed or explained (a still before the big hit is meant; a dead hold is not).
+- The checks, each in a line, from runs that actually happened: duration, fps and resolution; audio present and matching the video (±0.1 s); captions (count, no overlaps, last cue inside the video); A/V sync (median < 120 ms) and per-clip voice sync; music 10–18 dB under the voice while it speaks and ≈ −2…−6 dB in the gaps; the `picture:` line, with each `look:` either fixed or explained (a still before the big hit is meant; a dead hold is not); the last `gaga still` run's `text:` line, each pointer fixed or explained (text dimmed so it is not read is meant), and its `repeat:` line.
+- How it reads muted and audio-only, and what the cold review by a subagent said ([docs/craft.md](docs/craft.md), *How you know*).
+- Each fix made after review as a pair of frames, before and after, at the same moment.
 - The score in one line: feel, reference, BPM, key, the hook.
 - Which part is weakest and what you would try next.
 - A request to listen: you can't hear the audio, so name the 8 seconds around the key mood change and ask how they feel and which part of the music or sound is off.

@@ -102,6 +102,32 @@ Timeline resolution: `scene.duration = duration ?? beats/bars ?? max(minDuration
 
 The `overlay(ctx, g)` object also has `g.beat`, `g.beatLen` (seconds; NaN without music), `g.bar` and `g.pulse(decay)`.
 
+### An object that lives across scenes
+
+Scenes draw independently, but what the viewer has learned can stay on screen and change ([motion-design.md](motion-design.md) §3, *Objects live across scenes*). Two ways:
+
+- **Hand it over at the cut.** One draw function and one pose shared by both scenes: the outgoing scene ends with the object at the pose, and the incoming one starts from it, so a hard cut doesn't move it.
+
+  ```js
+  const DOT = { x: 300, y: 700, r: 10 }, NODE = { x: 760, y: 540, r: 18 }; // the dot ends where the node begins
+  const lerpPose = (a, b, k) => ({ x: CV.lerp(a.x, b.x, k), y: CV.lerp(a.y, b.y, k), r: CV.lerp(a.r, b.r, k) });
+  const node = (ctx, { x, y, r }, label = 0) => { /* the one drawing of it */ };
+  // scene 'dot':   node(ctx, lerpPose(DOT, NODE, s.at(1.2, 0.8, ease.outCubic)))
+  // scene 'graph': node(ctx, NODE, s.at(0.2, 0.6)) — then the edges grow out of it
+  ```
+
+- **Draw it above the scenes.** `overlay(ctx, g)` draws over every frame, untouched by transitions. Key the object to the scenes it lives through with `g.scenes` (each has `id`, `start`, `dur`), since their times come from the voice:
+
+  ```js
+  overlay(ctx, g) {
+    const at = (id) => g.scenes.find((s) => s.id === id).start;
+    if (g.T < at('dot') || g.T >= at('payoff')) return;
+    const k = CV.clamp((g.T - at('graph')) / 0.8);  // the dot becomes a node as 'graph' begins
+    node(ctx, lerpPose(DOT, NODE, ease.inOutCubic(k)));
+  }
+  ```
+
+
 ## Transitions
 
 | Type | Options | Natural sound | Reads as |
@@ -203,4 +229,4 @@ The renderer burns captions with `--subs burn` (the same cues become `.srt` and 
 
 ## Renderer hooks (for tools)
 
-`window.__CV` exposes `renderFrame(frame, subframe)` (async: draws, and redraws once any webfont download it triggered has finished; renderers should use it), `drawFrame(frame, subframe)`, `drawAt(t)`, `ready()`, `info()` (the resolved timeline, voice clips, cues, missing fonts) and `capture(type, quality)`.
+`window.__CV` exposes `renderFrame(frame, subframe)` (async: draws, and redraws once any webfont download it triggered has finished; renderers should use it), `drawFrame(frame, subframe)`, `drawAt(t)`, `ready()`, `info()` (the resolved timeline, voice clips, cues, missing fonts) and `capture(type, quality)`, and `textBoxes(frame)` (renders the frame and returns each string drawn on it: its box in design pixels and its solid colour, which `gaga still` uses for the edge, caption-band, phone-size and contrast checks).
