@@ -2,7 +2,7 @@
 // gaga, the video-gaga CLI — HTML Canvas composition → MP4 (+ Edge TTS narration, subtitles).
 //
 //   node scripts/gaga.mjs render <project|video.html> [options]
-//   node scripts/gaga.mjs still  <project> [--at 1,2.5] [--sheet]
+//   node scripts/gaga.mjs still  <project> [--at 1,2.5] [--sheet] [--phone]
 //   node scripts/gaga.mjs moodboard <preview> <preview> … [--wait]
 //   node scripts/gaga.mjs tts    <project>
 //   node scripts/gaga.mjs music  <project>
@@ -366,7 +366,20 @@ async function render(opts) {
   const secs = ((Date.now() - t0) / 1000).toFixed(1);
   log(`✔ ${path.relative(process.cwd(), out)}  (${secs}s)`);
   if (cues.length && subsMode !== 'none') log(`  subtitles: ${path.relative(process.cwd(), base)}.srt / .vtt (${cues.length} cues${burn ? ', burned in' : ''}${soft ? ', soft track' : ''})`);
-  await report(out, cues.length ? `${base}.srt` : null, stems, voice.map((v) => ({ ...v, file: path.resolve(dir, v.file) })), info.scenes.map((s) => ({ ...s, start: s.start - from / fps })));
+  // the words on screen at a few moments (captions left out: they go with the voice)
+  const textAt = async (times) => {
+    const b = await launch();
+    try {
+      const { page } = await openComposition(b, html, { render: '1', scale: '0.25', subs: '0' });
+      const out = [];
+      for (const t of times) {
+        const boxes = await page.evaluate((f) => (window.__CV.textBoxes ? window.__CV.textBoxes(f) : null), Math.min(info.totalFrames - 1, Math.round(t * fps) + from));
+        out.push((boxes || []).filter((x) => x.y1 - x.y0 >= 9 && x.x0 >= 0 && x.y0 >= 0 && x.x1 <= info.width && x.y1 <= info.height).map((x) => x.text));
+      }
+      return out;
+    } finally { await b.close(); }
+  };
+  await report(out, cues.length ? `${base}.srt` : null, stems, voice.map((v) => ({ ...v, file: path.resolve(dir, v.file) })), info.scenes.map((s) => ({ ...s, start: s.start - from / fps })), textAt);
   if (!opts.keepTemp) fs.rmSync(tmp, { recursive: true, force: true });
 }
 
@@ -488,6 +501,13 @@ async function scanPicture(file, v) {
   };
   // frame j is still when it matches the one before; the run starts on the frame before that
   const still = runs((j) => j > 0 && moved[j] < STILL).map(([a, b]) => [a - 1, b]);
+  // the render is encoded in chunks, and the keyframe that starts each one shifts a
+  // few edge pixels: bridge a gap of a frame or two that barely changed
+  for (let k = still.length - 1; k > 0; k--) {
+    const gap = [];
+    for (let j = still[k - 1][1] + 1; j <= still[k][0]; j++) gap.push(moved[j]);
+    if (gap.length <= 2 && gap.every((m) => m < STILL * 10)) still.splice(k - 1, 2, [still[k - 1][0], still[k][1]]);
+  }
   // a one-frame glitch: frame j differs from both neighbours, which match each other
   const blips = [];
   for (let j = 1; j < total - 1; j++) {
@@ -516,25 +536,41 @@ async function scanPicture(file, v) {
   return { fps, total, still, blips, flash, blank: runs((j) => blank[j]) };
 }
 
-async function pictureReport(file, v, scenes, issues) {
+// Seconds it takes to read the words on screen (motion-design.md §4: about 3 English
+// words or 4–5 CJK characters a second), plus half a second to find them.
+const readingTime = (texts) => {
+  const s = texts.join(' ');
+  const cjk = (s.match(/[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]/g) || []).length;
+  const latin = (s.match(/[A-Za-z0-9]/g) || []).length; // ≈ 5 per word, whether a box holds a word or a letter
+  return 0.5 + cjk / 4.5 + latin / 5 / 3;
+};
+
+async function pictureReport(file, v, scenes, issues, textAt) {
   let r;
   try { r = await scanPicture(file, v); } catch (e) { log(`  picture: not scanned (${e.message})`); return; }
   const { fps, total } = r;
   const t = (f) => `${(f / fps).toFixed(2)}s`;
   const at = (f) => { const s = scenes?.filter((x) => x.start <= f / fps + 1e-6).pop(); return s ? `, "${s.id}"` : ''; };
   // the last run of still frames is the closing hold the contract asks for
-  const holds = r.still.filter(([a, b]) => b < total - 1 && (b - a) / fps >= 1.5);
+  let holds = r.still.filter(([a, b]) => b < total - 1 && (b - a) / fps >= 1.5).map(([a, b]) => ({ a, b }));
+  // a hold with words on screen is the viewer reading them: fine for as long as that takes
+  const texts = textAt && holds.length ? await textAt(holds.map((h) => (h.a + h.b) / 2 / fps)).catch(() => null) : null;
+  holds.forEach((h, k) => { if (texts?.[k]?.length) Object.assign(h, { words: texts[k], need: readingTime(texts[k]) }); });
+  const reads = holds.filter((h) => h.need && (h.b - h.a) / fps <= h.need + 1);
+  holds = holds.filter((h) => !reads.includes(h));
   const longest = r.still.filter(([, b]) => b < total - 1).reduce((m, [a, b]) => Math.max(m, (b - a) / fps), 0);
   const blank = r.blank.filter(([a, b]) => (b - a + 1) / fps >= 0.3);
-  log(`  picture: ${holds.length ? `${holds.length} still stretch${holds.length > 1 ? 'es' : ''} ≥ 1.5 s` : `still ≤ ${longest.toFixed(1)}s at a stretch`}, ${r.blips.length} one-frame glitch${r.blips.length === 1 ? '' : 'es'}, ${r.flash.count > 3 ? 'FLASHING' : 'no flashing'}, ${blank.length ? `${blank.length} blank stretch${blank.length > 1 ? 'es' : ''}` : 'no blank frames'}`);
+  log(`  picture: ${holds.length ? `${holds.length} still stretch${holds.length > 1 ? 'es' : ''} ≥ 1.5 s` : `still ≤ ${longest.toFixed(1)}s at a stretch`}${reads.length ? `, ${reads.length} reading hold${reads.length > 1 ? 's' : ''}` : ''}, ${r.blips.length} one-frame glitch${r.blips.length === 1 ? '' : 'es'}, ${r.flash.count > 3 ? 'FLASHING' : 'no flashing'}, ${blank.length ? `${blank.length} blank stretch${blank.length > 1 ? 'es' : ''}` : 'no blank frames'}`);
+  const quote = (w) => `"${w.join(' ').replace(/\s+/g, ' ').slice(0, 40)}"`;
+  for (const h of reads.slice(0, 6)) log(`    read: still ${t(h.a)}–${t(h.b)} (${((h.b - h.a) / fps).toFixed(1)}s${at(h.a)}) while ${quote(h.words)} is read (≈ ${h.need.toFixed(1)}s)`);
   // pointers to frames worth a look, not failures (a breath before the big hit is a still)
-  for (const [a, b] of holds.slice(0, 6)) log(`    look: nothing moves ${t(a)}–${t(b)} (${((b - a) / fps).toFixed(1)}s${at(a)}): is the hold alive, or meant to stop?`);
+  for (const h of holds.slice(0, 6)) log(`    look: nothing moves ${t(h.a)}–${t(h.b)} (${((h.b - h.a) / fps).toFixed(1)}s${at(h.a)})${h.need ? `, longer than the ≈ ${h.need.toFixed(1)}s ${quote(h.words)} takes to read` : ''}: is the hold alive, or meant to stop?`);
   for (const j of r.blips.slice(0, 6)) log(`    look: frame at ${t(j)}${at(j)} differs from both neighbours (a one-frame glitch?)`);
   for (const [a, b] of blank.slice(0, 4)) log(`    look: blank ${t(a)}–${t(b + 1)}${at(a)}`);
   if (r.flash.count > 3) issues.push(`flashing: ${r.flash.count} flashes within one second at ${r.flash.at.toFixed(2)}s (keep it to 3 or fewer: photosensitivity)`);
 }
 
-async function report(file, srt, stems = null, voice = [], scenes = null) {
+async function report(file, srt, stems = null, voice = [], scenes = null, textAt = null) {
   const speechSrc = stems?.voiceWav || file;
   const p = ffprobe(file);
   const v = p.streams.find((s) => s.codec_type === 'video');
@@ -616,7 +652,7 @@ async function report(file, srt, stems = null, voice = [], scenes = null) {
     log(`  voice sync: ${clips.length} clips vs speech onsets — median ${(med * 1000).toFixed(0)} ms, worst ${(Math.abs(worst.off) * 1000).toFixed(0)} ms (${worst.id})`);
     if (Math.abs(worst.off) > 0.15) issues.push(`voice clip "${worst.id}" starts ${(worst.off * 1000).toFixed(0)} ms off its timeline position`);
   }
-  await pictureReport(file, v, scenes, issues);
+  await pictureReport(file, v, scenes, issues, textAt);
   if (issues.length) log(`  ⚠ ${issues.join('\n  ⚠ ')}`);
   else log('  checks: ok');
   return issues;
@@ -625,12 +661,48 @@ async function report(file, srt, stems = null, voice = [], scenes = null) {
 // ---------------------------------------------------------------------------
 // still frames / contact sheet (for self-review before a full render)
 // ---------------------------------------------------------------------------
+const PHONE_W = 390; // CSS px across a phone held upright
+
+// Runs in the page: draws frame f and returns its text boxes, each with the
+// contrast between the text and what is behind it, measured on the pixels: those
+// nearest the text's colour are the text, the far third around it the ground.
+async function measureText(f) {
+  const cv = window.__CV;
+  if (!cv.textBoxes) return null;
+  const boxes = await cv.textBoxes(f);
+  let img = null;
+  try { img = cv.ctx.getImageData(0, 0, cv.canvas.width, cv.canvas.height); } catch { return boxes; }
+  const lin = (c) => { c /= 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+  const lum = (r, g, b) => 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+  const { width: cw, height: ch, data } = img, S = cv.scale;
+  for (const b of boxes) {
+    const rgb = b.color?.startsWith('#') ? [1, 3, 5].map((i) => parseInt(b.color.slice(i, i + 2), 16)) : b.color?.match(/[\d.]+/g)?.slice(0, 3).map(Number);
+    if (!rgb || rgb.length < 3 || rgb.some(Number.isNaN)) continue;
+    const pad = (b.y1 - b.y0) * 0.25;
+    const x0 = Math.max(0, Math.floor((b.x0 - pad) * S)), x1 = Math.min(cw, Math.ceil((b.x1 + pad) * S));
+    const y0 = Math.max(0, Math.floor((b.y0 - pad) * S)), y1 = Math.min(ch, Math.ceil((b.y1 + pad) * S));
+    const px = [];
+    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
+      const i = (y * cw + x) * 4, r = data[i], g = data[i + 1], bl = data[i + 2];
+      px.push([(r - rgb[0]) ** 2 + (g - rgb[1]) ** 2 + (bl - rgb[2]) ** 2, lum(r, g, bl)]);
+    }
+    if (px.length < 32) continue;
+    px.sort((p, q) => p[0] - q[0]);
+    const near = px.slice(0, Math.max(1, Math.round(px.length * 0.03)));
+    const lt = near.reduce((s, p) => s + p[1], 0) / near.length;
+    const far = px.slice(Math.floor(px.length * (2 / 3))).map((p) => p[1]).sort((p, q) => p - q);
+    const lb = far[Math.floor(far.length / 2)];
+    b.contrast = (Math.max(lt, lb) + 0.05) / (Math.min(lt, lb) + 0.05);
+  }
+  return boxes;
+}
+
 async function still(opts) {
   const { dir, html } = resolveProject(opts._[1]);
   if (!opts.noTts && opts.tts) await tts(dir);
   const outDir = path.resolve(opts.out || path.join(dir, 'build', 'stills'));
   fs.mkdirSync(outDir, { recursive: true });
-  for (const f of fs.readdirSync(outDir)) if (/^t[\d.]+\.png$|^contact-sheet(-\d+)?\.png$/.test(f)) fs.rmSync(path.join(outDir, f));
+  for (const f of fs.readdirSync(outDir)) if (/^(again-)?t[\d.]+\.png$|^contact-sheet(-\d+)?\.png$|^text\.txt$/.test(f)) fs.rmSync(path.join(outDir, f));
   const browser = await launch();
   const { page, info, errors } = await openComposition(browser, html, { render: '1', scale: String(opts.scale || 0.5), subs: opts.subs ? '1' : '0' });
   if (errors.length) log(`⚠ page errors:\n  ${errors.join('\n  ')}`);
@@ -655,9 +727,25 @@ async function still(opts) {
     });
   }
   const files = [];
-  // text on each probe: cut off by the frame edge, or sitting where captions go
+  // text on each probe: cut off by the frame edge, sitting where captions go,
+  // too small on a phone, or too close in value to what is behind it
   const band = info.captionBand;
-  const textIssues = (boxes) => (boxes || []).flatMap((b) => {
+  const phone = PHONE_W / info.width; // a phone held upright shows the frame this wide
+  // glyphs drawn one by one (a letter-by-letter reveal) are checked as the line they make
+  const lines = (boxes) => {
+    const out = [];
+    for (const b of [...(boxes || [])].sort((p, q) => p.x0 - q.x0)) {
+      const h = b.y1 - b.y0;
+      const l = out.find((o) => o.color === b.color && Math.abs(o.y1 - b.y1) < h * 0.35 && Math.abs((o.y1 - o.y0) - h) < h * 0.5 && b.x0 - o.x1 < h * 0.8);
+      if (!l) { out.push({ ...b, contrasts: b.contrast ? [b.contrast] : [] }); continue; }
+      l.text += b.x0 - l.x1 > h * 0.25 ? ` ${b.text}` : b.text;
+      Object.assign(l, { x0: Math.min(l.x0, b.x0), y0: Math.min(l.y0, b.y0), x1: Math.max(l.x1, b.x1), y1: Math.max(l.y1, b.y1) });
+      if (b.contrast) l.contrasts.push(b.contrast);
+    }
+    for (const l of out) l.contrast = l.contrasts.sort((p, q) => p - q)[Math.floor(l.contrasts.length / 2)];
+    return out;
+  };
+  const textIssues = (boxes) => lines(boxes).flatMap((b) => {
     const w = b.x1 - b.x0, h = b.y1 - b.y0;
     if (w <= 0 || h < 9) return [];
     const vw = Math.min(b.x1, info.width) - Math.max(b.x0, 0), vh = Math.min(b.y1, info.height) - Math.max(b.y0, 0);
@@ -665,33 +753,69 @@ async function still(opts) {
     const out = [];
     if (shown > 0.1 && shown < 0.9) out.push({ text: b.text, what: 'cut off by the frame edge' });
     if (band && shown > 0.1 && b.y1 > band.y0 + 4 && b.y0 < band.y1 && b.x1 > band.x0 && b.x0 < band.x1) out.push({ text: b.text, what: `in the caption band (text ${Math.round(b.y0)}–${Math.round(b.y1)} px, captions from ${Math.round(band.y0)})` });
+    if (shown >= 0.9 && h * phone < 6) out.push({ text: b.text, what: `small on a phone (${(h * phone).toFixed(1)} px tall at ${PHONE_W} px wide)` });
+    // large text (WCAG: 3:1) is about 14 px tall at phone width; the rest needs 4.5:1
+    const need = h * phone >= 14 ? 3 : 4.5;
+    if (shown >= 0.9 && b.contrast && b.contrast < need) out.push({ text: b.text, what: `contrast ${b.contrast.toFixed(1)}:1 against what is behind it (needs ${need}:1)` });
     return out;
   });
-  const probeText = (f) => page.evaluate((f) => (window.__CV.textBoxes ? window.__CV.textBoxes(f) : null), f);
+  const probeText = (f) => page.evaluate(measureText, f);
+  // the same string with the same kind of problem, whatever the exact numbers
+  const issueKey = (x) => `${x.text}|${x.what.replace(/[\d.]+/g, '#')}`;
   const flagged = [];
+  const shots = new Map(); // frame → hash of the probe, to draw it again in a fresh page
   let boxesSeen = 0;
   for (const t of times) {
     const f = Math.min(info.totalFrames - 1, Math.max(0, Math.round(t * info.fps)));
     const boxes = await probeText(f);
     if (!boxes) await page.evaluate((f) => window.__CV.renderFrame(f), f);
     const url = await page.evaluate(() => window.__CV.capture('image/png'));
+    shots.set(f, crypto.createHash('sha1').update(url).digest('hex'));
     const file = path.join(outDir, `t${(f / info.fps).toFixed(2).padStart(6, '0')}.png`);
     fs.writeFileSync(file, Buffer.from(url.split(',')[1], 'base64'));
+    // --phone: the probe at the size a phone shows it
+    if (opts.phone) await run('ffmpeg', ['-y', '-loglevel', 'error', '-i', file, '-vf', `scale=${PHONE_W}:-2:flags=area`, '-update', '1', `${file}.png`]).then(() => fs.renameSync(`${file}.png`, file));
     files.push(file);
     boxesSeen += boxes?.length || 0;
     const found = textIssues(boxes);
     // still there 0.3 s later: not text on its way in or out
     if (found.length) {
-      const later = textIssues(await probeText(Math.min(info.totalFrames - 1, f + Math.round(0.3 * info.fps)))).map((x) => x.text + x.what);
-      for (const x of found) if (later.includes(x.text + x.what)) flagged.push({ t: f / info.fps, ...x });
+      const later = textIssues(await probeText(Math.min(info.totalFrames - 1, f + Math.round(0.3 * info.fps)))).map(issueKey);
+      for (const x of found) if (later.includes(issueKey(x))) flagged.push({ t: f / info.fps, ...x });
     }
+  }
+  // every frame is a pure function of time: a few probes drawn again in a fresh
+  // page, in reverse order, must come out identical
+  const again = await openComposition(browser, html, { render: '1', scale: String(opts.scale || 0.5), subs: opts.subs ? '1' : '0' });
+  const picks = [...shots.keys()].filter((_, i, a) => a.length <= 3 || i % Math.ceil(a.length / 3) === 0).reverse();
+  const differs = [];
+  for (const f of picks) {
+    await again.page.evaluate((f) => window.__CV.renderFrame(f), f);
+    const url = await again.page.evaluate(() => window.__CV.capture('image/png'));
+    if (crypto.createHash('sha1').update(url).digest('hex') === shots.get(f)) continue;
+    const file = path.join(outDir, `again-t${(f / info.fps).toFixed(2)}.png`);
+    fs.writeFileSync(file, Buffer.from(url.split(',')[1], 'base64'));
+    differs.push({ t: f / info.fps, file });
   }
   await browser.close();
   log(`✔ ${files.length} stills → ${path.relative(process.cwd(), outDir)}`);
   if (boxesSeen) {
-    log(`  text: ${flagged.length ? `${flagged.length} to look at` : 'clear of the frame edges'}${band ? (flagged.length ? '' : ' and the caption band') : ''} (${boxesSeen} strings on ${files.length} probes)`);
-    for (const x of flagged) log(`    look: ${x.t.toFixed(2)}s "${x.text}" ${x.what}`);
+    // each string once, with the probes it was seen on
+    const groups = new Map();
+    for (const x of flagged) {
+      const g = groups.get(issueKey(x)) || groups.set(issueKey(x), { ...x, at: [] }).get(issueKey(x));
+      g.at.push(x.t);
+    }
+    const rows = [...groups.values()].map((g) => `"${g.text}" ${g.what} (${g.at.slice(0, 4).map((t) => `${t.toFixed(2)}s`).join(', ')}${g.at.length > 4 ? ` +${g.at.length - 4}` : ''})`);
+    log(`  text: ${rows.length ? `${rows.length} to look at` : `clear of the frame edges${band ? ' and the caption band' : ''}, readable on a phone`} (${boxesSeen} strings on ${files.length} probes)`);
+    for (const r of rows.slice(0, 12)) log(`    look: ${r}`);
+    if (rows.length > 12) {
+      fs.writeFileSync(path.join(outDir, 'text.txt'), `${rows.join('\n')}\n`);
+      log(`    … ${rows.length - 12} more in ${path.relative(process.cwd(), path.join(outDir, 'text.txt'))}`);
+    }
   }
+  if (!differs.length) log(`  repeat: ${picks.length} probe${picks.length === 1 ? '' : 's'} drawn again in a fresh page, in reverse order: identical`);
+  for (const d of differs) log(`  ⚠ repeat: the frame at ${d.t.toFixed(2)}s comes out different when drawn again in a fresh page (state kept between frames, Math.random, the clock?): ${path.relative(process.cwd(), d.file)}`);
   if (opts.sheet) {
     // a long video makes one sheet too tall to read: split it into pages of
     // `--rows` rows (default 6, i.e. 6 scenes at 3 probes each)
@@ -703,7 +827,7 @@ async function still(opts) {
       const part = sorted.slice(k * perPage, (k + 1) * perPage);
       const sheet = path.join(outDir, pages > 1 ? `contact-sheet-${k + 1}.png` : 'contact-sheet.png');
       fs.writeFileSync(tmpList, part.map((f) => `file '${f.replace(/'/g, "'\\''")}'`).join('\n'));
-      await run('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', tmpList, '-vf', `scale=640:-2,tile=${cols}x${Math.ceil(part.length / cols)}:padding=6:color=0x222222`, '-frames:v', '1', sheet]);
+      await run('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', tmpList, '-vf', `scale=${opts.phone ? PHONE_W : 640}:-2,tile=${cols}x${Math.ceil(part.length / cols)}:padding=6:color=0x222222`, '-frames:v', '1', sheet]);
       const span = (f) => path.basename(f).slice(1, -4).replace(/^0+(?=\d)/, '');
       log(`  contact sheet → ${path.relative(process.cwd(), sheet)}${pages > 1 ? `  (${span(part[0])}–${span(part[part.length - 1])}s)` : ''}`);
     }
@@ -990,8 +1114,10 @@ render <project|video.html>   render to MP4 (runs Edge TTS first if narration.js
     --no-tts                  skip TTS even if narration.json exists
     --keep-temp
 still <project>               export PNG probes (3 per scene) for review, and point at text cut off by
-                              the frame edge or sitting in the caption band
+                              the frame edge, in the caption band, too small on a phone or low in
+                              contrast; draws a few probes again in a fresh page to prove they repeat
     --at 1.2,3.4  --scenes a,b | a..c  --sheet [--rows 6]  --subs  --scale 0.5  --tts
+    --phone                   probes and sheet at 390 px wide, the size a phone shows
 moodboard <preview> <preview> …   the style directions side by side on one HTML page (motion
                               sample, frames, palette, type, music direction) for the user to pick
     --out <file.html>         default moodboard.html next to the previews
@@ -1003,7 +1129,8 @@ tts <project>                 synthesize narration.json with Edge TTS (cached)
 music <project>               render the generated score to build/music.wav (the preview player plays it)
 check <video.mp4> [--srt f]   ffprobe summary + A/V + subtitle sanity checks, and a scan of the picture
                               (still stretches, one-frame glitches, blank frames, flashing)
-                              (render runs it too, adding per-clip voice sync)
+                              (render runs it too, adding per-clip voice sync and telling reading
+                              holds, where words on screen are being read, from dead ones)
 gif <video.mp4>               palette GIF preview  [--out --width 480 --fps 12 --from --dur]
 init <dir>                    scaffold a blank project: the render contract, no look [--ratio 9:16]
     --preset <slug>           start from a preset's style instead: its THEME and KIT helpers,

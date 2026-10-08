@@ -48,13 +48,14 @@ The presets show 15–30 s pieces. [`examples/take-your-time`](examples/take-you
    ├─ 1. Questions ── 4–7 × three options (one recommended, with the reason)
    ├─ 2. Style frames ─ 3 directions rendered with your real title, side by side on one
    │                    moodboard page (motion, palette, type, music direction) → you pick
-   ├─ 3. Storyboard ── scene / voice line (or music only) / focal point / sync word /
+   ├─ 3. Storyboard ── scene / what it adds / voice line (or music only) / focal point / sync word /
    │                    exit / transition / music energy · sfx
    ├─ 4. Build ─────── video.html (Canvas or three.js scenes) + narration.json
    │                    Edge TTS → word timings → scene lengths + caption cues
    │                    beat grid → cuts and voice onsets snapped to the music
    │                    gaga music → a score arranged from the timeline (+ sfx)
-   │                    gaga still --sheet → the agent reviews probe frames, fixes
+   │                    gaga still --sheet --phone → the agent reviews probe frames (text size,
+   │                    contrast, a repeat render), fixes
    └─ 5. Render ────── N× headless Chromium → PNG → ffmpeg x264 segments → concat
                         voice clips (adelay/amix) + score → loudnorm → AAC
                         → out/video.mp4 + .srt + .vtt → gaga check (sync, balance, loudness…)
@@ -97,7 +98,7 @@ node scripts/gaga.mjs doctor                         # environment check
 node scripts/gaga.mjs init my-video --preset clear-explainer [--ratio 9:16]
 node scripts/gaga.mjs tts my-video                   # Edge TTS → build/narration.js (cached)
 node scripts/gaga.mjs music my-video                 # the generated score → build/music.wav (the preview plays it)
-node scripts/gaga.mjs still my-video --sheet --subs  # probe frames + contact sheet for review
+node scripts/gaga.mjs still my-video --sheet --subs  # probe frames + contact sheet for review (--phone: at 390 px wide)
 node scripts/gaga.mjs moodboard .gaga-previews/style-a .gaga-previews/style-b .gaga-previews/style-c --wait  # pick a style on one page
 node scripts/gaga.mjs render my-video --subs burn    # → my-video/out/my-video.mp4 (+ .srt/.vtt)
 node scripts/gaga.mjs check my-video/out/my-video.mp4 --srt my-video/out/my-video.srt

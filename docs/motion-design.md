@@ -1,6 +1,6 @@
 # Motion design
 
-Motion does two jobs: it tells the eye where to look and what changed, and it gives the piece life and a character of its own. The two don't conflict. A slow push during a hold has a job (it keeps the shot alive while the viewer reads), and so does a word that slams up from a mask (it says "this one"). What has no job is motion added because a frame felt empty: wobbling text, random particles, everything pulsing to the beat. A frame that feels empty usually needs a better idea, not more movement.
+Motion does two jobs: it tells the eye where to look and what changed, and it gives the piece life and a character of its own. The two don't conflict. A camera that reframes between two ideas has a job (it says "now look here"), and so does a word that slams up from a mask (it says "this one"). What has no job is motion added because a frame felt empty: wobbling text, random particles, everything pulsing to the beat. A frame that feels empty usually needs a better idea, not more movement.
 
 Aim for motion that looks designed by a person with taste: a clear focal point, layers moving at different speeds, moves with weight and timing, cuts on action. The references the look stands on ([craft.md](craft.md), *The look has a name*) usually say how things move too: a stop-motion clay piece steps on twos, an ink painting soaks and settles, a Saul Bass title cuts hard between flat shapes. Move the way that reference moves, then push it further for this story.
 
@@ -33,7 +33,9 @@ The tables are vocabulary, not a menu. What matters is that the video has a cons
 - **Contrast of speed.** Fast against slow is what gives rhythm: a quick hit, then a long drift; a burst of three cuts, then a held shot. Constant speed is flat.
 - **Arcs.** Natural motion travels on curves. Straight-line moves read as UI.
 - **Depth.** Build shots from layers (background, supporting shapes, the hero, small accents) that move at different rates, so even a hold has parallax.
-- **Holds are alive, not frozen, and not all alike.** During a hold the camera drifts, light moves, texture breathes, each scene in its own way. The same slow push on every scene reads as a filter, not a camera. Stillness is a tool too: a beat where everything stops dead makes the hit after it land, and the final poster frame sits perfectly still.
+- **Holds are alive, not frozen, and not all alike.** During a hold light moves, texture breathes, a background layer drifts, each scene in its own way. The same slow push on every scene reads as a filter, not a camera. Stillness is a tool too: a beat where everything stops dead makes the hit after it land, and the final poster frame sits perfectly still.
+- **Still while it is read.** When the viewer has to read a line, a label or a number, the words and the camera hold still until it has been read (§4 has the reading speed); the camera reframes between ideas, not during them. What keeps the hold alive is something the eye is not reading. `gaga render` reports such a hold as a `read:` line, not a dead one, unless it lasts well past the time its words take to read.
+- **Objects live across scenes.** What the viewer has already learned stays on screen and changes instead of being replaced: a dot becomes a node, a label becomes an axis, the number from the last scene becomes the first bar of the next chart. Each transformation is one step of the explanation, and the viewer never has to re-find what they were looking at. [runtime-api.md](runtime-api.md#an-object-that-lives-across-scenes) shows how to draw one object through several scenes.
 - **No twins.** Parts that share the same numbers move identically and look mechanical: a row of bars rising in lockstep, two arms swinging as one. Offset them by a few frames, vary the amount, let one side lead. Strong key poses read as good stills before any motion is added.
 - **Signature moves.** Give each video a few moves that are its own and that explain something: the camera following the head of a growing line, an iris opening out of the key number, a match cut where one shape becomes the next, the visual device ([craft.md](craft.md), *Picture*) transforming. These are what people remember.
 
@@ -43,7 +45,9 @@ Motion is wasted if the viewer can't read what lands.
 - Something meaningful is visible or moving within the first ~0.3 s; vertical social video needs the hook in the first second.
 - Hold every information beat at least ~1 s after it lands (longer for numbers and charts) before anything competes with it. Use `tail` so the last beat isn't cut off.
 - On-screen text that isn't spoken needs reading time: roughly 4–5 CJK characters or 3 English words per second.
-- Nothing smaller than ~24 px on a 1080p frame. Keep critical content inside the title-safe 90%: the subject and every word to be read sit whole inside it at every moment the viewer is meant to read them (a slam may enter from off frame, but it lands whole), and clear of the caption zone (bottom ~12% at 16:9; the lower 18% and right 12% at 9:16 for platform UI).
+- Nothing smaller than what a phone can show: a phone held upright shows the frame about 390 px wide, and text under ~6 px tall there is unreadable. That is ~24 px type on a 1080-wide frame (9:16, 1:1) and ~40 px on a 1920-wide one, so a 16:9 video has fewer, bigger words. `gaga still` points at smaller text, and `--phone` shows the probes at that size.
+- Text is at least 4.5:1 against what is behind it (3:1 for large type); colour is never the only thing that marks the one that matters (it also changes weight, size or position). Text deliberately dimmed so it is *not* read (a list's other items while one is discussed) is the exception, and it is never the only place a fact lives. `gaga still` measures the contrast on every probe.
+- Keep critical content inside the title-safe 90%: the subject and every word to be read sit whole inside it at every moment the viewer is meant to read them (a slam may enter from off frame, but it lands whole), and clear of the caption zone (bottom ~12% at 16:9; the lower 18% and right 12% at 9:16 for platform UI).
 
 ## 5. Camera
 
@@ -106,10 +110,10 @@ With music on, each transition plays its natural sound at its midpoint, which la
 
 ## 9. What holds on every probe
 
-This is the floor, not the bar: it rules out broken output. Whether the video is good is described in [craft.md](craft.md). `gaga still` measures the text items on its probes (edges, caption band) and `gaga check` the motion and flashing over every frame; both only point at moments, and the eye decides.
+This is the floor, not the bar: it rules out broken output. Whether the video is good is described in [craft.md](craft.md). `gaga still` measures the text items on its probes (edges, caption band, size on a phone, contrast) and draws a few probes again in a fresh page to prove they repeat, and `gaga check` the motion and flashing over every frame; both only point at moments, and the eye decides.
 - [ ] One clear focal point in every probe frame; nothing overlaps by accident; no text in the caption zone.
 - [ ] Every word on screen is readable at the probe's size and holds long enough to read.
-- [ ] At 360 px wide the subject and every word to be read are whole inside the frame; only supporting shapes run off the edge.
+- [ ] At 390 px wide (`gaga still --phone`) the subject and every word to be read are whole inside the frame; only supporting shapes run off the edge.
 - [ ] Visual hits land on their spoken words (check the `when()` targets).
 - [ ] Nothing internal on screen: no "Scene 1", "Option A", preset names, placeholders or file names.
 - [ ] Secondary elements leave before the cut; nothing pops off abruptly.
