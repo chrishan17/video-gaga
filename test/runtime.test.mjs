@@ -32,6 +32,16 @@ test('spring is a pure step response', () => {
   assert.ok(Math.abs(v - 50) < 1e-3);
 });
 
+test('a spring can be given as a damping ratio and a frequency', () => {
+  const peak = (s) => { let m = 0; for (let t = 0; t < 3; t += 1 / 240) m = Math.max(m, s(t)); return m; };
+  // ratio 1 never overshoots; ratio 0.6 overshoots by exp(-πζ/√(1-ζ²)) ≈ 9.5%
+  assert.ok(peak(CV.spring({ ratio: 1, hz: 2 })) <= 1 + 1e-9);
+  assert.ok(Math.abs(peak(CV.spring({ ratio: 0.6, hz: 2 })) - (1 + Math.exp((-Math.PI * 0.6) / 0.8))) < 2e-3);
+  // Remotion's default (mass 1, damping 10, stiffness 100) is ratio 0.5 at √100/2π Hz
+  const a = CV.spring({ stiffness: 100, damping: 10 }), b = CV.spring({ ratio: 0.5, hz: 10 / (2 * Math.PI) });
+  for (const t of [0.1, 0.37, 1.2]) assert.ok(Math.abs(a(t) - b(t)) < 1e-9);
+});
+
 test('seeded rand is reproducible', () => {
   const a = CV.rand(42), b = CV.rand(42);
   for (let i = 0; i < 10; i++) assert.equal(a(), b());

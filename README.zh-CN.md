@@ -1,6 +1,6 @@
 # video-gaga
 
-**说出你想要的视频，得到一支有动效设计水准的 MP4。** video-gaga 是一个给 Claude Code 和其他编码 Agent 用的 skill。Agent 会先问几个关键问题，给你看风格样帧，写好分镜，然后用 HTML Canvas（需要立体感时用 three.js）设计每一帧并逐帧精确渲染。它会配上和剪辑同一个节拍网格的背景音乐、音效，以及免费的 Edge TTS 旁白和字幕。
+**说出你想要的视频，得到一支有动效设计水准的 MP4。** video-gaga 是一个给 Claude Code 和其他编码 Agent 用的 skill。Agent 会先问几个关键问题，给你看风格样帧，写好分镜，然后逐个分镜决定用 HTML Canvas 还是 three.js（形体、材质或纵深本身就是重点时用 three.js），设计每一帧并逐帧精确渲染。它会配上和剪辑同一个节拍网格的背景音乐、音效，以及免费的 Edge TTS 旁白和字幕。
 
 [English →](README.md)
 
@@ -89,7 +89,7 @@ node scripts/gaga.mjs voices --lang zh-CN             # 列出中文音色
 - [docs/motion-design.md](docs/motion-design.md)：动效语言（缓动、原则、镜头、转场、文字、机械检查）
 - [docs/narration-and-subtitles.md](docs/narration-and-subtitles.md)：Edge TTS 音色推荐、为耳朵写稿、字幕规则
 - [docs/music-and-sound.md](docs/music-and-sound.md)：如何设计配乐（规格、规则、限制）、节拍网格、音效、节奏与留白
-- [docs/three-d.md](docs/three-d.md)：在作品里用 three.js：什么时候值得用 3D、写法和规则
+- [docs/three-d.md](docs/three-d.md)：每个分镜选 Canvas 还是 three.js；用代码搭影棚，用数字指定材质、灯光、镜头和弹簧；怎么检查 3D 镜头
 - [docs/prompt-templates.md](docs/prompt-templates.md)：从 X / GitHub 收集的提示词模式（附出处）与现成模板
 - [docs/tech-selection.md](docs/tech-selection.md)：技术选型（对比 Remotion、HyperFrames、Motion Canvas、WebCodecs 等）
 

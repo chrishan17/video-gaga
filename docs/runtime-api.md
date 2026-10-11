@@ -155,7 +155,7 @@ Custom: `type: (ctx, A, B, p, opts) => {…}`, where A and B are canvases of the
 ## Easing & motion
 
 - `CV.ease.*` — `linear, inQuad, outQuad, inOutQuad, inCubic, outCubic, inOutCubic, outQuart, inOutQuart, outQuint, inOutQuint, inExpo, outExpo, inOutExpo, outCirc, inOutSine, outBack(p, s)`. Intent names: `standard, enter, exit, swift, gentle`. Custom curves: `bezier(x1,y1,x2,y2)` (same as CSS).
-- `CV.spring({stiffness, damping, mass, velocity})` → `(t) => 0..1` (closed form). Presets: `CV.spring.presets.smooth | snappy | bouncy | heavy`.
+- `CV.spring({stiffness, damping, mass, velocity})` or `CV.spring({ratio, hz})` → `(t) => 0..1` (closed form). `ratio` is the damping ratio (1 no bounce, 0.7–0.85 premium, 0.4–0.6 playful), `hz` the natural frequency (default 2). Presets: `CV.spring.presets.smooth` (ratio 1.0) `| snappy` (0.87) `| bouncy` (0.47) `| heavy` (0.88, slow).
 - `CV.progress(t, start, dur, ease)` → eased 0..1 over a window.
 - `CV.tween(t, [[t0, v0], [t1, v1, ease], …])` → keyframes (numbers or arrays).
 - `CV.springTrack(t, [[t0, v0], [t1, v1], …], springOpts)` → a spring-animated value re-targeted over time.
@@ -196,6 +196,8 @@ Custom: `type: (ctx, A, B, p, opts) => {…}`, where A and B are canvases of the
 
 ## three.js — `CV.three(THREE, {width, height, shadows, exposure, toneMapping, antialias})`
 
+`toneMapping`: `'aces'` (default, filmic: darkens and shifts saturated colours), `'neutral'` (keeps product and brand colours true), `'agx'`, or `false`.
+
 Import three as an ES module (pinned CDN, works from `file://` and in the renderer) and hand it to the bridge. See [three-d.md](three-d.md) for the full pattern.
 
 ```html
@@ -215,6 +217,9 @@ CV.create({ /* … */ scenes: [{ id: 'hero', draw(ctx, s) {
 
 - `gl.render(ctx, scene, camera, rect?)` — renders and draws onto the frame; `rect = [x, y, w, h]` renders into a region.
 - `gl.texture(key, w, h, (g, w, h) => {…})` — a `CanvasTexture` painted with the 2D API (labels, type in 3D), repainted once webfonts are ready.
+- `gl.studio({ sky, ground, panels: [{ az, el, w, h, intensity, color, tilt }], size, key })` — a studio built in code for reflections you direct: a dome and panels (softboxes, strips, black flags) placed in degrees (`az` 0 camera side, 90 right, 180 behind; `el` 0 horizon, 90 overhead; `w × h` in degrees, exact at any size: each panel is a patch of a sphere, and one that reaches the zenith becomes a round cap). Returns a PMREM texture for `scene.environment` or a material's `envMap`, cached per `key`; called with a changed spec under the same key it rebuilds (about 0.3 s per 1080p frame), so a glint strip can sweep as a function of `s.t`.
+- `gl.mirror(normal, camera, point?)` → `{ az, el }`: where a studio panel must sit for a surface with that world normal to reflect it into the camera (aim a glint).
+- `gl.project(x, y, z, camera)` → `[x, y]` in design px: 2D labels that ride a 3D point, match cuts between a 3D object and its flat shape.
 - One renderer is shared by all scenes, so transitions between two 3D scenes work and the WebGL context limit is never hit.
 
 ## Captions — `CV.subtitles`

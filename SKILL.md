@@ -1,11 +1,11 @@
 ---
 name: video-gaga
-description: Design and render motion-graphics videos (MP4) from a plain-language request. The agent writes the story, designs each frame in HTML Canvas (three.js for 3D when depth carries meaning) and renders it deterministically, with a score composed for the video on the same beat grid as the cuts, sound effects, Edge TTS narration and burned-in or file subtitles. Use when the user wants a video, animation, explainer, product teaser, kinetic typography, social short or animated infographic, or asks to turn a script, article, data or an idea into a video. It asks a few questions, shows style frames before building, and judges its own output before delivering.
+description: Design and render motion-graphics videos (MP4) from a plain-language request. The agent writes the story, designs each shot in HTML Canvas or three.js, choosing per shot by what it must show, and renders it deterministically, with a score composed for the video on the same beat grid as the cuts, sound effects, Edge TTS narration and burned-in or file subtitles. Use when the user wants a video, animation, explainer, product teaser, kinetic typography, social short or animated infographic, or asks to turn a script, article, data or an idea into a video. It asks a few questions, shows style frames before building, and judges its own output before delivering.
 ---
 
 # Video Gaga
 
-Turn "I want a video about X" into a finished MP4 that helps someone say what they mean. You are the writer, director, designer, motion designer, composer and editor. The runtime draws every frame with Canvas 2D (or three.js) as a pure function of time, renders it frame-exactly in headless Chromium and encodes it with ffmpeg; Edge TTS speaks the narration and sets the clock; the score shares its beat grid.
+Turn "I want a video about X" into a finished MP4 that helps someone say what they mean. You are the writer, director, designer, motion designer, composer and editor. The runtime draws every frame with Canvas 2D or three.js (you choose per shot, [docs/three-d.md](docs/three-d.md)) as a pure function of time, renders it frame-exactly in headless Chromium and encodes it with ffmpeg; Edge TTS speaks the narration and sets the clock; the score shares its beat grid.
 
 ## What good looks like
 
@@ -51,7 +51,7 @@ The look is chosen for this story ([docs/craft.md](docs/craft.md), *The look has
 | `gaga render <project> --subs burn` | The MP4 (`file`, `soft`, `burn+soft`, `none` for captions). `--scale 0.5 --format jpeg` for drafts, `--from/--to` for a range, `--motion-blur 5` for snappy moves, `--music track.mp3` for a licensed track, `--scale 2` for 4K. Ends with `gaga check` |
 | `gaga check <mp4>` · `gaga gif <mp4>` · `gaga voices --lang zh-CN` | Re-check an encode (with a `picture:` scan of the frames: stretches ≥ 1.5 s where nothing moves, one-frame glitches, blank frames, flashing; after `render`, a still frame while its words are read is a `read:` line, not a dead hold) · a GIF preview · list voices |
 
-Writing a composition: [docs/runtime-api.md](docs/runtime-api.md) (scenes, `s.at`, `s.when('spoken words')`, `s.onBeat(i)`, `fx` reveals, `s.out()` exits, transitions, captions), [docs/music-and-sound.md](docs/music-and-sound.md) (the score spec, `energy` per scene, `parts` for chapters, sfx), [docs/three-d.md](docs/three-d.md) (only when depth carries meaning). Several voices in a row: one scene per clip, joined by `cut`s over an identical layout. Key symbols (⌘ ⌥ ⇧) are missing from most fonts: draw them.
+Writing a composition: [docs/runtime-api.md](docs/runtime-api.md) (scenes, `s.at`, `s.when('spoken words')`, `s.onBeat(i)`, `fx` reveals, `s.out()` exits, transitions, captions), [docs/music-and-sound.md](docs/music-and-sound.md) (the score spec, `energy` per scene, `parts` for chapters, sfx), [docs/three-d.md](docs/three-d.md) (which shots are three.js and why, a studio built in code, 3D directed in numbers; each storyboard row names its engine). Several voices in a row: one scene per clip, joined by `cut`s over an identical layout. Key symbols (⌘ ⌥ ⇧) are missing from most fonts: draw them.
 
 Useful numbers: speech runs ≈ 4.3 CJK characters/s or ≈ 2.5 English words/s, and each voiced scene adds about 1 s (voice delay, decay, beat snapping), so a length target is met by cutting words, not by speeding up the voice. A long piece (over ~90 s) reads best in 3–6 chapters with their own music `parts`, a sense of where the viewer is, and a callback at the end; it measured 128 s of speech + 26 scenes → 182 s ([examples/take-your-time](examples/take-your-time/BRIEF.md)). A 1080p render takes about twice the video's length on 4 cores.
 
@@ -77,6 +77,6 @@ Useful numbers: speech runs ≈ 4.3 CJK characters/s or ≈ 2.5 English words/s,
 | [docs/music-and-sound.md](docs/music-and-sound.md) | Score direction, the spec and its limits, parts, sfx, pacing, mix |
 | [docs/narration-and-subtitles.md](docs/narration-and-subtitles.md) | Voices, writing for the ear, captions |
 | [docs/runtime-api.md](docs/runtime-api.md) | The runtime API |
-| [docs/three-d.md](docs/three-d.md) | three.js in a composition |
+| [docs/three-d.md](docs/three-d.md) | Canvas or three.js per shot; three.js directed in numbers (model, materials, light, camera, springs) and checked |
 | [examples/take-your-time](examples/take-your-time/BRIEF.md) | A three-minute piece and its brief |
 | [docs/tech-selection.md](docs/tech-selection.md), [docs/prompt-templates.md](docs/prompt-templates.md) | Why this stack; prompts people have used (for users) |
