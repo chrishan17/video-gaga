@@ -1035,7 +1035,7 @@ async function musicCmd(opts) {
   if (errors.length) log(`⚠ page errors:\n  ${errors.join('\n  ')}`);
   await page.close();
   await browser.close();
-  if (!info.score) die('this composition has no generated music (design one: music: { bpm, key, mode, progression, layers, lead } in CV.create, see docs/music-and-sound.md)');
+  if (!info.score) die("this composition has no generated music (write one: music: { bpm, key, mode, script: 'score.mjs' } in CV.create and the piece in score.mjs, see docs/music-and-sound.md)");
   const { file, report } = await synthMusic(dir, info.score);
   log(`✔ ${path.relative(process.cwd(), file)}  ${info.duration.toFixed(2)}s`);
   if (report.script) log(`  ${report.key} · ${report.bpm} BPM · written score: ${report.script}`);

@@ -1434,7 +1434,7 @@
     //   and the score designed for this video: key, mode, progression, layers, lead, seed … }
     // (scripts/music.mjs validates and renders the score; there are no preset styles)
     const mus = typeof config.music === 'string' ? { file: config.music } : config.music ? { ...config.music } : null;
-    if (mus && 'style' in mus) fail(`music.style ('${mus.style}') is not supported: there are no preset music styles. Design the score for this video (bpm, key, mode, progression, layers, lead), see docs/music-and-sound.md`);
+    if (mus && 'style' in mus) fail(`music.style ('${mus.style}') is not supported: there are no preset music styles. Write the score for this video (bpm, key, mode, script: 'score.mjs'), see docs/music-and-sound.md`);
     if (mus && !mus.file && (mus.layers || mus.lead || mus.script) && !mus.bpm) fail('music.bpm is required for a generated score');
     const bpm = mus?.bpm ?? null;
     const beatsPerBar = mus?.beatsPerBar ?? 4;

@@ -760,7 +760,8 @@ function revCymbal(m, o, t, dur, gain, lowpass) {
 // the score spec — designed by the agent for each video, validated here
 // ---------------------------------------------------------------------------
 // There are no built-in music styles. Each composition declares its own score,
-// designed from the brief (docs/music-and-sound.md §2):
+// designed from the brief (docs/music-spec.md §2), or writes it whole in a
+// score module (music.script, docs/music-and-sound.md §2: written scores below):
 //
 //   music: {
 //     bpm: 104, key: 'A', mode: 'major', seed: 7, kit: 'room',
@@ -908,7 +909,7 @@ export function validateScore(spec) {
   const errors = [], warnings = [];
   const err = (m) => errors.push(m), warn = (m) => warnings.push(m);
   if (!spec || typeof spec !== 'object') return { errors: ['music must be an object'], warnings };
-  if ('style' in spec) err(`music.style ('${spec.style}') is not supported: there are no preset styles. Design the score for this video (bpm, key, mode, progression, layers, lead), see docs/music-and-sound.md`);
+  if ('style' in spec) err(`music.style ('${spec.style}') is not supported: there are no preset styles. Write the score for this video (bpm, key, mode, script: 'score.mjs'), see docs/music-and-sound.md`);
   for (const k of Object.keys(spec)) if (!SPEC_KEYS.includes(k) && !['volume', 'duck', 'gap', 'intro', 'ending', 'offset', 'snap', 'voiceOnBeat', 'sfx', 'file', 'style', 'duration', 'fps', 'sections', 'voice'].includes(k)) err(`music.${k} is not a score option`);
   const inRange = (name, v, [a, b]) => { if (typeof v !== 'number' || !Number.isFinite(v) || v < a || v > b) err(`${name} must be a number in ${a}…${b} (got ${JSON.stringify(v)})`); };
   inRange('music.bpm', spec.bpm, LIMITS.bpm);
@@ -926,7 +927,12 @@ export function validateScore(spec) {
     if (h.chordBars != null && !LIMITS.chordBars.includes(h.chordBars)) err(`${at}.chordBars must be ${LIMITS.chordBars.join(', ')}`);
     if (h.sevenths != null && typeof h.sevenths !== 'boolean') err(`${at}.sevenths must be true or false`);
   };
-  harmony('music', spec, false);
+  // music.script: the composition's own score module writes every note (§ written scores)
+  const scripted = spec.script != null;
+  if (scripted && (typeof spec.script !== 'string' || !/\.m?js$/.test(spec.script))) err(`music.script must name the score module next to video.html, e.g. 'score.mjs' (got ${JSON.stringify(spec.script)})`);
+  if (scripted && ((spec.layers || []).length || spec.lead != null)) err('music.script writes the whole score: remove music.layers and music.lead (or remove music.script)');
+  if (scripted && !(spec.key in NOTE)) err(`music.key must be one of ${Object.keys(NOTE).join(' ')} (got ${JSON.stringify(spec.key)}): the sound effects and the checks read it`);
+  harmony('music', spec, scripted);
 
   const kindOk = (at, inst, kind) => {
     if (kind == null) return;
@@ -947,7 +953,7 @@ export function validateScore(spec) {
       if (off / all.length > 0.25) warn(`${at}.line: ${off} of ${all.length} notes are outside ${h.key} ${h.mode}; check it was written in this key`);
     }
   };
-  const layers = spec.layers;
+  const layers = spec.layers ?? (scripted ? [] : undefined);
   if (!Array.isArray(layers)) err('music.layers must be an array ([] = sound effects only)');
   else {
     if (layers.length > LIMITS.layers) err(`music.layers: at most ${LIMITS.layers} layers (got ${layers.length}); fewer, clearer parts leave room for the voice`);
@@ -1247,7 +1253,7 @@ export async function renderScore(plan, opts = {}) {
   if (plan.parts) report.parts = chords.filter((c, b) => b < endBar && (b === 0 || c.part !== chords[b - 1].part)).map((c) => `${c.part ?? 'main'}@${chords.indexOf(c) + 1}`);
   // one loop for minutes on end is the most audible problem of a long score
   const loops = Math.min(nBars, endBar) / (prog.length * chordBars);
-  if (!plan.parts && !silent && duration > 75 && loops > 8) warnings.push(`${Math.round(duration)} s on one ${prog.length}-chord loop (it repeats ${Math.round(loops)} times): give the chapters their own harmony with music.parts and a \`part\` on each chapter's first scene (docs/music-and-sound.md §2.5)`);
+  if (!plan.parts && !silent && duration > 75 && loops > 8) warnings.push(`${Math.round(duration)} s on one ${prog.length}-chord loop (it repeats ${Math.round(loops)} times): give the chapters their own harmony with music.parts and a \`part\` on each chapter's first scene (docs/music-spec.md §2.5)`);
   const plays = (L, e) => e >= (L.from ?? 0) && e < (L.to ?? 1.01);
   const drumsAt = (e) => layers.some(({ L }) => INSTRUMENTS.drums.includes(L.inst) && plays(L, e));
   for (let b = 0; b < (silent ? 0 : Math.min(nBars, endBar)); b++) {
@@ -1397,14 +1403,14 @@ export async function renderScore(plan, opts = {}) {
   if (scripted) {
     const mod = await import(`${pathToFileURL(plan.script).href}?t=${fs.statSync(plan.script).mtimeMs}`);
     const write = mod.default ?? mod.score;
-    if (typeof write !== 'function') throw new Error(`music.script: ${path.basename(plan.script)} must export default function (S) { … } (docs/music-and-sound.md, written scores)`);
+    if (typeof write !== 'function') throw new Error(`music.script: ${path.basename(plan.script)} must export default function (S) { … } (docs/music-and-sound.md §2)`);
     await write(scoreApi({ plan, orch, m, R, human, harmony, chordAtT, beat, barLen, beatsPerBar, offset, duration, sections, voicedAt, placedFx, musicGain, n }));
     report.script = path.basename(plan.script);
-    report.placedSfx = placedFx.map((e) => `${e.type}@${e.t.toFixed(2)}`);
+    report.placedSfx = [...(plan.sfx || []), ...placedFx].sort((a, b) => a.t - b.t).map((e) => `${e.type}@${e.t.toFixed(2)}`);
   }
 
   // --- sound effects ------------------------------------------------------------------
-  for (const e of scripted ? [] : plan.sfx || []) {
+  for (const e of plan.sfx || []) {
     const fn = FX[e.type];
     if (!fn) { report.unknownSfx = (report.unknownSfx || []).concat(e.type); continue; }
     if (e.t < -1 || e.t > duration + 1) continue;
@@ -1482,7 +1488,7 @@ export async function renderScore(plan, opts = {}) {
 
   // listening checks: what a listener would hear as ghostly, a buried melody,
   // a flat score, or effects that vanish or poke out (report.listen + warnings)
-  if (!silent) measure({ m, verb, bedOut, onsets, beat, barLen, offset, endT: scripted ? duration : endT, sfx: scripted ? placedFx : plan.sfx || [], energies: sections.map(energyOf), voicedAt, engine: orch.kind, report, warnings });
+  if (!silent) measure({ m, verb, bedOut, onsets, beat, barLen, offset, endT: scripted ? duration : endT, sfx: [...(plan.sfx || []), ...placedFx], energies: sections.map(energyOf), voicedAt, engine: orch.kind, report, warnings });
 
   // loudness: the bed's music-only passages land `gap` dB under the voice
   // (opts.voiceDb = the measured speech RMS; Edge voices sit near -25 dBFS).
@@ -1566,6 +1572,9 @@ function scoreApi({ plan, orch, m, R, human, harmony, chordAtT, beat, barLen, be
     grid: (t, div = 1) => offset + Math.round((t - offset) / (beat * div)) * beat * div,
     next: (t, div = 1) => offset + Math.ceil((t - offset) / (beat * div) - 1e-6) * beat * div,
     beats: (k) => k * beat,
+    // bar n, beat b (both from 0) in film seconds, and the bar a time falls in
+    at: (bar, b = 0) => offset + (bar * beatsPerBar + b) * beat,
+    barAt: (t) => (t - offset) / barLen,
     midi: midiOf,
     chordAt: (t) => harmony.chordAt(t).slice(),
     random: () => R(),
