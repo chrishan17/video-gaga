@@ -2097,9 +2097,173 @@
     };
   }
 
+  // ===========================================================================
+  // Isometric figures (optional): paints the geometry of the anatomy kit
+  // (github.com/wheresryan22/anatomy, MIT) onto the 2D frame. The composition
+  // imports the kit itself from a pinned CDN; its builders return SVG path
+  // strings, which this painter draws with Path2D in the kit's own order and
+  // tones. Lines keep a fixed width on screen however far the camera pushes in,
+  // like the kit's non-scaling strokes.
+  //   import * as k from 'https://cdn.jsdelivr.net/gh/wheresryan22/anatomy@<commit>/kit/iso-kit.mjs';
+  //   const iso = CV.iso({ paper: T.bg, ink: T.ink, lit: T.accent });
+  //   iso.solid(ctx, k.slabOf(plan, 0, 12, P, 8, 1.2), { tone: 'mid' });
+  // ===========================================================================
+  // How far each tone sits from paper toward ink, and how far each fill sits
+  // from paper toward black (−) or white (+), measured from the kit's themes.
+  const ISO_RAMP = {
+    dark: { hi: 0.82, mid: 0.38, lo: 0.18, faint: 0.09, face: 0.03, top: 0.035, shades: [-0.22, -0.06, 0.012, 0.025], litTop: 0.08, litShade: 0.045, halo: 0.9 },
+    light: { hi: 0.94, mid: 0.53, lo: 0.33, faint: 0.17, face: 1, top: 1, shades: [-0.12, -0.085, -0.055, -0.03], litTop: 1, litShade: -0.05, halo: 0.32 },
+  };
+  function iso(opts = {}) {
+    const paper = opts.paper ?? '#131313';
+    const ink = opts.ink ?? (luma(paper) < 0.4 ? '#e6e6e6' : '#18181a');
+    const mode = opts.mode ?? (luma(paper) < 0.4 ? 'dark' : 'light');
+    const R = ISO_RAMP[mode];
+    const toward = (amt) => (amt < 0 ? color.mix(paper, '#000', -amt) : color.mix(paper, '#fff', amt));
+    const tones = {
+      paper,
+      hi: color.mix(paper, ink, R.hi), mid: color.mix(paper, ink, R.mid), lo: color.mix(paper, ink, R.lo), faint: color.mix(paper, ink, R.faint),
+      lit: mode === 'dark' ? '#ffffff' : '#000000',
+      face: toward(R.face), top: toward(R.top), shades: R.shades.map(toward),
+      litTop: toward(R.litTop), litShade: toward(R.litShade),
+      halo: mode === 'dark' ? '#050505' : color.mix(paper, '#4a4a40', 0.5), haloAlpha: R.halo,
+      dot: color.mix(paper, ink, 0.95),
+      red: mode === 'dark' ? '#ff6b6b' : '#e5484d', green: mode === 'dark' ? '#6be0a0' : '#30a46c', blue: mode === 'dark' ? '#6b9bff' : '#3e63dd',
+      ...opts.tones,
+    };
+    if (opts.lit) tones.lit = opts.lit;
+    const weight = opts.weight ?? 1.5; // line width in design px of the frame
+    const renderScale = Number(params.get('scale') || 1);
+    const cache = new Map();
+    const path = (d) => {
+      let p = cache.get(d);
+      if (!p) {
+        if (cache.size > 20000) cache.clear();
+        p = new Path2D(d);
+        cache.set(d, p);
+      }
+      return p;
+    };
+    // user units per design px under the current transform
+    const unit = (ctx) => {
+      const m = ctx.getTransform();
+      return renderScale / (Math.hypot(m.a, m.b) || 1);
+    };
+    const DOT_ALPHA = { hi: 0.85, mid: 0.45, lo: 0.22, faint: 0.12 };
+    function line(ctx, d, { tone = 'lo', dotted = false, dashed = false, width, alpha = 1 } = {}) {
+      if (!d) return;
+      const u = unit(ctx);
+      ctx.save();
+      ctx.globalAlpha *= alpha;
+      ctx.strokeStyle = tones[tone] ?? tone;
+      ctx.lineWidth = (width ?? (dotted ? weight * 1.6 : weight)) * u;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      if (dotted) ctx.setLineDash([0.01 * u, weight * 5.5 * u]);
+      else if (dashed) ctx.setLineDash([weight * 5 * u, weight * 5 * u]);
+      ctx.stroke(path(d));
+      ctx.restore();
+    }
+    // blur and dy in figure units: a shadow grows with its object when the
+    // camera pushes in (a canvas blur is in device px, so it is scaled here)
+    function halo(ctx, d, { blur = 9, dy = 3, alpha = 1 } = {}) {
+      if (!d) return;
+      const m = ctx.getTransform();
+      ctx.save();
+      ctx.globalAlpha *= tones.haloAlpha * alpha;
+      ctx.filter = `blur(${(blur * Math.hypot(m.a, m.b)).toFixed(2)}px)`;
+      ctx.translate(0, dy);
+      ctx.fillStyle = tones.halo;
+      ctx.fill(path(d));
+      ctx.restore();
+    }
+    // The kit's solidSvg, painted: halo, paper fill, four side shades, top,
+    // crease, bevel, then the outline in the part's tone. `lit` marks the one
+    // part the viewer should watch.
+    function solid(ctx, paths, { tone = 'hi', crease = 'faint', halo: withHalo = false, lit = false, flat = false, alpha = 1, inner } = {}) {
+      ctx.save();
+      ctx.globalAlpha *= alpha;
+      if (withHalo) halo(ctx, paths.fill);
+      ctx.fillStyle = lit ? tones.face : tones.paper;
+      ctx.fill(path(paths.fill));
+      if (!flat) {
+        const seam = paths.seamless ? 0.4 * unit(ctx) : 0;
+        paths.shades.forEach((d, i) => {
+          if (!d) return;
+          ctx.fillStyle = lit ? tones.litShade : tones.shades[i];
+          ctx.fill(path(d));
+          if (seam) { ctx.strokeStyle = ctx.fillStyle; ctx.lineWidth = seam; ctx.lineJoin = 'round'; ctx.stroke(path(d)); }
+        });
+        ctx.fillStyle = lit ? tones.litTop : tones.top;
+        ctx.fill(path(paths.top));
+        if (seam) { ctx.strokeStyle = ctx.fillStyle; ctx.lineWidth = seam; ctx.stroke(path(paths.top)); }
+      }
+      if (crease !== 'none') { line(ctx, paths.crease, { tone: crease }); line(ctx, paths.bevel, { tone: crease }); }
+      if (inner) inner(ctx);
+      line(ctx, paths.outline, { tone: lit ? 'lit' : tone });
+      ctx.restore();
+    }
+    // points: screen [x, y, alpha?] from k.iso / k.pointsAt; size in figure units
+    function dots(ctx, points, { size = 0.5, tone = 'mid', alpha = 1 } = {}) {
+      ctx.save();
+      const outer = ctx.globalAlpha;
+      ctx.fillStyle = tones.dot;
+      for (const [x, y, a = 1] of points) {
+        ctx.globalAlpha = outer * alpha * (DOT_ALPHA[tone] ?? 0.32) * Math.max(0, a);
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+    function wire(ctx, from, to, { via = [], tone = 'lo', ends = 'both', size = 1.2, ...style } = {}) {
+      const pts = [from, ...via, to];
+      ctx.save();
+      line(ctx, 'M' + pts.map(([x, y]) => `${x} ${y}`).join('L'), { tone, ...style });
+      const end = ([x, y]) => {
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fillStyle = tones.paper;
+        ctx.fill();
+        ctx.lineWidth = weight * unit(ctx);
+        ctx.strokeStyle = tones[tone] ?? tone;
+        ctx.stroke();
+      };
+      if (ends === 'both' || ends === 'from') end(from);
+      if (ends === 'both' || ends === 'to') end(to);
+      ctx.restore();
+    }
+    // ribsOf / dotsOf with fade: [[d, alpha], …] or [{ d, alpha }, …]
+    function faded(ctx, list, style = {}) {
+      for (const e of list) {
+        const [d, a] = Array.isArray(e) ? e : [e.d, e.alpha];
+        if (d && a > 0.02) line(ctx, d, { ...style, alpha: (style.alpha ?? 1) * Math.min(1, a) });
+      }
+    }
+    // a piece from tube.mjs's tubePieces
+    function tube(ctx, piece, { tone = 'hi', alpha = 1 } = {}) {
+      ctx.save();
+      ctx.globalAlpha *= alpha;
+      ctx.fillStyle = tones.shades[2];
+      ctx.fill(path(piece.body));
+      if (piece.wide) {
+        ctx.fillStyle = tones.top; ctx.fill(path(piece.shine));
+        ctx.fillStyle = tones.shades[0]; ctx.fill(path(piece.shade));
+      }
+      faded(ctx, piece.rings ?? [], { tone: piece.ringTone ?? 'lo', width: weight * 0.75 });
+      line(ctx, piece.edges, { tone });
+      ctx.restore();
+    }
+    return { tones, weight, path, unit, solid, line, halo, dots, wire, faded, tube };
+  }
+  function luma(c) {
+    const [r, g, b] = parseColor(c);
+    return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  }
+
   const CV = {
     create, ease, spring, progress, tween, springTrack, stagger, clamp, lerp, invLerp, remap,
-    rand, noise, noise2, color, text, draw, fx, transitions, image, drawCover, three,
+    rand, noise, noise2, color, text, draw, fx, transitions, image, drawCover, three, iso,
     subtitles: { build: buildCues, draw: drawSubtitles, estimate: estimateSpeech, align: alignWords },
     speech: { end: speechEnd, find: findPhrase },
     RENDER, version: '0.2.0',

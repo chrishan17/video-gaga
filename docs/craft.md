@@ -59,7 +59,7 @@ An explainer is told by someone too, but its turn happens in the viewer's head: 
 - Shots vary the way an editor varies them: wide, close and extreme close; dense and empty. When two scenes share a layout, it is on purpose (a match cut, a before and after).
 - The palette is small, so colour can carry meaning: the accent marks the one thing that matters, and a shift of the whole palette marks a shift in the story. Colour moves with the acts, like a score: one colour event per act lands harder than colour everywhere.
 - Light and contrast let the subject read at a glance, even in a dark, moody piece. Surfaces look made: one light direction for the whole film, a base with texture and one edge or highlight, value contrast between planes. The biggest moment can get a light of its own behind the subject.
-- Each shot is drawn by the engine its content asks for: three.js where form, material or depth is what the shot shows (a product turning, chrome catching a glint, layers separating, a globe), Canvas for what is read, charted or flat. The two read as one film: one palette, one light, one grain ([three-d.md](three-d.md), *Canvas or three.js*).
+- Each shot is drawn by the engine its content asks for: three.js where form, material or depth is what the shot shows (a product turning, chrome catching a glint, layers separating, a globe), Canvas for what is read, charted or flat, and an isometric machine on Canvas when the explanation is a mechanism the viewer watches work ([iso-figures.md](iso-figures.md)). They read as one film: one palette, one light, one grain ([three-d.md](three-d.md), *Canvas or three.js*).
 
 **Not good**
 - A centred title over a centred subtitle on every frame.
@@ -167,6 +167,6 @@ Deliver when it meets this page. If something still falls short, rebuild that pa
 - Score: {feel in three words} · {reference} · {bpm} BPM {key} {mode} · {the theme} · {the form, bar by bar in sections} · {the 3–5 moments it meets the picture} · {the few sound effects}
 - Calls made: {each decision taken without asking, one line each, so the user can overturn it}
 
-| # | scene | adds (what the viewer can now say) | voice line (or — music only) | picture | engine · why (`2D`, `3D`, `3D+2D`) | motion & sync | transition | music · sfx | ≈ s |
+| # | scene | adds (what the viewer can now say) | voice line (or — music only) | picture | engine · why (`2D`, `2D·iso`, `3D`, `3D+2D`) | motion & sync | transition | music · sfx | ≈ s |
 |---|---|---|---|---|---|---|---|---|---|
 ```
