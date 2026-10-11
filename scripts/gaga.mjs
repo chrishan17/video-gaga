@@ -91,8 +91,11 @@ async function synthMusic(dir, score, { quiet } = {}) {
   const { soundfontPath } = await import('./soundfont.mjs');
   const voiceDb = score.voice.length ? speechLevel(dir) : null;
   const sf = soundfontPath();
+  // a written score (music.script) is a module next to video.html
+  if (score.script) score = { ...score, script: path.resolve(dir, score.script) };
+  if (score.script && !fs.existsSync(score.script)) throw new Error(`music.script not found: ${score.script}`);
   const key = crypto.createHash('sha1').update(fs.readFileSync(path.join(ROOT, 'scripts', 'music.mjs'))).update(fs.readFileSync(path.join(ROOT, 'scripts', 'soundfont.mjs')))
-    .update(fs.readFileSync(path.join(ROOT, 'scripts', 'samples.mjs'))).update(JSON.stringify(score)).update(String(voiceDb)).update(fs.existsSync(sf) ? `${sf}:${fs.statSync(sf).size}` : 'synth').digest('hex').slice(0, 16);
+    .update(fs.readFileSync(path.join(ROOT, 'scripts', 'samples.mjs'))).update(JSON.stringify(score)).update(score.script ? fs.readFileSync(score.script) : '').update(String(voiceDb)).update(fs.existsSync(sf) ? `${sf}:${fs.statSync(sf).size}` : 'synth').digest('hex').slice(0, 16);
   const file = path.join(dir, 'build', 'music.wav'), bed = path.join(dir, 'build', 'music-bed.wav');
   const meta = path.join(dir, 'build', 'music.json');
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -108,7 +111,7 @@ async function synthMusic(dir, score, { quiet } = {}) {
   // a score that fell back to cheaper instruments is not cached: the next render tries again
   const degraded = mix.report.engine !== 'samples' || (mix.report.warnings || []).some((w) => /could not be loaded/.test(w));
   fs.writeFileSync(meta, JSON.stringify({ key: degraded ? null : key, report: mix.report }, null, 1));
-  if (!quiet) log(`▸ music: ${mix.report.key} · ${mix.report.bpm} BPM · ${mix.report.layers} layers · ${score.sfx.length} sfx · ${mix.report.engine === 'samples' ? 'sampled instruments' : 'built-in synth'} (${Date.now() - t0} ms)`);
+  if (!quiet) log(`▸ music: ${mix.report.key} · ${mix.report.bpm} BPM · ${mix.report.layers} layers · ${mix.report.placedSfx?.length ?? score.sfx.length} sfx · ${mix.report.engine === 'samples' ? 'sampled instruments' : 'built-in synth'} (${Date.now() - t0} ms)`);
   if (!quiet) for (const w of mix.report.warnings || []) log(`  ⚠ music: ${w}`);
   return { file, bed, report: mix.report };
 }
@@ -1032,16 +1035,17 @@ async function musicCmd(opts) {
   if (errors.length) log(`⚠ page errors:\n  ${errors.join('\n  ')}`);
   await page.close();
   await browser.close();
-  if (!info.score) die('this composition has no generated music (design one: music: { bpm, key, mode, progression, layers, lead } in CV.create, see docs/music-and-sound.md)');
+  if (!info.score) die("this composition has no generated music (write one: music: { bpm, key, mode, script: 'score.mjs' } in CV.create and the piece in score.mjs, see docs/music-and-sound.md)");
   const { file, report } = await synthMusic(dir, info.score);
   log(`✔ ${path.relative(process.cwd(), file)}  ${info.duration.toFixed(2)}s`);
-  log(`  ${report.key} · ${report.bpm} BPM · chords ${report.progression} · ${report.layers} layers${report.lead ? ` + ${report.lead} lead` : ''} · bar energy ${report.bars.join(' ')}`);
-  if (report.parts) log(`  parts (name@bar): ${report.parts.join(' ')}`);
+  if (report.script) log(`  ${report.key} · ${report.bpm} BPM · written score: ${report.script}`);
+  else log(`  ${report.key} · ${report.bpm} BPM · chords ${report.progression} · ${report.layers} layers${report.lead ? ` + ${report.lead} lead` : ''} · bar energy ${report.bars.join(' ')}`);
+  if (report.parts && !report.script) log(`  parts (name@bar): ${report.parts.join(' ')}`);
   if (report.mixDb) log(`  mix (dB of the whole): ${Object.entries(report.mixDb).map(([k, v]) => `${k} ${v}`).join(' · ')} · ${report.engine === 'samples' ? 'sampled instruments' : 'built-in synth (no samples: run gaga doctor)'}`);
   log(`  peak ${report.peakDb} dBFS · gaps ${report.gapDb ?? '—'} dB vs the voice (${report.voiceDb ?? '—'} dBFS speech), dips ${report.voiceDuckDb} dB while it speaks · final chord ${report.endChordAt != null ? `at ${report.endChordAt}s` : 'none'}`);
   const L = report.listen;
   if (L) log(`  listen: ${L.ghost ? `${L.ghost.length} ghostly 4-bar window(s)` : 'ghost check needs the samples'} · melody ${L.melodyDb ?? '—'} dB over the rest in 500 Hz–4 kHz (≥ 3) · loudness range ${L.rangeLU ?? '—'} LU · sfx ${L.sfxDb ? `${L.sfxDb.median} dB median over the music (${L.sfxDb.min} … ${L.sfxDb.max})` : '—'}`);
-  log(`  sfx: ${info.score.sfx.map((e) => `${e.type}@${e.t.toFixed(2)}`).join(' ') || 'none'}`);
+  log(`  sfx: ${(report.placedSfx ?? info.score.sfx.map((e) => `${e.type}@${e.t.toFixed(2)}`)).join(' ') || 'none'}`);
   log(`  cuts on the grid: ${info.scenes.slice(1).map((s) => s.start.toFixed(2)).join(' ')}`);
   if (report.unknownSfx) log(`  ⚠ unknown sfx types: ${report.unknownSfx.join(', ')}`);
 }

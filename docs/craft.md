@@ -116,18 +116,20 @@ The language and the vocabulary are in [motion-design.md](motion-design.md).
 ## Sound
 
 **Good**
-- The score sounds produced and chosen: like something a music supervisor would license for this exact video, with a reference you can name.
-- It has a hook (a figure of a bar or two that is its identity), a pulse early on, a bass that locks with the kick, and a melody that answers in the gaps: one you could hum after a single hearing, written note by note, with a motif that is stated, answered and brought home.
-- Its arc follows the story: what plays first, where the groove arrives, what happens at the turn (a drop, a key change, everything but one instrument falling away), what it lands on.
-- The voice is clear and unhurried; the music sits under it and fills the pauses. There is silence where a line needs to land.
-- Sound effects mark what matters, and the one big hit is the only one. Small sounds are real objects (paper, a card, a switch) in the same room as the music, heard clearly but not jumping out.
+- The score is one piece of music composed for this video, as if a music supervisor had licensed it: a reference you can name, a theme you could hum after one hearing (a short motif stated, answered, varied and brought home changed), and a form with an opening, a lift, a climax and an ending that resolves.
+- It underscores the voice: accompaniment that moves under the narration, the theme where the voice rests. It meets the picture only where the story turns (three to five moments a minute: the world changing, the turn, the last image) and otherwise follows its own phrases.
+- It is played, not looped: each part with its own feel and dynamics, figures that vary, harmony with colour, space, registers kept apart, drums only where the story moves.
+- The voice is clear and unhurried. There is silence where a line needs to land.
+- Sound effects are few: things on screen that would feel false in silence, in the same room as the music. Many videos need none to four.
 
 **Not good**
-- A drone (pads or strings alone for long stretches), a low tom as the only pulse, slow minor chords drowned in reverb by default, a melody that never resolves, every scene at low energy. These read as cheap or creepy.
-- Wall-to-wall narration; a sound on every element; synthesized beeps and sine ticks; a melody buried under the keys in its own register.
+- The music answering every action (an instrument hit on every jump and button press, the band stopping before each): it sounds forced.
+- A pattern looped bar after bar, the same four chords from start to end, a tune fighting the voice, a drum kit by default.
+- A drone (pads or strings alone for long stretches), a low tom as the only pulse, slow minor chords drowned in reverb, a melody that never resolves. These read as cheap or creepy.
+- Wall-to-wall narration; a sound on every element; synthesized beeps and sine ticks.
 - Instruments chosen by subject cliché (a guzheng because the topic is China) rather than by feeling.
 
-The spec and how to direct it are in [music-and-sound.md](music-and-sound.md) §2.
+How to write it is in [music-and-sound.md](music-and-sound.md).
 
 ## How you know
 
@@ -159,9 +161,9 @@ Deliver when it meets this page. If something still falls short, rebuild that pa
 - Look: stands on {named references} · takes {…} · this story changes {…} · palette {hex…} and its colour events · light {direction} · type {display + label, sizes hero / secondary / label}
 - Motion: {its character in a sentence} · signature moves {…}
 - Voice: {voice id, rate} · captions {burn | file | none}
-- Score: {feel in three words} · {reference} · {bpm} BPM {key} {mode} · {the hook} · {how it builds}
+- Score: {feel in three words} · {reference} · {bpm} BPM {key} {mode} · {the theme} · {the form, bar by bar in sections} · {the 3–5 moments it meets the picture} · {the few sound effects}
 - Calls made: {each decision taken without asking, one line each, so the user can overturn it}
 
-| # | scene | adds (what the viewer can now say) | voice line (or — music only) | picture | motion & sync | transition | energy · sfx | ≈ s |
+| # | scene | adds (what the viewer can now say) | voice line (or — music only) | picture | motion & sync | transition | music · sfx | ≈ s |
 |---|---|---|---|---|---|---|---|---|
 ```
