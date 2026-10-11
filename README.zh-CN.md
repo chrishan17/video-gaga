@@ -13,7 +13,7 @@
 - **配音决定时间轴**：用微软 Edge 神经语音，免费、不需要 API Key，300 多种音色，中文效果很好，而且带**词级时间戳**。场景时长由语音长度决定，画面在说到某个词时准确出现（`s.when('三十')`；标题也可以跟着读音逐词出现：`fx.wordReveal({ sync: s })`）。
 - **音乐踩在同一个节拍上**：每支视频都有自己的配乐。Agent 把它当成一首完整的曲子来写，在一个小小的谱模块（`music.script`）里一个音一个音地写出来；这个模块读得到视频的时间轴：场景、每个念出来的字和节拍网格。曲子有自己的曲式，主题会回来，在旁白底下垫着走，只在故事转折的地方和画面对上，不追着每个动作响。剪辑点落在拍子上，每句旁白都从八分音符起拍。说话时音乐让位，旋律再退一步，最后一个和弦跟着末帧收尾。音效很少，用的是真实录音（CC0）。旧的规格写法（按场景能量开关各层）仍然可用，预设示例用的就是它。由真实乐器采样演奏：多采样三角钢琴（Salamander，CC BY 3.0）和弦乐、立式钢琴、竖琴（VSCO 2 CE，CC0），吉他、马林巴、贝斯、铜管和八套鼓组来自 MIT 授权的 General MIDI SoundFont，本地离线渲染、可复现；采样首次使用时自动下载一次。渲染时还会从音频里测耳朵能听出的问题：阴间的段落、被盖住的旋律、没有起伏的配乐、听不见或太突兀的音效。
 - **节奏有张有弛**：旁白不必从头念到尾。纯音乐的开场、揭晓前的停顿、余韵充足的片尾（`beats: 6`、`narration: false`）都是设计的一部分。
-- **真正的转场和退场**：22 种转场（甩镜、色带扫屏、开门、光圈、墨晕、立方体、漏光……），每种都有对应音效。元素会按编排退场，剪辑点落在动作上。另有 three.js 桥接（`CV.three`），可以做产品旋转、爆炸图、地球仪，WebGL 渲染同样逐帧确定。
+- **真正的转场和退场**：22 种转场（甩镜、色带扫屏、开门、光圈、墨晕、立方体、漏光……），每种都有对应音效。元素会按编排退场，剪辑点落在动作上。另有 three.js 桥接（`CV.three`），可以做产品旋转、爆炸图、地球仪，WebGL 渲染同样逐帧确定。所有 three.js 镜头都用真实材质：`gaga asset find` / `gaga asset` 从 Poly Haven 拉取 CC0 的 HDRI、扫描 PBR 贴图和模型，`gaga texture --prompt` 让 Codex 生成独一无二的 albedo（或 matcap），再推导出 normal、roughness 和 ao。
 - **字幕认真做**：字幕用同一份词级时间生成。中文断行遵守避头尾规则，长句按意群均衡切分，中文字幕去掉逗号和句号、保留问号和感叹号。字幕可以按视频自己的字体样式烧进画面，也可以做卡拉 OK 高亮，同时导出 `.srt`、`.vtt` 或 MP4 软字幕轨。
 - **像设计出来的，不像 AI 生成的**：内置 13 套差异明显的动效风格预设（其中 2 套是 3D），并配有一份成文的动效设计规范，涵盖缓动、时长、层级、镜头、转场、声音和反模式。Agent 会按规范做，并对照规范自查样帧。
 - **先问再做**：按视频类型提 4–7 个问题。每题固定三个具体选项，其中一个标注"推荐"并写明理由。
@@ -27,7 +27,7 @@
 | 风格 | 说明 |
 |---|---|
 | <img src="docs/media/launch-keynote.gif" width="360"> | **Launch Keynote 科技发布会** · 16:9 · 24 秒 · 英文旁白 · `keynote` 配乐。一点光拉开舞台，芯片在被念出名字时点亮（铺垫音 + 一次重击），参数随读音滚动，一个无声的"思考"节拍匹配剪辑到片尾。[▶ 视频](docs/media/launch-keynote.mp4) · [源码](presets/launch-keynote/video.html) |
-| <img src="docs/media/studio-3d.gif" width="360"> | **Studio 3D 产品棚拍** · 16:9 · 27 秒 · 英文旁白 · `keynote` 配乐 · three.js。无缝背景上的虚构音箱：镜头推近、环绕，爆炸图里每一层随读音升起，配色在拍子上切换。[▶ 视频](docs/media/studio-3d.mp4) · [源码](presets/studio-3d/video.html) |
+| <img src="docs/media/studio-3d.gif" width="360"> | **Studio 3D 产品棚拍** · 16:9 · 27 秒 · 英文旁白 · `keynote` 配乐 · three.js。无缝背景上的虚构音箱，真实棚拍 HDRI 反射，生图做的斑点陶釉和扫描针织面料：镜头推近、环绕，爆炸图里每一层随读音升起，配色在拍子上切换。[▶ 视频](docs/media/studio-3d.mp4) · [源码](presets/studio-3d/video.html) |
 | <img src="docs/media/clear-explainer.gif" width="360"> | **Clear Explainer 知识讲解 / 信息图** · 16:9 · 26 秒 · 中文旁白（云希）· `explainer` 配乐。开场一小节音乐里铺出 30 年标尺，算式随旁白逐项拼出，镜头跟着复利曲线走，最后从终值处光圈展开进入一个纯音乐节拍。[▶ 视频](docs/media/clear-explainer.mp4) · [源码](presets/clear-explainer/video.html) |
 | <img src="docs/media/blueprint.gif" width="360"> | **Blueprint 工程蓝图** · 16:9 · 29 秒 · 英文旁白 · `kinetic` 配乐。四冲程发动机的蓝晒图自己画出来、剖开、标注零件，然后按真实运动学运转，一拍一个冲程。[▶ 视频](docs/media/blueprint.mp4) · [源码](presets/blueprint/video.html) |
 | <img src="docs/media/data-globe.gif" width="360"> | **Data Globe 数据地球** · 16:9 · 26 秒 · 中文旁白（云扬）· `ambient` 配乐 · three.js。点阵地球随读音转向每座机场，航线从亚特兰大画出，数字随读音滚动，一个无声的排名节拍把差距本身变成重点（ACI 2023 数据）。[▶ 视频](docs/media/data-globe.mp4) · [源码](presets/data-globe/video.html) |

@@ -162,7 +162,7 @@ Deliver when it meets this page. If something still falls short, rebuild that pa
 - The device: {the visual idea, why it comes from this story, and how it changes across the video}
 - Look: stands on {named references} · takes {…} · this story changes {…} · palette {hex…} and its colour events · light {direction} · type {display + label, sizes hero / secondary / label}
 - Motion: {its character in a sentence} · signature moves {…}
-- 3D (when a shot uses three.js): model {real units, proportions that don't change} · materials {per surface, in numbers} · light {key, fill, rim: colour, strength, where} · camera {lens, azimuth/elevation/distance, its one move} · springs {damping ratio per move} · banned {the 3D defaults, by name}
+- 3D (when a shot uses three.js): model {real units, proportions that don't change} · environment {polyhaven:<hdri id> | gl.studio: why} · surfaces {each hero surface: polyhaven:<id> | generated "<prompt>" | matcap "<prompt>" | flat on purpose: why} · materials {per surface, in numbers} · light {key, fill, rim: colour, strength, where} · camera {lens, azimuth/elevation/distance, its one move} · springs {damping ratio per move} · banned {the 3D defaults, by name}
 - Voice: {voice id, rate} · captions {burn | file | none}
 - Score: {feel in three words} · {reference} · {bpm} BPM {key} {mode} · {the theme} · {the form, bar by bar in sections} · {the 3–5 moments it meets the picture} · {the few sound effects}
 - Calls made: {each decision taken without asking, one line each, so the user can overturn it}

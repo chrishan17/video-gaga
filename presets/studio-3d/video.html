@@ -22,7 +22,6 @@
    the beat, a music-only breath before the end card.
    ============================================================================= */
 import * as THREE from 'three';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 const { ease, clamp, lerp, fx, draw, color } = CV;
 
 // === THEME (swap for brand) ==================================================
@@ -48,9 +47,10 @@ const W = 1920, H = 1080;
 const gl = CV.three(THREE, { width: W, height: H, shadows: true, exposure: 1.05 });
 
 const world = new THREE.Scene();
-const pmrem = new THREE.PMREMGenerator(gl.renderer);
-world.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-world.environmentIntensity = 0.55;
+// reflections from a real studio (octaboxes on a white cyc): assets/CREDITS.md
+const STUDIO_HDR = 'assets/studio_small_09.hdr';
+gl.hdri(STUDIO_HDR);
+world.environmentRotation.y = -0.9; // the big softbox reads on the camera-left shoulder
 const cam = new THREE.PerspectiveCamera(28, W / H, 0.1, 100);
 
 const hemi = new THREE.HemisphereLight('#ffffff', '#93a3b3', 0.6);
@@ -87,7 +87,9 @@ const shadowed = (m) => { m.castShadow = true; m.receiveShadow = true; return m;
 // base shell: the lower half of a pebble
 const basePts = [];
 for (let i = 0; i <= 24; i++) { const a = (i / 24) * (Math.PI / 2); basePts.push([0.001 + 1.05 * Math.sin(a), 0.5 - 0.5 * Math.cos(a) ** 0.9]); }
-const baseMat = new THREE.MeshPhysicalMaterial({ roughness: 0.32, clearcoat: 1, clearcoatRoughness: 0.18, side: THREE.DoubleSide });
+// speckled stoneware under a satin glaze: the albedo was generated, its normal,
+// roughness and ao derived by `gaga texture --neutral` (grey, so the colourway tints it)
+const baseMat = new THREE.MeshPhysicalMaterial({ ...gl.pbr('assets/stoneware', { repeat: [8, 2], normalScale: 0.6 }), aoMapIntensity: 0.5, roughness: 0.9, clearcoat: 0.55, clearcoatRoughness: 0.22, side: THREE.DoubleSide });
 const base = shadowed(new THREE.Mesh(lathe(basePts), baseMat));
 const baseG = new THREE.Group();
 baseG.add(base);
@@ -119,7 +121,8 @@ driverG.add(cone, surround, cap, frame);
 // grille: a woven dome, plus the accent ring that seals it
 const domePts = [];
 for (let i = 0; i <= 28; i++) { const a = (i / 28) * (Math.PI / 2); domePts.push([0.001 + 1.05 * Math.cos(a), 0.4 * Math.sin(a)]); }
-const grilleMat = new THREE.MeshPhysicalMaterial({ roughness: 0.95, sheen: 0.35, sheenRoughness: 0.7, side: THREE.DoubleSide });
+// a scanned melange knit (Poly Haven, CC0), albedo neutralised for the colourways
+const grilleMat = new THREE.MeshPhysicalMaterial({ ...gl.pbr('assets/jersey_melange', { repeat: [11, 2] }), sheen: 0.5, sheenRoughness: 0.6, side: THREE.DoubleSide });
 const grille = shadowed(new THREE.Mesh(lathe(domePts), grilleMat));
 const ring = shadowed(new THREE.Mesh(new THREE.TorusGeometry(1.05, 0.028, 18, 160), new THREE.MeshStandardMaterial({ color: T.accent, roughness: 0.35, metalness: 0.3 })));
 ring.rotation.x = Math.PI / 2;
@@ -154,7 +157,8 @@ function poseStage(st) {
   rim.position.set(-3, 3, -6);
   rim.intensity = 1.6 * (st.keyOn ?? 1);
   hemi.intensity = 0.25 + 0.35 * (st.keyOn ?? 1);
-  world.environmentIntensity = 0.15 + 0.4 * (st.keyOn ?? 1);
+  world.environment = gl.hdri(STUDIO_HDR);
+  world.environmentIntensity = 0.15 + 0.55 * (st.keyOn ?? 1);
   hero.rotation.set(0, st.yaw ?? 0, 0);
   // ripples
   ripples.forEach((m, i) => {

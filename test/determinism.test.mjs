@@ -16,6 +16,8 @@ try { ({ chromium } = await import('playwright')); } catch { /* skipped below */
 const compositions = (dir) => (fs.existsSync(path.join(ROOT, dir)) ? fs.readdirSync(path.join(ROOT, dir)) : [])
   .filter((d) => fs.existsSync(path.join(ROOT, dir, d, 'video.html'))).map((d) => `${dir}/${d}`);
 const presets = [...compositions('presets'), ...compositions('examples')];
+// a fresh clone keeps only the manifest and the original pictures: rebuild assets/ first
+const { restoreAssets } = await import('../scripts/assets.mjs');
 
 test('frames are pure functions of time', { skip: !chromium && 'playwright not installed', timeout: 180000 }, async (t) => {
   let browser;
@@ -23,6 +25,8 @@ test('frames are pure functions of time', { skip: !chromium && 'playwright not i
   catch (e) { t.skip(`chromium unavailable: ${e.message.split('\n')[0]}`); return; }
   try {
     for (const slug of presets) {
+      const { failed } = await restoreAssets(path.join(ROOT, slug));
+      assert.deepEqual(failed, [], `${slug}: assets could not be restored`);
       const url = `${pathToFileURL(path.join(ROOT, slug, 'video.html')).href}?render=1&scale=0.25`;
       const open = async () => {
         const p = await browser.newPage();
