@@ -152,7 +152,7 @@ Open it in a browser for a live preview player (Space, ←/→, scrubbing, narra
 - [docs/craft.md](docs/craft.md) — story, picture and the self-review loop the agent runs before delivering
 - [docs/motion-design.md](docs/motion-design.md) — motion language: easing, principles, camera, transitions, type, mechanical checks
 - [docs/narration-and-subtitles.md](docs/narration-and-subtitles.md) — Edge TTS voices, writing for the ear, caption rules
-- [docs/music-and-sound.md](docs/music-and-sound.md) — directing and designing the score (spec, rules, limits), the beat grid, sound effects, pacing and silence
+- [docs/music-and-sound.md](docs/music-and-sound.md) — what a good score sounds like and how to write one (`music.script`), the beat grid, sound effects, pacing and silence
 - [docs/three-d.md](docs/three-d.md) — three.js in a composition: when 3D earns its place, the pattern, the rules
 - [docs/prompt-templates.md](docs/prompt-templates.md) — prompt patterns collected from X/GitHub (with sources) and ready-made templates
 - [docs/tech-selection.md](docs/tech-selection.md) — why Canvas + Playwright + ffmpeg + Edge TTS + a sampled score + three.js (vs Remotion, HyperFrames, Motion Canvas, WebCodecs…)
