@@ -2,6 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import path from 'node:path';
 import vm from 'node:vm';
 
 const src = fs.readFileSync(new URL('../runtime/video-gaga.js', import.meta.url), 'utf8');
@@ -530,4 +531,35 @@ test('listening checks: a held, washed-out passage is flagged; a pulse is not', 
   assert.deepEqual(alive.report.listen.ghost, []);
   assert.ok(alive.report.listen.sfxDb.median > 0, 'a tick over a light groove is heard');
   assert.ok(typeof alive.report.listen.rangeLU === 'number');
+});
+
+test('a written score (music.script) plays its own notes on the timeline, with the scenes\' sounds', async () => {
+  const { renderScore, validateScore } = await import('../scripts/music.mjs');
+  const os = await import('node:os');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gaga-score-'));
+  const file = path.join(dir, 'score.mjs');
+  fs.writeFileSync(file, `export default function score(S) {
+    // a chord on every bar, a line from the spoken word, silence from 4 to 6 s
+    for (let bar = 0; bar < 4; bar++) S.chord(S.at(bar), 'piano', ['C3', 'E3', 'G3'], S.bar * 0.9, 0.15);
+    S.line(S.when('a', 'world'), 'bell', 'C5:1 E5 G5 C6', 0.12, { kind: 'glock' });
+    S.hole(4, 6);
+    S.fx('tick', S.at(3, 2));
+    if (Math.abs(S.event('b', 'whoosh') - 4) > 1e-9 || Math.abs(S.barAt(S.at(2, 2)) - 2.5) > 1e-9) throw new Error('timeline');
+  }`);
+  const plan = (script) => ({
+    bpm: 120, key: 'C', mode: 'major', script, layers: [], duration: 8,
+    sections: [{ id: 'a', start: 0, end: 4, energy: 0.4, voiced: true, words: [{ text: 'hello', t: 0.5, end: 0.9 }, { text: 'world', t: 1, end: 1.4 }] }, { id: 'b', start: 4, end: 8, energy: 0.6, voiced: false }],
+    voice: [{ start: 0.5, end: 1.4 }], sfx: [{ type: 'whoosh', t: 4, dur: 0.6, scene: 'b' }],
+  });
+  const x = await renderScore(plan(file));
+  const rms = (buf, a, b) => { let e = 0; for (let i = Math.round(a * 48000); i < b * 48000; i++) e += buf[i] ** 2; return Math.sqrt(e / ((b - a) * 48000)); };
+  assert.ok(rms(x.bed.left, 2, 3.5) > 1e-3, 'the notes play');
+  assert.ok(rms(x.bed.left, 4.3, 5.8) < 1e-5, 'a hole silences the music');
+  assert.ok(rms(x.left, 3.6, 4.4) > rms(x.bed.left, 3.6, 4.4), 'the scene\'s whoosh still plays');
+  assert.equal(x.report.script, 'score.mjs');
+  assert.deepEqual(x.report.placedSfx, ['whoosh@4.00', 'tick@7.00']);
+  fs.writeFileSync(path.join(dir, 'bad.mjs'), `export default (S) => S.when('a', 'nobody said this');`);
+  await assert.rejects(() => renderScore(plan(path.join(dir, 'bad.mjs'))), /not spoken in scene 'a'/);
+  assert.match(validateScore({ bpm: 120, key: 'C', script: 'score.mjs', layers: [{ inst: 'kick', pattern: 'X...', vel: 0.3 }] }).errors.join(' '), /writes the whole score/);
+  assert.deepEqual(validateScore({ bpm: 120, key: 'C', script: 'score.mjs' }).errors, []);
 });

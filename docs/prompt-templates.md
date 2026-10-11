@@ -55,7 +55,7 @@ Structure (one idea per scene):
 Narration: English, en-US-AndrewNeural, rate -4%. Burn captions (boxed, small).
 Style: Launch Keynote preset, accent {BRAND HEX}. One accent only.
 Banned: bouncy easing, particle bursts, lens flares, crossfades between every scene.
-Storyboard first (table: scene / voice line or music-only / visual / motion / exit / transition / music energy · sfx), then build, probe, render.
+Storyboard first (table: scene / voice line or music-only / visual / motion / exit / transition / music · sfx), then build, probe, render.
 ```
 
 ## Template B — Knowledge explainer / infographic (16:9, 20–60 s, ZH)

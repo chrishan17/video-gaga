@@ -1442,8 +1442,8 @@
     //   and the score designed for this video: key, mode, progression, layers, lead, seed … }
     // (scripts/music.mjs validates and renders the score; there are no preset styles)
     const mus = typeof config.music === 'string' ? { file: config.music } : config.music ? { ...config.music } : null;
-    if (mus && 'style' in mus) fail(`music.style ('${mus.style}') is not supported: there are no preset music styles. Design the score for this video (bpm, key, mode, progression, layers, lead), see docs/music-and-sound.md`);
-    if (mus && !mus.file && (mus.layers || mus.lead) && !mus.bpm) fail('music.bpm is required for a generated score');
+    if (mus && 'style' in mus) fail(`music.style ('${mus.style}') is not supported: there are no preset music styles. Write the score for this video (bpm, key, mode, script: 'score.mjs'), see docs/music-and-sound.md`);
+    if (mus && !mus.file && (mus.layers || mus.lead || mus.script) && !mus.bpm) fail('music.bpm is required for a generated score');
     const bpm = mus?.bpm ?? null;
     const beatsPerBar = mus?.beatsPerBar ?? 4;
     const beatLen = bpm ? 60 / bpm : 0, barLen = beatLen * beatsPerBar;
@@ -1833,13 +1833,14 @@
         music: mus?.file || null,
         // beat grid + arrangement plan for the generated score (scripts/music.mjs)
         bpm, beatsPerBar, gridOffset,
-        score: mus && (mus.layers || mus.lead) && !mus.file ? {
+        score: mus && (mus.layers || mus.lead || mus.script) && !mus.file ? {
           bpm, beatsPerBar, offset: gridOffset, seed: mus.seed ?? 1,
           key: mus.key ?? null, mode: mus.mode ?? null, progression: mus.progression ?? null, sevenths: mus.sevenths ?? false,
           chordBars: mus.chordBars ?? 1, layers: mus.layers ?? [], lead: mus.lead ?? null, fills: mus.fills ?? true, ...(mus.parts ? { parts: mus.parts } : {}),
           volume: mus.volume ?? 1, duck: mus.duck ?? null, gap: mus.gap ?? null, duration, fps,
-          intro: mus.intro ?? null, ending: mus.ending ?? 'resolve',
-          sections: scenes.map((s) => ({ id: s.id, start: s.start, end: s.end, energy: s.energy ?? null, voiced: !!s.voice, ...(s._part != null ? { part: s._part } : {}) })),
+          intro: mus.intro ?? null, ending: mus.ending ?? 'resolve', script: mus.script ?? null,
+          sections: scenes.map((s) => ({ id: s.id, start: s.start, end: s.end, energy: s.energy ?? null, voiced: !!s.voice, ...(s._part != null ? { part: s._part } : {}),
+            ...(mus.script && s.voice?.words ? { words: s.voice.words.map((w) => ({ text: w.text, t: s.start + s.voiceDelay + w.start, end: s.start + s.voiceDelay + (w.end ?? w.start) })) } : {}) })),
           voice: scenes.filter((s) => s.voice).map((s) => ({ start: s.start + s.voiceDelay, end: s.start + s.voiceDelay + speechEnd(s.voice) })),
           sfx: sfx.map((e) => ({ ...e })),
         } : null,

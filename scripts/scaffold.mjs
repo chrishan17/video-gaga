@@ -56,8 +56,8 @@ export function scaffoldFromPreset(src, { slug = 'preset' } = {}) {
   }
   out.push(...config);
   out.push(
-    '  // music: the score for THIS video, designed from the brief (docs/music-and-sound.md §2):',
-    '  // music: { bpm, key, mode, progression, layers: [ … ], lead, seed },',
+    '  // music: the score for THIS video, one piece written in score.mjs next to this file (docs/music-and-sound.md):',
+    "  // music: { bpm, key, mode, script: 'score.mjs' },",
     '  scenes: [',
     '    // One scene per storyboard row: { id, energy, transition?, draw(ctx, s) { … } }.',
     `    // The preset's own example scenes (presets/${slug}/video.html) show its motion grammar; don't copy their content or structure.`,
