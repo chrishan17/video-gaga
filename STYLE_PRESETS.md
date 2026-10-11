@@ -16,7 +16,7 @@ Each preset also ships an example video in `presets/<slug>/video.html` (the `EXA
 | warm, friendly, human | Paper Sketch, Pop Collage, Clear Explainer |
 | playful, nostalgic, game-like | Pixel Retro, Pop Collage |
 
-Native formats: most are 16:9; Swiss Kinetic is 1:1; Neon Circuit and Pop Collage are 9:16. Any of them can be re-laid out for another ratio (below). Studio 3D and Data Globe use three.js ([docs/three-d.md](docs/three-d.md)).
+Native formats: most are 16:9; Swiss Kinetic is 1:1; Neon Circuit and Pop Collage are 9:16. Any of them can be re-laid out for another ratio (below). Studio 3D and Data Globe use three.js ([docs/three-d.md](docs/three-d.md)). Any look can mix engines: the engine is chosen per shot, and a 3D shot in a flat look is shaded to belong to it.
 
 ---
 

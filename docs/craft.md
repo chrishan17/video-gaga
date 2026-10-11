@@ -59,6 +59,7 @@ An explainer is told by someone too, but its turn happens in the viewer's head: 
 - Shots vary the way an editor varies them: wide, close and extreme close; dense and empty. When two scenes share a layout, it is on purpose (a match cut, a before and after).
 - The palette is small, so colour can carry meaning: the accent marks the one thing that matters, and a shift of the whole palette marks a shift in the story. Colour moves with the acts, like a score: one colour event per act lands harder than colour everywhere.
 - Light and contrast let the subject read at a glance, even in a dark, moody piece. Surfaces look made: one light direction for the whole film, a base with texture and one edge or highlight, value contrast between planes. The biggest moment can get a light of its own behind the subject.
+- Each shot is drawn by the engine its content asks for: three.js where form, material or depth is what the shot shows (a product turning, chrome catching a glint, layers separating, a globe), Canvas for what is read, charted or flat. The two read as one film: one palette, one light, one grain ([three-d.md](three-d.md), *Canvas or three.js*).
 
 **Not good**
 - A centred title over a centred subtitle on every frame.
@@ -68,6 +69,7 @@ An explainer is told by someone too, but its turn happens in the viewer's head: 
 - A frame that would pass unchanged as a corporate slide. A metaphor that only works because of its label.
 - Full-frame dark gradients that band after encoding; a long crossfade between a light and a dark scene that passes through grey.
 - A preset's example video with the words swapped.
+- 3D because it can be: a spinning logo, a turntable as the only motion, the 3D defaults (dark navy space, a halo ring, bloom, particles). Or the opposite: a product that should be turned in the light, drawn flat.
 - Labels on everything, and on-screen text that repeats what the voice or the captions already say. The picture tells it; text on screen is either a hero (one word, huge) or quiet, and the composition leaves room for whichever it is.
 
 ### The look has a name
@@ -160,10 +162,11 @@ Deliver when it meets this page. If something still falls short, rebuild that pa
 - The device: {the visual idea, why it comes from this story, and how it changes across the video}
 - Look: stands on {named references} · takes {…} · this story changes {…} · palette {hex…} and its colour events · light {direction} · type {display + label, sizes hero / secondary / label}
 - Motion: {its character in a sentence} · signature moves {…}
+- 3D (when a shot uses three.js): model {real units, proportions that don't change} · materials {per surface, in numbers} · light {key, fill, rim: colour, strength, where} · camera {lens, azimuth/elevation/distance, its one move} · springs {damping ratio per move} · banned {the 3D defaults, by name}
 - Voice: {voice id, rate} · captions {burn | file | none}
 - Score: {feel in three words} · {reference} · {bpm} BPM {key} {mode} · {the theme} · {the form, bar by bar in sections} · {the 3–5 moments it meets the picture} · {the few sound effects}
 - Calls made: {each decision taken without asking, one line each, so the user can overturn it}
 
-| # | scene | adds (what the viewer can now say) | voice line (or — music only) | picture | motion & sync | transition | music · sfx | ≈ s |
-|---|---|---|---|---|---|---|---|---|
+| # | scene | adds (what the viewer can now say) | voice line (or — music only) | picture | engine · why (`2D`, `3D`, `3D+2D`) | motion & sync | transition | music · sfx | ≈ s |
+|---|---|---|---|---|---|---|---|---|---|
 ```

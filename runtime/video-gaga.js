@@ -81,8 +81,16 @@
 
   // Closed-form damped spring step response from 0 → 1.
   // Pure function of time: spring(t) never depends on previous frames.
+  // Physical knobs {stiffness, damping, mass}, or the one number every library
+  // translates to: {ratio, hz} (damping ratio 1 = no bounce, 0.8 premium,
+  // 0.5 playful; hz = natural frequency, default 2).
   function spring(opts = {}) {
-    const k = opts.stiffness ?? 170, c = opts.damping ?? 26, m = opts.mass ?? 1;
+    let k = opts.stiffness ?? 170, c = opts.damping ?? 26, m = opts.mass ?? 1;
+    if (opts.ratio != null) {
+      const w = 2 * Math.PI * (opts.hz ?? 2);
+      k = w * w * m;
+      c = 2 * opts.ratio * Math.sqrt(k * m);
+    }
     const v0 = -(opts.velocity ?? 0);
     const w0 = Math.sqrt(k / m), zeta = c / (2 * Math.sqrt(k * m));
     return function (t) {
@@ -104,10 +112,10 @@
     };
   }
   spring.presets = {
-    smooth: { stiffness: 120, damping: 22 }, // no overshoot, natural settle
-    snappy: { stiffness: 300, damping: 30 }, // fast, barely overshoots
-    bouncy: { stiffness: 220, damping: 14 }, // visible overshoot — use sparingly
-    heavy: { stiffness: 80, damping: 20, mass: 1.6 },
+    smooth: { stiffness: 120, damping: 22 }, // ratio 1.0: no overshoot, natural settle
+    snappy: { stiffness: 300, damping: 30 }, // ratio 0.87: fast, barely overshoots
+    bouncy: { stiffness: 220, damping: 14 }, // ratio 0.47: visible overshoot — use sparingly
+    heavy: { stiffness: 80, damping: 20, mass: 1.6 }, // ratio 0.88, slow
   };
 
   // Eased 0→1 progress of a window [start, start+dur] at time t.
@@ -1953,8 +1961,12 @@
     renderer.setSize(Math.round(W * scale), Math.round(H * scale), false);
     renderer.setClearColor(0x000000, 0);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
+    // 'aces' (default: filmic, darkens and shifts saturated colours), 'neutral'
+    // (keeps brand and product colours true), 'agx', or false
     if (opts.toneMapping !== false) {
-      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      const tm = { aces: 'ACESFilmicToneMapping', neutral: 'NeutralToneMapping', agx: 'AgXToneMapping' }[opts.toneMapping == null || opts.toneMapping === true ? 'aces' : opts.toneMapping];
+      if (!tm) throw new Error(`CV.three: toneMapping "${opts.toneMapping}" is not one of 'aces', 'neutral', 'agx' or false`);
+      renderer.toneMapping = THREE[tm];
       renderer.toneMappingExposure = opts.exposure ?? 1;
     }
     if (opts.shadows) {
@@ -1962,6 +1974,46 @@
       renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     }
     const textures = new Map();
+    const studios = new Map();
+    let pmrem = null;
+    // Unit vector for azimuth/elevation in degrees: az 0 = the camera side (+z),
+    // 90 = right (+x), 180 = behind; el 0 = horizon, 90 = overhead.
+    const dirOf = (az, el) => {
+      const a = (az * Math.PI) / 180, e = (el * Math.PI) / 180;
+      return new THREE.Vector3(Math.cos(e) * Math.sin(a), Math.sin(e), Math.cos(e) * Math.cos(a));
+    };
+    function buildStudio(spec) {
+      const R = 10, scene = new THREE.Scene();
+      // the dome: ground colour below the horizon, sky colour above, blended over ±10°
+      const sky = new THREE.Color(spec.sky ?? '#202020'), ground = new THREE.Color(spec.ground ?? spec.sky ?? '#202020');
+      const domeGeo = new THREE.SphereGeometry(R, 64, 32);
+      const pos = domeGeo.attributes.position, cols = new Float32Array(pos.count * 3), c = new THREE.Color();
+      for (let i = 0; i < pos.count; i++) {
+        const el = (Math.asin(clamp(pos.getY(i) / R, -1, 1)) * 180) / Math.PI;
+        c.copy(ground).lerp(sky, clamp((el + 10) / 20));
+        cols.set([c.r, c.g, c.b], i * 3);
+      }
+      domeGeo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+      scene.add(new THREE.Mesh(domeGeo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, toneMapped: false })));
+      // panels: softboxes, strips and black flags, each a patch of the sphere
+      // w x h degrees wide (exact at any size); one that reaches the zenith is a
+      // round cap. A later panel covers an earlier one.
+      const D = Math.PI / 180;
+      (spec.panels || []).forEach((p, i) => {
+        const az = p.az ?? 0, el = p.el ?? 0, w = Math.min(360, p.w ?? 20), h = p.h ?? 20, r = R * (0.9 - i * 0.004);
+        const top = el + h / 2, bottom = el - h / 2;
+        const cap = top >= 90;
+        const t0 = Math.max(0, 90 - top), t1 = Math.min(180, 90 - bottom);
+        const geo = cap
+          ? new THREE.SphereGeometry(r, 64, 16, 0, 2 * Math.PI, 0, (90 - bottom) * D)
+          : new THREE.SphereGeometry(r, Math.max(2, Math.ceil(w / 3)), Math.max(2, Math.ceil(h / 3)), (az + 90 - w / 2) * D, w * D, t0 * D, (t1 - t0) * D);
+        const col = new THREE.Color(p.color ?? '#ffffff').multiplyScalar(p.intensity ?? 1);
+        const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: col, side: THREE.DoubleSide, toneMapped: false }));
+        if (p.tilt && !cap) m.rotateOnWorldAxis(dirOf(az, el), p.tilt * D);
+        scene.add(m);
+      });
+      return scene;
+    }
     return {
       THREE, renderer, canvas, W, H,
       // Render a scene and composite it onto the 2D frame (transparent where
@@ -1984,6 +2036,41 @@
           renderer.render(scene, camera);
           ctx.drawImage(canvas, 0, 0, W, H);
         }
+      },
+      // A studio built in code, for reflections you direct: a dome (sky above the
+      // horizon, ground below) and panels placed by azimuth/elevation in degrees.
+      // spec = { sky, ground, panels: [{ az, el, w, h, intensity, color, tilt }], size, key }
+      // Returns a PMREM texture for scene.environment or material.envMap. Cached
+      // per key (default: the spec itself); calling it with a changed spec under
+      // the same key rebuilds it, so a strip can sweep (a glint) as a pure function of t.
+      studio(spec = {}) {
+        const sig = JSON.stringify(spec), key = spec.key ?? sig;
+        const e = studios.get(key);
+        if (e && e.sig === sig) return e.target.texture;
+        pmrem = pmrem || new THREE.PMREMGenerator(renderer);
+        const scene = buildStudio(spec);
+        const target = pmrem.fromScene(scene, 0, 0.1, 100, { size: spec.size ?? 256 });
+        scene.traverse((o) => { o.geometry?.dispose(); o.material?.dispose(); });
+        e?.target.dispose();
+        studios.set(key, { sig, target });
+        return target.texture;
+      },
+      // Screen position [x, y] in design px of a world point, for 2D labels that
+      // ride a 3D object and for match cuts between a 3D object and its 2D shape.
+      project(x, y, z, camera) {
+        camera.updateMatrixWorld();
+        const v = new THREE.Vector3(x, y, z).project(camera);
+        return [((v.x + 1) / 2) * W, ((1 - v.y) / 2) * H];
+      },
+      // Where a studio panel must sit for a surface to reflect it into the camera:
+      // { az, el } in degrees for a world-space normal (and the point on the
+      // surface, default the origin). Put a glint strip there and sweep it across.
+      mirror(normal, camera, point = new THREE.Vector3()) {
+        camera.updateMatrixWorld();
+        const n = new THREE.Vector3().copy(normal).normalize();
+        const v = new THREE.Vector3().setFromMatrixPosition(camera.matrixWorld).sub(point).normalize();
+        const r = n.multiplyScalar(2 * n.dot(v)).sub(v); // v reflected about n
+        return { az: (Math.atan2(r.x, r.z) * 180) / Math.PI, el: (Math.asin(clamp(r.y, -1, 1)) * 180) / Math.PI };
       },
       // A CanvasTexture painted with the 2D API (text and labels in 3D). Cached
       // per key and repainted once webfonts are ready. paint(g, w, h) must be pure.

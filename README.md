@@ -1,6 +1,6 @@
 # video-gaga
 
-**Describe a video, get a motion-designed MP4.** video-gaga is an agent skill for Claude Code and other coding agents. The agent asks you a few sharp questions, shows you style frames, writes the storyboard, and then designs every frame in HTML Canvas, or three.js when depth carries meaning. It renders them frame-exactly, scores them with generated music on the same beat grid as the cuts, and adds free Edge TTS narration and subtitles.
+**Describe a video, get a motion-designed MP4.** video-gaga is an agent skill for Claude Code and other coding agents. The agent asks you a few sharp questions, shows you style frames, writes the storyboard, and then designs every shot in HTML Canvas or three.js, picking the engine shot by shot (three.js where form, material or depth is the point). It renders them frame-exactly, scores them with generated music on the same beat grid as the cuts, and adds free Edge TTS narration and subtitles.
 
 [中文说明 →](README.zh-CN.md)
 
@@ -153,7 +153,7 @@ Open it in a browser for a live preview player (Space, ←/→, scrubbing, narra
 - [docs/motion-design.md](docs/motion-design.md) — motion language: easing, principles, camera, transitions, type, mechanical checks
 - [docs/narration-and-subtitles.md](docs/narration-and-subtitles.md) — Edge TTS voices, writing for the ear, caption rules
 - [docs/music-and-sound.md](docs/music-and-sound.md) — what a good score sounds like and how to write one (`music.script`), the beat grid, sound effects, pacing and silence
-- [docs/three-d.md](docs/three-d.md) — three.js in a composition: when 3D earns its place, the pattern, the rules
+- [docs/three-d.md](docs/three-d.md) — Canvas or three.js, decided per shot; a studio built in code, materials, light, camera and springs in numbers; how to check a 3D shot
 - [docs/prompt-templates.md](docs/prompt-templates.md) — prompt patterns collected from X/GitHub (with sources) and ready-made templates
 - [docs/tech-selection.md](docs/tech-selection.md) — why Canvas + Playwright + ffmpeg + Edge TTS + a sampled score + three.js (vs Remotion, HyperFrames, Motion Canvas, WebCodecs…)
 
