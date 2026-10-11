@@ -19,6 +19,7 @@ It is a Canvas shot when it is:
 - **a chart or diagram whose positions and values must be exact** (perspective distorts them);
 - **UI, a screen or a document**;
 - **a flat look** (Swiss, riso, paper, ink, pixel, Saul Bass). Parallax layers (`draw.camera` with `depth`), card flips, isometric drawings and a slight tilt are faked well in 2D and don't need three.js;
+- **a mechanism seen working under a fixed camera**: an isometric machine whose moving parts are the explanation, built with the anatomy kit and painted by `CV.iso` ([iso-figures.md](iso-figures.md)). Its row says `2D·iso`. It becomes three.js only when the viewer must see the form turn;
 - **drawn**: a line drawing on, a hand-made texture, an illustration.
 
 Most 3D shots are really **both in one frame**: the three.js render composited over a 2D backdrop, primary type in 2D on top (crisp and caption-safe), labels riding projected points (`gl.project`), and Canvas painted onto 3D surfaces with `gl.texture` (a phone's screen, a card in space, a label on a box).
@@ -30,7 +31,7 @@ Tie-breakers:
 
 **One film, two engines.** The same palette hexes on both sides; the 3D backdrop is the same 2D paint as the Canvas scenes; light falls from the same side as any 2D shadows; one `overlay` (grain, vignette) over every scene; type is always 2D. Cuts across the seam carry something: a 3D object match-cuts to its flat icon at the same screen position (`gl.project` gives it), or the camera pushes into a 3D surface whose `gl.texture` is the next Canvas scene. Transitions between 2D and 3D scenes work like any other.
 
-**Record it.** Each storyboard row names its engine (`2D`, `3D`, `3D+2D`) and the reason in a few words ([craft.md](craft.md), *The brief*). A 3D row also has its numbers in the brief (below). The choice is yours to make; it goes in *Calls made*, not into a question for the user.
+**Record it.** Each storyboard row names its engine (`2D`, `2D·iso`, `3D`, `3D+2D`) and the reason in a few words ([craft.md](craft.md), *The brief*). A 3D row also has its numbers in the brief (below). The choice is yours to make; it goes in *Calls made*, not into a question for the user.
 
 ## Why it fits the pipeline
 

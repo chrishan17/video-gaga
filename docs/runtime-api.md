@@ -222,6 +222,26 @@ CV.create({ /* … */ scenes: [{ id: 'hero', draw(ctx, s) {
 - `gl.project(x, y, z, camera)` → `[x, y]` in design px: 2D labels that ride a 3D point, match cuts between a 3D object and its flat shape.
 - One renderer is shared by all scenes, so transitions between two 3D scenes work and the WebGL context limit is never hit.
 
+## Isometric figures — `CV.iso({ paper, ink, lit, weight, mode, tones })`
+
+Paints the geometry of the [anatomy](https://github.com/wheresryan22/anatomy) kit (imported by the composition from a pinned CDN) onto the frame with `Path2D`, in the kit's order and tones. See [iso-figures.md](iso-figures.md) for when and how.
+
+```js
+import * as k from 'https://cdn.jsdelivr.net/gh/wheresryan22/anatomy@dbf697a527bbf7d358668e1557cb1e35ff725d46/kit/iso-kit.mjs';
+const iso = CV.iso({ paper: T.bg, ink: T.ink, lit: T.accent, weight: 1.4 });
+iso.solid(ctx, k.slabOf(plan, 0, 12, P, 8, 1.2), { tone: 'mid' });
+```
+
+- Tones come from `paper` and `ink` (`mode` 'dark' or 'light' is read from the paper): `hi`, `mid`, `lo`, `faint` for lines, `paper`, `face`, `top`, `shades[0..3]`, `litTop`, `litShade` and `halo` for fills, and `lit` (the film's accent: the one part to watch). `tones: { … }` overrides any of them.
+- `weight` is the line width in design px of the frame (default 1.5). Lines keep it at any camera zoom, like the kit's non-scaling strokes.
+- `iso.solid(ctx, paths, { tone: 'hi', crease: 'faint', halo, lit, flat, alpha, inner })` — a kit solid (`slabOf`, `cylinder`, `extrude`, `lathe`…): halo, paper fill, four side shades, top, crease, bevel, `inner(ctx)`, outline.
+- `iso.line(ctx, d, { tone: 'lo', dotted, dashed, width, alpha })` — any kit line path. A tone name or a colour.
+- `iso.dots(ctx, points, { size: 0.5, tone: 'mid' })` — screws and rivets: screen points `[x, y, alpha?]` from `k.iso`/`k.pointsAt`, `size` in figure units.
+- `iso.wire(ctx, from, to, { via, tone, ends: 'both', size })` — a connector with terminal dots.
+- `iso.halo(ctx, d, { blur: 9, dy: 3 })` — the soft shadow under a base (`k.haloOf`), blur and offset in figure units, so it grows with the object under a push.
+- `iso.faded(ctx, [[d, alpha], …], style)` — `ribsOf`/`dotsOf` results with `fade`. `iso.tube(ctx, piece, { tone })` — a piece from `tubePieces`.
+- `iso.tones`, `iso.unit(ctx)` (user units per design px under the current transform), `iso.path(d)` (the cached `Path2D`).
+
 ## Captions — `CV.subtitles`
 
 - `subtitles.build(text, words, {maxChars, minChars, lang, punctuation, offset})` → cues `[{start, end, text, words}]`.
