@@ -217,6 +217,11 @@ CV.create({ /* … */ scenes: [{ id: 'hero', draw(ctx, s) {
 
 - `gl.render(ctx, scene, camera, rect?)` — renders and draws onto the frame; `rect = [x, y, w, h]` renders into a region.
 - `gl.texture(key, w, h, (g, w, h) => {…})` — a `CanvasTexture` painted with the 2D API (labels, type in 3D), repainted once webfonts are ready.
+- `gl.map(src, { color = true, repeat, flipY })` — an image file as a texture (sRGB for colour, `color: false` for data maps), cached; the renderer waits for it.
+- `gl.pbr(dir, { repeat, normalScale, metalness, ao })` — `albedo/normal/roughness/ao(.jpg)` from one folder (as `gaga asset` and `gaga texture` write it), returned as material props to spread: `new THREE.MeshPhysicalMaterial({ ...gl.pbr('assets/oak', { repeat: 2 }) })`.
+- `gl.hdri(src)` — an equirectangular `.hdr` as a PMREM environment. The first call starts the download and returns `null`; assign it where the world is posed (`world.environment = gl.hdri(src)`), by the first frame it is the cached texture.
+- `gl.model(src, { shadows })` — a glTF/GLB inside a Group returned at once; filled before the first frame. Clips: `group.userData.animations`, played with `mixer.setTime(s.t)`.
+- A map, HDRI or model that fails to load stops `gaga still`/`render` with its path. Load files only through these: three's own loaders `fetch()`, which can't read `file://`.
 - `gl.studio({ sky, ground, panels: [{ az, el, w, h, intensity, color, tilt }], size, key })` — a studio built in code for reflections you direct: a dome and panels (softboxes, strips, black flags) placed in degrees (`az` 0 camera side, 90 right, 180 behind; `el` 0 horizon, 90 overhead; `w × h` in degrees, exact at any size: each panel is a patch of a sphere, and one that reaches the zenith becomes a round cap). Returns a PMREM texture for `scene.environment` or a material's `envMap`, cached per `key`; called with a changed spec under the same key it rebuilds (about 0.3 s per 1080p frame), so a glint strip can sweep as a function of `s.t`.
 - `gl.mirror(normal, camera, point?)` → `{ az, el }`: where a studio panel must sit for a surface with that world normal to reflect it into the camera (aim a glint).
 - `gl.project(x, y, z, camera)` → `[x, y]` in design px: 2D labels that ride a 3D point, match cuts between a 3D object and its flat shape.

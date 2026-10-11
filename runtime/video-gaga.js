@@ -764,6 +764,14 @@
   // Images (preloaded; the renderer waits for them)
   // ===========================================================================
   const imagePromises = [];
+  // assets that failed to load (3D maps, environments, models): a missing map
+  // would render a flat surface silently, so the renderer refuses to start
+  const assetErrors = [];
+  // wait for every pending asset, including ones queued while waiting
+  async function settleAssets() {
+    let n;
+    do { n = imagePromises.length; await Promise.all(imagePromises.slice()); } while (imagePromises.length !== n);
+  }
   function image(src) {
     const img = new Image();
     img.decoding = 'sync';
@@ -1758,10 +1766,12 @@
         OProto.measureText = function (txt) { rec.call(this, txt); return oMeasure.call(this, txt); };
       }
       for (const f of config.fonts || []) seen.set(f, (seen.get(f) || '') + 'AaBb0123');
-      await Promise.all(imagePromises);
+      await settleAssets();
       // Declared fonts first, so setup() can already rasterise text (3D textures).
       await Promise.all((config.fonts || []).map((f) => document.fonts.load(f).catch(() => [])));
       if (config.setup) await config.setup(api);
+      await settleAssets();
+      api.missingAssets = assetErrors.slice();
       // Warm-up pass: sample the timeline so every font+glyph combo gets requested.
       try {
         const step = Math.max(1, Math.round(fps / 6));
@@ -1794,7 +1804,7 @@
     }
 
     const api = {
-      W, H, fps, duration, totalFrames, canvas, ctx, scenes, cues, scale, bpm, sfx, missingFonts: [],
+      W, H, fps, duration, totalFrames, canvas, ctx, scenes, cues, scale, bpm, sfx, missingFonts: [], missingAssets: [],
       drawFrame: (f, sub = 0) => drawAt(subTime(f, sub), f),
       // What the renderer calls: if drawing the frame started a webfont download
       // (a glyph subset the warm-up never saw), wait for it and draw again, so the
@@ -1830,6 +1840,7 @@
         voice: scenes.filter((s) => s.voice && s.voice.file && !s.voice.estimated).map((s) => ({ id: s.id, file: s.voice.file, start: s.start + s.voiceDelay, duration: s.voice.duration, speech: speechEnd(s.voice) })),
         cues: cues.map((c) => ({ start: c.start, end: c.end, text: c.text })),
         missingFonts: api.missingFonts,
+        missingAssets: api.missingAssets,
         music: mus?.file || null,
         // beat grid + arrangement plan for the generated score (scripts/music.mjs)
         bpm, beatsPerBar, gridOffset,
@@ -1975,13 +1986,64 @@
     }
     const textures = new Map();
     const studios = new Map();
+    const maps = new Map(), hdris = new Map(), addons = new Map();
     let pmrem = null;
+    // three.js add-ons (loaders) come from the composition's import map
+    const addon = (file) => {
+      if (!addons.has(file)) addons.set(file, import(`three/addons/${file}`).catch((e) => {
+        throw new Error(`CV.three: could not import three/addons/${file}. Add "three/addons/" to the import map (docs/three-d.md). ${e.message}`);
+      }));
+      return addons.get(file);
+    };
+    // queue an asset load; the renderer waits for it, and a failure is recorded
+    const pending = (src, p) => imagePromises.push(p.catch((e) => {
+      assetErrors.push(src);
+      console.error(`[video-gaga] asset failed: ${src} (${e?.message || e})`);
+    }));
+    // three's loaders fetch(), which can't read file:// (how compositions are
+    // opened and rendered); XHR can, so files are read here and handed over as
+    // blob: URLs
+    const readFile = (src) => new Promise((res, rej) => {
+      const x = new XMLHttpRequest();
+      x.open('GET', src);
+      x.responseType = 'arraybuffer';
+      x.onload = () => (x.status === 0 || (x.status >= 200 && x.status < 300)) && x.response?.byteLength ? res(x.response) : rej(new Error(`not found (${x.status})`));
+      x.onerror = () => rej(new Error('not found'));
+      x.send();
+    });
+    const blobURL = async (src) => URL.createObjectURL(new Blob([await readFile(src)]));
+    const loadImage = (src) => new Promise((res, rej) => {
+      const img = new Image();
+      img.decoding = 'sync';
+      img.onload = () => res(img);
+      img.onerror = () => rej(new Error('not found or not an image'));
+      img.src = src;
+    });
     // Unit vector for azimuth/elevation in degrees: az 0 = the camera side (+z),
     // 90 = right (+x), 180 = behind; el 0 = horizon, 90 = overhead.
     const dirOf = (az, el) => {
       const a = (az * Math.PI) / 180, e = (el * Math.PI) / 180;
       return new THREE.Vector3(Math.cos(e) * Math.sin(a), Math.sin(e), Math.cos(e) * Math.cos(a));
     };
+    // An image file as a texture (a map from `gaga asset`/`gaga texture`, a
+    // generated label or a matcap). Cached per src and options; the renderer
+    // waits for it. color: true for colour (albedo, matcap, emissive: sRGB),
+    // false for data (normal, roughness, ao, metalness: linear).
+    // repeat: n or [u, v] tiles across the UVs.
+    function mapTex(src, o = {}) {
+      const color = o.color ?? true, rep = Array.isArray(o.repeat) ? o.repeat : [o.repeat ?? 1, o.repeat ?? 1];
+      const key = JSON.stringify([src, color, rep, o.flipY ?? true]);
+      if (maps.has(key)) return maps.get(key);
+      const tex = new THREE.Texture();
+      tex.colorSpace = color ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(rep[0], rep[1]);
+      tex.flipY = o.flipY ?? true;
+      tex.anisotropy = Math.min(o.anisotropy ?? 8, renderer.capabilities.getMaxAnisotropy());
+      maps.set(key, tex);
+      pending(src, loadImage(src).then((img) => { tex.image = img; tex.needsUpdate = true; }));
+      return tex;
+    }
     function buildStudio(spec) {
       const R = 10, scene = new THREE.Scene();
       // the dome: ground colour below the horizon, sky colour above, blended over ±10°
@@ -2071,6 +2133,76 @@
         const v = new THREE.Vector3().setFromMatrixPosition(camera.matrixWorld).sub(point).normalize();
         const r = n.multiplyScalar(2 * n.dot(v)).sub(v); // v reflected about n
         return { az: (Math.atan2(r.x, r.z) * 180) / Math.PI, el: (Math.asin(clamp(r.y, -1, 1)) * 180) / Math.PI };
+      },
+      // An image file as a texture (a map from `gaga asset`/`gaga texture`, a
+      // generated label or a matcap). Cached per src and options; the renderer
+      // waits for it. color: true for colour (albedo, matcap, emissive, sRGB),
+      // false for data (normal, roughness, ao, metalness: linear).
+      // repeat: n or [u, v] tiles across the UVs.
+      map: mapTex,
+      // A PBR set in one folder, as `gaga asset` and `gaga texture` write it:
+      // albedo.jpg, normal.jpg, roughness.jpg, ao.jpg (+ metalness.jpg with
+      // { metalness: true }). Returns material props to spread:
+      //   new THREE.MeshPhysicalMaterial({ ...gl.pbr('assets/oak', { repeat: 2 }) })
+      // A roughness or metalness map multiplies the material's value: leave
+      // roughness at 1 (the default) unless you mean to scale it.
+      pbr(dir, o = {}) {
+        const f = (n, color) => mapTex(`${dir.replace(/\/$/, '')}/${n}.jpg`, { ...o, color });
+        const m = { map: f('albedo', true), normalMap: f('normal', false), roughnessMap: f('roughness', false) };
+        if (o.ao !== false) m.aoMap = f('ao', false);
+        if (o.metalness) { m.metalnessMap = f('metalness', false); m.metalness = 1; }
+        if (o.normalScale != null) m.normalScale = new THREE.Vector2(o.normalScale, o.normalScale);
+        return m;
+      },
+      // An equirectangular .hdr (`gaga asset <project> polyhaven:<id>`) as a
+      // PMREM environment for scene.environment or a material's envMap. The
+      // first call starts the download; it returns null until the file is in
+      // (the renderer waits for it), then the cached texture. So call it once
+      // at load and assign it where the world is posed:
+      //   world.environment = gl.hdri('assets/studio_small_09.hdr');
+      hdri(src) {
+        const e = hdris.get(src);
+        if (e) return e.tex;
+        const entry = { tex: null };
+        hdris.set(src, entry);
+        pending(src, addon('loaders/HDRLoader.js').then(async (mod) => {
+          const Loader = mod.HDRLoader || mod.RGBELoader;
+          const eq = await new Loader().loadAsync(await blobURL(src));
+          eq.mapping = THREE.EquirectangularReflectionMapping;
+          pmrem = pmrem || new THREE.PMREMGenerator(renderer);
+          entry.tex = pmrem.fromEquirectangular(eq).texture;
+          eq.dispose();
+        }));
+        return null;
+      },
+      // A glTF/GLB model. Returns a Group at once (add it, place it); the
+      // model's scene is put inside it when it loads, before the first frame.
+      // Its animation clips are on group.userData.animations: drive them with
+      // an AnimationMixer and mixer.setTime(s.t) in draw, never update(dt).
+      // { shadows: true } makes every mesh cast and receive shadows.
+      model(src, o = {}) {
+        const group = new THREE.Group();
+        group.name = src;
+        pending(src, addon('loaders/GLTFLoader.js').then(async ({ GLTFLoader }) => {
+          const base = src.slice(0, src.lastIndexOf('/') + 1), buf = await readFile(src);
+          const manager = new THREE.LoadingManager();
+          if (!/\.glb$/i.test(src)) {
+            // a .gltf names its buffers and images: read each one, map its URL to a blob
+            const json = JSON.parse(new TextDecoder().decode(buf)), urls = new Map();
+            const uris = [...(json.buffers || []), ...(json.images || [])].map((r) => r.uri).filter((u) => u && !u.startsWith('data:'));
+            await Promise.all(uris.map(async (u) => urls.set(decodeURI(u), await blobURL(base + u))));
+            manager.setURLModifier((url) => {
+              const d = decodeURI(url);
+              for (const [u, b] of urls) if (d.endsWith(u)) return b;
+              return url;
+            });
+          }
+          const gltf = await new GLTFLoader(manager).parseAsync(buf, base);
+          if (o.shadows) gltf.scene.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
+          group.add(gltf.scene);
+          group.userData.animations = gltf.animations;
+        }));
+        return group;
       },
       // A CanvasTexture painted with the 2D API (text and labels in 3D). Cached
       // per key and repainted once webfonts are ready. paint(g, w, h) must be pure.

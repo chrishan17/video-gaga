@@ -47,6 +47,7 @@ Native formats: most are 16:9; Swiss Kinetic is 1:1; Neon Circuit and Pop Collag
 - **KIT:** `lathe`, `shadowed` (building the object) · `poseStage` (every pose from time) · `project` (3D → 2D) · `sweep` (the backdrop) · `callout`
 - **Transitions:** camera-continuous cuts, `zoomBlur`, `flash`
 - **Captions:** pale box, ink text
+- **Surfaces:** a real studio HDRI (`polyhaven:studio_small_09`), a generated speckled-stoneware glaze (`gaga texture --prompt … --neutral`, tinted per colourway) and a scanned knit (`polyhaven:jersey_melange`); see `assets/CREDITS.md`.
 - **Render tip:** a 3D frame costs ~4× a 2D frame; draft with `--scale 0.5 --format jpeg`.
 
 ## 3. Clear Explainer — `clear-explainer`
@@ -88,6 +89,7 @@ Native formats: most are 16:9; Swiss Kinetic is 1:1; Neon Circuit and Pop Collag
 - **Type:** Noto Serif SC 900/700 · Noto Sans SC 500/700 · IBM Plex Mono
 - **Motion character:** the globe turns to each place as it is named (shortest path, continuous across cuts); arcs draw on with a bright head; 2D labels ride projected 3D points.
 - **KIT:** `setGlobe`, `project`, `viewLerp`, `track` (globe pose, projection and camera moves) · `isLand` (land mask) · `backdrop`, `kicker`
+- **Surfaces:** flat on purpose: the globe is a dot matrix and the data is emissive light, so it has no maps and no environment; a photographic Earth would fight the graphics-desk look.
 - **Transitions:** beat-snapped cuts while the camera keeps moving, dissolves into a data panel
 - **Captions:** navy box, light text
 

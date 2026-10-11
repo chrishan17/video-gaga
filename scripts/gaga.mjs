@@ -10,6 +10,10 @@
 //   node scripts/gaga.mjs gif    <video.mp4> [--out x.gif] [--width 480] [--fps 12]
 //   node scripts/gaga.mjs init   <dir> [--preset <slug>]
 //   node scripts/gaga.mjs voices [--lang zh-CN]
+//   node scripts/gaga.mjs asset  <project> polyhaven:<id> [--res 1k]
+//   node scripts/gaga.mjs asset  find <words…> [--type textures]
+//   node scripts/gaga.mjs texture <image> [--seamless] [--delight]
+//   node scripts/gaga.mjs texture <project> --prompt "<surface>" --name <name> [--matcap]
 //
 // Run `node scripts/gaga.mjs help` for all options.
 
@@ -19,6 +23,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { assetCmd, textureCmd, readManifest, writeManifest, restoreAssets } from './assets.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -167,8 +172,18 @@ function checkRuntime(html) {
   if (!fs.readFileSync(local).equals(fs.readFileSync(path.join(ROOT, 'runtime', 'video-gaga.js')))) log(`  ⚠ ${path.relative(process.cwd(), local)} differs from the skill's runtime (copied by an older \`gaga init\`?): newer options may be ignored. Update it: cp ${path.relative(process.cwd(), path.join(ROOT, 'runtime', 'video-gaga.js'))} ${path.relative(process.cwd(), local)}`);
 }
 
+// assets/ is rebuilt from assets/assets.json where it lacks something (a fresh
+// clone keeps only the manifest and the original pictures in git)
+async function ensureAssets(dir) {
+  if (!Object.keys(readManifest(path.join(dir, 'assets'))).length) return;
+  const { restored, failed } = await restoreAssets(dir, { log: () => {} });
+  if (restored.length) log(`  assets restored from assets.json: ${restored.join(', ')}`);
+  for (const f of failed) log(`  ⚠ could not restore ${f.key}: ${f.error}`);
+}
+
 async function openComposition(browser, html, q) {
   checkRuntime(html);
+  await ensureAssets(path.dirname(html));
   const page = await browser.newPage({ viewport: { width: 800, height: 600 }, deviceScaleFactor: 1 });
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
@@ -179,6 +194,8 @@ async function openComposition(browser, html, q) {
   if (!ok) die(`composition did not call CV.create() — page errors:\n  ${errors.join('\n  ') || '(none)'}`);
   await page.evaluate(() => window.__CV.ready());
   const info = await page.evaluate(() => window.__CV.info());
+  // a map, environment or model that failed would render a flat or empty shot
+  if (info.missingAssets?.length) die(`assets failed to load (paths are relative to video.html):\n  ${info.missingAssets.join('\n  ')}${errors.length ? `\n${errors.join('\n  ')}` : ''}`);
   return { page, info, errors };
 }
 
@@ -879,6 +896,25 @@ async function init(opts) {
     htmlSrc = htmlSrc.replace(/width:\s*\d+/, `width: ${w}`).replace(/height:\s*\d+/, `height: ${h}`);
   }
   fs.writeFileSync(path.join(dir, 'video.html'), htmlSrc);
+  // the preset's assets (maps, HDRIs, models) that the kept code still names: their
+  // manifest entries, original pictures and credits; the files are then restored
+  const srcAssets = path.join(path.dirname(tpl), 'assets'), dstAssets = path.join(dir, 'assets');
+  const manifest = readManifest(srcAssets);
+  const used = Object.keys(manifest).filter((k) => new RegExp(`['"\`]assets/${k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"\`]`).test(htmlSrc));
+  if (used.length) {
+    writeManifest(dstAssets, Object.fromEntries(used.map((k) => [k, manifest[k]])));
+    for (const k of used) {
+      const src = manifest[k].source;
+      if (src?.startsWith('src/')) fs.cpSync(path.join(srcAssets, src), path.join(dstAssets, src));
+    }
+    const credits = path.join(srcAssets, 'CREDITS.md');
+    if (fs.existsSync(credits)) {
+      const lines = fs.readFileSync(credits, 'utf8').split('\n').filter((l) => !l.startsWith('- `') || used.includes(l.slice(3, l.indexOf('`', 3))));
+      fs.writeFileSync(path.join(dstAssets, 'CREDITS.md'), lines.join('\n'));
+    }
+    const { failed } = await restoreAssets(dir);
+    for (const f of failed) log(`  ⚠ could not restore ${f.key} (render will retry): ${f.error}`);
+  }
   // the example's narration.json is not copied: the words are written for this brief
   fs.writeFileSync(path.join(dir, '.gitignore'), 'build/\nout/\n');
   if (slug) {
@@ -1086,6 +1122,9 @@ async function doctor() {
   const uv = has('uv');
   const py = spawnSync('python3', ['-c', 'import edge_tts;print(edge_tts.__version__)'], { encoding: 'utf8' });
   row(uv || py.status === 0, 'edge-tts', uv ? 'via uv (fetched on first use)' : py.status === 0 ? `python edge-tts ${py.stdout.trim()}` : 'install uv (recommended) or pip install edge-tts');
+  // generated surfaces for three.js shots (not required: any image model will do)
+  const codex = spawnSync('codex', ['--version'], { encoding: 'utf8' });
+  log(`  ${'·'} ${'codex (optional)'.padEnd(18)} ${codex.status === 0 ? `${codex.stdout.trim()}: gaga texture --prompt generates surfaces` : 'not found: generate textures with any image model, then gaga texture <image>'}`);
   // the instrument samples for the score (downloaded once, 40 MB)
   const { loadSoundfont, SOUNDFONT } = await import('./soundfont.mjs');
   const sf = await loadSoundfont({ log });
@@ -1140,6 +1179,21 @@ init <dir>                    scaffold a blank project: the render contract, no 
     --preset <slug>           start from a preset's style instead: its THEME and KIT helpers,
                               without the example's scenes, score or narration
 voices [--lang zh-CN]         list Edge TTS voices
+asset find <words…>           search Poly Haven (CC0) for ids  [--type hdris|textures|models --limit 12]
+asset restore <project>       rebuild assets/ from assets/assets.json (render, still and moodboard do it
+                              first): fetch from Poly Haven, derive maps from assets/src  [--force]
+asset <project> polyhaven:<id>  a CC0 HDRI, PBR texture set or glTF model from Poly Haven into
+                              <project>/assets (credited in assets/CREDITS.md, cached for every
+                              project in ~/.cache/video-gaga/assets)  [--res 1k|2k|4k]
+texture <project> --prompt "<surface>" --name <name>   generate the albedo with Codex CLI and derive
+                              assets/<name>/ (the prompt goes into CREDITS.md); --matcap generates a lit
+                              sphere instead → assets/<name>.png for MeshMatcapMaterial
+texture <image>               an albedo image (generated or photographed) → a PBR folder: albedo,
+                              normal, roughness and ao jpgs for gl.pbr()
+    --out <dir>  --size 1024|source  --seamless (make it tile)  --delight (remove baked shading)
+    --strength 2 (normal depth)  --rough 0.45,0.85 (high..low points)  --invert  --ao 1
+    --neutral [0.82]          grey albedo with this mean, so material.color tints it (colourways)
+    --only albedo,…           write only these maps (e.g. neutralise a scanned set's albedo in place)
 `;
 
 const opts = parseArgs(process.argv.slice(2));
@@ -1162,6 +1216,7 @@ async function checkCmd(o) {
   process.exitCode = issues.length ? 2 : 0;
 }
 
-const main = { doctor, render, still, moodboard, music: musicCmd, tts: (o) => tts(resolveProject(o._[1]).dir), check: checkCmd, gif, init, voices }[cmd];
+const main = { doctor, render, still, moodboard, music: musicCmd, tts: (o) => tts(resolveProject(o._[1]).dir), check: checkCmd, gif, init, voices,
+  asset: (o) => assetCmd(o, { log, die, resolveProject }), texture: (o) => textureCmd(o, { log, die, resolveProject }) }[cmd];
 if (!main) { log(HELP); process.exit(cmd && cmd !== 'help' ? 1 : 0); }
 Promise.resolve(main(opts)).catch((e) => die(e.stack || e.message));
