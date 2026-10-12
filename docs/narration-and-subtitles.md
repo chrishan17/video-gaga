@@ -32,6 +32,21 @@ Per-segment `voice`, `rate`, `pitch` and `volume` override the defaults, so you 
 
 **Word granularity.** English gives one event per word. Chinese voices return **segmented words** (for example `画布 / 就 / 是 / 你 / 的 / 摄影棚`). Punctuation is never included, and the runtime re-aligns the words to your original text to recover it. `s.when('摄影棚')` works on any contiguous run of words, and on a substring inside a single word.
 
+### Qwen-TTS (`"engine": "qwen"`)
+
+When the user asks for Qwen, or wants a voice Edge doesn't have, set the engine in `narration.json`:
+
+```json
+{ "engine": "qwen", "voice": "Andre", "lang": "en-US", "model": "qwen3-tts-flash",
+  "segments": [ { "id": "hook", "text": "…" } ] }
+```
+
+- The audio comes from Alibaba Bailian's Qwen-TTS API: `DASHSCOPE_API_KEY` in the environment, plus `DASHSCOPE_BASE_URL=https://dashscope-intl.aliyuncs.com/api/v1` for an international-region key. Voices are Bailian's (for example `Andre`, `Ethan`, `Cherry`); `language_type` is read from `lang`. At most 600 characters per segment; billed per character, so try one segment before the rest.
+- `instructions` (a tone instruction) only works with `"model": "qwen3-tts-instruct-flash"`, where the key's region offers it.
+- The API returns no word timings. Each clip is levelled to −16 LUFS, then aligned to its text by **Qwen3-ForcedAligner** (`scripts/align.py`, mlx-audio, Apple Silicon; ~1 GB downloaded once). Timings come in 80 ms steps, so `s.when()` is a frame or two coarser than with Edge.
+- Clips are cached by (text, voice, model, instructions, language); a clip whose audio exists but whose alignment failed is only re-aligned, not paid for again.
+- Write numbers as words ("two thirty", "twenty-five million") so the voice and the aligner read them the same way, and back-transcribe the clips once (any ASR) to catch a misread word.
+
 ## 2. Picking a voice
 
 List them all with `node scripts/gaga.mjs voices --lang zh-CN`. These are tested and recommended:

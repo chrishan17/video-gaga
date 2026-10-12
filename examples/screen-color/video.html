@@ -1,0 +1,763 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Same numbers, different lights</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700&family=JetBrains+Mono:wght@500;600&display=block" rel="stylesheet">
+</head>
+<body>
+<script src="build/narration.js"></script>
+<script src="../../runtime/video-gaga.js"></script>
+<script type="module">
+// One pixel of an LCD, built as a bench instrument with the anatomy kit
+// (github.com/wheresryan22/anatomy), and the two monitors it lives in.
+// Numbers turn three crystal dials; the dials let the backlight through three
+// colour filters; the light blends into a colour. Swap the filters and the
+// same numbers make a different colour. Every colour on screen comes from the
+// model below (SOURCES.md).
+import * as k from 'https://cdn.jsdelivr.net/gh/wheresryan22/anatomy@dbf697a527bbf7d358668e1557cb1e35ff725d46/kit/iso-kit.mjs';
+const { ease, clamp, lerp, draw, color } = CV;
+const W = 1920, H = 1080;
+
+// === THEME ===================================================================
+const T = {
+  bg: '#131313', ink: '#E6E6E6', muted: '#8F8F8F', dim: '#5A5A5A',
+  red: '#FF4B3A', green: '#3BE07A', blue: '#4A7BFF',
+  sans: 'Inter, sans-serif', mono: '"JetBrains Mono", monospace',
+};
+const iso = CV.iso({
+  paper: T.bg, ink: T.ink, lit: '#FFFFFF', weight: 1.8,
+  tones: { hi: color.mix(T.bg, T.ink, 0.9), mid: color.mix(T.bg, T.ink, 0.56), lo: color.mix(T.bg, T.ink, 0.36), faint: color.mix(T.bg, T.ink, 0.22) },
+});
+
+// === THE MODEL ===============================================================
+// sRGB numbers → linear light; a panel's filters (primaries) → the colour seen.
+const toLin = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+const ORANGE = [230, 120, 50];               // the image's numbers (sRGB)
+const SEEN = { std: [230, 120, 50], deep: [247, 112, 15] }; // what each panel shows for ORANGE (SOURCES.md)
+const FIXED = [216, 126, 67];                // what colour management sends the deep (P3) panel
+const rgb = (c, a = 1) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+const mixRGB = (a, b, p) => a.map((v, i) => Math.round(lerp(v, b[i], p)));
+// a crystal dial: open (slot along x) passes all, crossed blocks; transmission = cos²
+const angleFor = (v) => Math.acos(Math.sqrt(toLin(v)));
+const LIGHT = [[255, 70, 50], [60, 230, 120], [70, 120, 255]];     // the three beams as drawn
+const PANE = { std: ['#E2503F', '#3DBB6E', '#4468D8'], deep: ['#8E0618', '#06703A', '#2135A8'] };
+const PANE_ALPHA = { std: 0.62, deep: 0.92 };
+
+// === PIXEL MODULE: world units ≈ px, z up ====================================
+const PLATE = { x: -150, y: -96, w: 300, d: 192, r: 8 }, PLATE_H = 12, FOOT_H = 5;
+const STACK = { x: -96, y: -62, w: 192, d: 124, r: 4 };
+const Z = { light: 0, lightTop: 18, pol: 18, polTop: 20, cell: 20, cellTop: 34, cart: 34, cartTop: 39, bezel: 39, bezelTop: 43 };
+const CELLS = [0, 1, 2].map((i) => ({ x: -84 + 58 * i, y: -52, w: 52, d: 104, r: 2 }));
+const CX = CELLS.map((c) => c.x + c.w / 2);
+const DIAL_R = 15;
+const DRIVER = { x: 108, y: -58, w: 32, d: 64, r: 3 };
+const BEAM_H = 110, MERGE_Z = Z.bezelTop + 122;
+
+// fitted to the machine itself; light and the exploded layers rise above the box
+const BOX = { w: 1180, h: 760 };
+const P = k.fitProjection(
+  [...k.boxCorners(PLATE, -PLATE_H - FOOT_H, 0), ...k.boxCorners(STACK, 0, Z.bezelTop + 10)],
+  BOX.w, BOX.h, { pad: 10, azimuth: 40 },
+);
+const at = (p, Pr = P) => k.iso(p, Pr);
+const S = (paths, style) => (ctx) => iso.solid(ctx, paths, style);
+const L = (d, style) => (ctx) => iso.line(ctx, d, style);
+const D = (pts, style) => (ctx) => iso.dots(ctx, pts, style);
+const byDepth = (items, Pr = P) => [...items].sort((a, b) => k.depthOf(a.c, Pr) - k.depthOf(b.c, Pr));
+const paint = (ctx, list) => { for (const f of list) f(ctx); };
+
+function basePlate() {
+  const out = [(ctx) => iso.halo(ctx, k.haloOf(PLATE, -PLATE_H - FOOT_H, PLATE_H, P), { blur: 16, dy: 6 })];
+  for (const [x, y] of k.corners(PLATE, 24).sort((a, b) => k.depthOf([...a, 0], P) - k.depthOf([...b, 0], P))) {
+    out.push(S(k.cylinder(x, y, 8, -PLATE_H - FOOT_H, 1.6, P, 28), { tone: 'lo' }));
+    out.push(S(k.cylinder(x, y, 6, -PLATE_H - FOOT_H + 1.6, FOOT_H - 1.6, P, 28), { tone: 'mid' }));
+  }
+  out.push(S(k.slabOf(PLATE, -PLATE_H, PLATE_H, P, 8, 1.6), { tone: 'mid' }));
+  out.push(L(k.planOutline(k.insetPlan(PLATE, 6), 0, P), { tone: 'faint' }));
+  const screws = k.corners(PLATE, 11);
+  out.push(L(screws.map(([x, y]) => k.ring(x, y, 2.4, 0, P, 16)).join(''), { tone: 'lo' }));
+  out.push(D(screws.map(([x, y]) => at([x, y, 0])), { size: 0.6 }));
+  // ruler strip along the front edge
+  const strip = { x: -92, y: PLATE.y + PLATE.d - 20, w: 184, d: 8, r: 1 };
+  out.push(S(k.slabOf(strip, 0, 0.8, P, 3), { tone: 'lo', crease: 'none' }));
+  const ticks = k.topTicks(strip.x + 4, strip.x + strip.w - 4, 4, 5, strip.y + 1, 0.8, [2.2, 4], P);
+  out.push(L(ticks.minor, { tone: 'lo' }), L(ticks.major, { tone: 'mid' }));
+  // label plate with three rule lines
+  const label = { x: -142, y: 20, w: 34, d: 56, r: 2 };
+  out.push(S(k.slabOf(label, 0, 1, P, 3), { tone: 'lo', crease: 'none' }));
+  for (const [i, len] of [[0, 40], [1, 32], [2, 22]]) out.push(L(k.lineOnTop([label.x + 8 + i * 7, label.y + 7], [label.x + 8 + i * 7, label.y + 7 + len], 1, P), { tone: 'faint' }));
+  out.push(D([at([label.x + 4, label.y + 4, 1]), at([label.x + 4, label.y + label.d - 4, 1]), at([label.x + label.w - 4, label.y + 4, 1]), at([label.x + label.w - 4, label.y + label.d - 4, 1])], { size: 0.5 }));
+  // the driver board: where the numbers come in
+  out.push((ctx) => iso.halo(ctx, k.haloOf(DRIVER, 0, 1, P), { blur: 4, dy: 2 }));
+  out.push(S(k.slabOf(DRIVER, 0, 4, P, 3, 0.5), { tone: 'mid' }));
+  const chip = { x: DRIVER.x + 7, y: DRIVER.y + 14, w: 18, d: 22, r: 1 };
+  out.push(S(k.slabOf(chip, 4, 3, P, 2, 0.4), { tone: 'hi', crease: 'lo' }));
+  const pins = [];
+  for (let i = 0; i < 6; i++) { pins.push(at([chip.x - 1.2, chip.y + 3 + i * 3.2, 4])); pins.push(at([chip.x + chip.w + 1.2, chip.y + 3 + i * 3.2, 4])); }
+  out.push(D(pins, { size: 0.45, tone: 'hi' }));
+  out.push(L(k.ring(chip.x + 4, chip.y + 4, 1.4, 7, P, 12), { tone: 'lo' }));
+  out.push(D(k.corners(DRIVER, 3.5).map(([x, y]) => at([x, y, 4])), { size: 0.5 }));
+  // connector header on the driver, facing the stack
+  const header = { x: DRIVER.x + 1, y: DRIVER.y + 44, w: 8, d: 16, r: 1 };
+  out.push(S(k.slabOf(header, 4, 4, P, 2, 0.3), { tone: 'mid' }));
+  return out;
+}
+
+function backlight() {
+  const out = [(ctx) => iso.halo(ctx, k.haloOf(STACK, 0, 1, P), { blur: 8, dy: 3 })];
+  out.push(S(k.slabOf(STACK, Z.light, Z.lightTop - Z.light, P, 6, 0.8), { tone: 'mid', inner: (ctx) => iso.line(ctx, k.sideSeam(STACK, 6, P, 6), { tone: 'faint' }) }));
+  out.push(L(k.planOutline(k.insetPlan(STACK, 5), Z.lightTop, P), { tone: 'lo' }));
+  // the LED bar seen through the diffuser along the front edge
+  const leds = []; for (let i = 0; i < 14; i++) leds.push([STACK.x + 14 + i * 12.6, STACK.y + STACK.d - 9]);
+  out.push((ctx) => {}); // placeholder slot for the glow (drawn in module())
+  out.push(D(leds.map(([x, y]) => at([x, y, Z.lightTop])), { size: 0.9, tone: 'hi' }));
+  return out;
+}
+const DIFFUSER = k.insetPlan(STACK, 5);
+
+function polariser() {
+  const plan = k.insetPlan(STACK, 3);
+  const out = [S(k.slabOf(plan, Z.pol, Z.polTop - Z.pol, P, 4), { tone: 'lo', crease: 'none' })];
+  const lines = [];
+  for (let y = plan.y + 6; y < plan.y + plan.d - 4; y += 6) lines.push(k.lineOnTop([plan.x + 4, y], [plan.x + plan.w - 4, y], Z.polTop, P));
+  out.push(L(lines.join(''), { tone: 'faint', width: 1.1 }));
+  // two pull tabs
+  for (const x of [plan.x + 20, plan.x + plan.w - 34]) out.push(S(k.slabOf({ x, y: plan.y - 6, w: 14, d: 8, r: 1.5 }, Z.pol, 1.2, P, 2), { tone: 'lo', crease: 'none' }));
+  return out;
+}
+
+function cellFrame() {
+  const out = [S(k.slabOf(STACK, Z.cell, Z.cellTop - Z.cell, P, 6, 0.8), { tone: 'mid' })];
+  for (const c of CELLS) {
+    out.push(L(k.planOutline(c, Z.cellTop, P, 3), { tone: 'lo' }));
+    out.push(D(k.corners(c, 4).map(([x, y]) => at([x, y, Z.cellTop])), { size: 0.45 }));
+  }
+  CX.forEach((x) => {
+    const t = k.radialTicks(x, 0, DIAL_R + 7, 36, 9, Z.cellTop, [1.6, 3.4], P);
+    out.push(L(t.minor, { tone: 'lo' }), L(t.major, { tone: 'mid' }));
+    // the open mark (slot along x) and the closed mark
+    out.push(D([at([x + DIAL_R + 11, 0, Z.cellTop]), at([x - DIAL_R - 11, 0, Z.cellTop])], { size: 0.8, tone: 'hi' }));
+  });
+  // flex connector on the +x face
+  const flex = { x: STACK.x + STACK.w, y: -10, w: 5, d: 26, r: 1 };
+  out.push(S(k.slabOf(flex, Z.cell + 3, 7, P, 2, 0.3), { tone: 'mid' }));
+  out.push(D([0, 1, 2, 3, 4].map((i) => at([flex.x + 5, flex.y + 4 + i * 4.5, Z.cell + 6.5])), { size: 0.45, tone: 'hi' }));
+  return out;
+}
+const dialSolid = CX.map((x) => k.cylinder(x, 0, DIAL_R, Z.cellTop, 2.4, P, 48, 0.5));
+function dial(ctx, i, theta, { lit = false } = {}) {
+  const x = CX[i], z = Z.cellTop + 2.4;
+  iso.solid(ctx, dialSolid[i], { tone: 'hi', crease: 'lo', lit });
+  const c = Math.cos(theta), s = Math.sin(theta), r = DIAL_R - 2.4, w = 2.2;
+  // the slot: a long narrow window across the dial
+  const pts = [[x - c * r - s * w, -s * r + c * w], [x + c * r - s * w, s * r + c * w], [x + c * r + s * w, s * r - c * w], [x - c * r + s * w, -s * r - c * w]];
+  iso.line(ctx, k.onTop(pts, z, P, true), { tone: lit ? 'lit' : 'mid' });
+  iso.line(ctx, k.ring(x, 0, 2.2, z, P, 16), { tone: 'lo' });
+}
+
+const CART_BARS = [
+  { x: -96, y: -62, w: 192, d: 10, r: 2 }, { x: -96, y: -52, w: 12, d: 104, r: 0 },
+  { x: -32, y: -52, w: 6, d: 104, r: 0 }, { x: 26, y: -52, w: 6, d: 104, r: 0 },
+  { x: 84, y: -52, w: 12, d: 104, r: 0 }, { x: -96, y: 52, w: 192, d: 10, r: 2 },
+];
+const WINDOWS = CELLS.map((c) => ({ x: c.x, y: c.y, w: c.w, d: c.d, r: 0 }));
+function cartridge(set) {
+  const out = [];
+  WINDOWS.forEach((w, i) => out.push((ctx) => {
+    ctx.save(); ctx.globalAlpha *= PANE_ALPHA[set];
+    ctx.fillStyle = PANE[set][i]; ctx.fill(iso.path(k.slabOf(w, Z.cart + 1, 2, P, 1).fill));
+    ctx.restore();
+    iso.line(ctx, k.planOutline(w, Z.cart + 3, P, 1), { tone: 'lo' });
+  }));
+  for (const b of CART_BARS) out.push(S(k.slabOf(b, Z.cart, Z.cartTop - Z.cart, P, 2, b.r ? 0.5 : 0), { tone: 'mid', crease: 'faint' }));
+  // the pull tab with grip ridges, on the +x side
+  const tab = { x: 96, y: -16, w: 12, d: 32, r: 3 };
+  out.push(S(k.slabOf(tab, Z.cart + 0.5, 3.5, P, 3, 0.4), { tone: 'hi', crease: 'lo' }));
+  out.push(L([0, 1, 2, 3, 4].map((i) => k.lineOnTop([tab.x + 3 + i * 1.6, tab.y + 6], [tab.x + 3 + i * 1.6, tab.y + tab.d - 6], Z.cart + 4, P)).join(''), { tone: 'lo' }));
+  // set marking: dots on the front bar, one for standard, two for deep
+  out.push(D((set === 'std' ? [0] : [0, 1]).map((j) => at([-80 + j * 5, 57, Z.cartTop])), { size: 0.9, tone: 'hi' }));
+  return out;
+}
+const CART = { std: cartridge('std'), deep: cartridge('deep') };
+
+function bezel() {
+  const bars = [
+    { x: -96, y: -62, w: 192, d: 9, r: 3 }, { x: -96, y: -53, w: 9, d: 106, r: 0 },
+    { x: 87, y: -53, w: 9, d: 106, r: 0 }, { x: -96, y: 53, w: 192, d: 9, r: 3 },
+  ];
+  const out = bars.map((b) => S(k.slabOf(b, Z.bezel, Z.bezelTop - Z.bezel, P, 3, b.r ? 0.6 : 0), { tone: 'mid' }));
+  const screws = [[-91.5, -57.5], [91.5, -57.5], [-91.5, 57.5], [91.5, 57.5]];
+  out.push(L(screws.map(([x, y]) => k.ring(x, y, 2.2, Z.bezelTop, P, 14)).join(''), { tone: 'lo' }));
+  out.push(D(screws.map(([x, y]) => at([x, y, Z.bezelTop])), { size: 0.55 }));
+  return out;
+}
+const GLASS_LINES = (() => {
+  const out = [];
+  for (let x = -84; x <= 84; x += 7) out.push(k.lineOnTop([x, -50], [x, 50], Z.bezelTop - 1.5, P));
+  return out.join('');
+})();
+
+const PARTS = { base: basePlate(), light: backlight(), pol: polariser(), cell: cellFrame(), bezel: bezel() };
+
+// The pixel module at a pose: { lift: [l1..l5] z offsets, dials: [θ×3], glow 0..1,
+// set: 'std'|'deep', cart: { dx, dz, set }, beams: 0..1, values, merge 0..1, litDial }
+function module(ctx, pose) {
+  const lift = pose.lift ?? [0, 0, 0, 0, 0];
+  const shift = (dz, fn, dx = 0) => { const [x, y] = k.axisVector(P, [dx, 0, dz]); ctx.save(); ctx.translate(x, y); fn(); ctx.restore(); };
+  paint(ctx, PARTS.base);
+  // ribbon from the driver header to the cell frame's flex connector (rides the cell layer)
+  const from = at([DRIVER.x + 5, DRIVER.y + 52, 8]);
+  const [, ly] = k.axisVector(P, [0, 0, lift[2]]);
+  const to = at([STACK.x + STACK.w + 5, 3, Z.cell + 6.5]);
+  iso.wire(ctx, from, [to[0], to[1] + ly], { via: [[from[0] + 4, from[1] - 10], [to[0] + 22, to[1] + ly + 4]], tone: 'lo', size: 1.4 });
+  shift(lift[0], () => {
+    paint(ctx, PARTS.light);
+    const g = pose.glow ?? 0;
+    if (g > 0) {
+      ctx.save(); ctx.globalAlpha *= 0.3 * g; ctx.fillStyle = '#F4F1EA';
+      ctx.fill(iso.path(k.slabOf(DIFFUSER, Z.lightTop, 0.01, P, 4).fill)); ctx.restore();
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha *= 0.3 * g;
+      ctx.filter = `blur(${(10 * Math.hypot(ctx.getTransform().a, ctx.getTransform().b)).toFixed(1)}px)`;
+      ctx.fillStyle = '#FFFFFF'; ctx.fill(iso.path(k.slabOf(DIFFUSER, Z.lightTop, 0.01, P, 4).fill)); ctx.restore();
+    }
+  });
+  shift(lift[1], () => paint(ctx, PARTS.pol));
+  shift(lift[2], () => {
+    paint(ctx, PARTS.cell);
+    (pose.dials ?? [Math.PI / 2, Math.PI / 2, Math.PI / 2]).forEach((th, i) => dial(ctx, i, th, { lit: pose.litDial === i || pose.litDial === 'all' }));
+  });
+  const carts = [pose.cart ?? { dx: 0, dz: 0, set: 'std' }, pose.cart2].filter(Boolean)
+    .sort((a, b) => k.depthOf([a.dx ?? 0, 0, a.dz ?? 0], P) - k.depthOf([b.dx ?? 0, 0, b.dz ?? 0], P));
+  for (const c of carts) {
+    ctx.save(); ctx.globalAlpha *= c.alpha ?? 1;
+    shift(lift[3] + (c.dz ?? 0), () => paint(ctx, CART[c.set ?? 'std']), c.dx ?? 0);
+    ctx.restore();
+  }
+  shift(lift[4], () => {
+    paint(ctx, PARTS.bezel);
+    iso.line(ctx, GLASS_LINES, { tone: 'faint', width: 1, alpha: 0.6 });
+  });
+  if ((pose.beams ?? 0) > 0) beams(ctx, pose, lift[4]);
+}
+
+// Light rising from each window, tapering toward one point when it blends.
+function hull(pts) {
+  const p = [...pts].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lo = [], up = [];
+  for (const q of p) { while (lo.length >= 2 && cross(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop(); lo.push(q); }
+  for (const q of p.reverse()) { while (up.length >= 2 && cross(up[up.length - 2], up[up.length - 1], q) <= 0) up.pop(); up.push(q); }
+  return lo.slice(0, -1).concat(up.slice(0, -1));
+}
+function beams(ctx, pose, dz) {
+  const vals = pose.values ?? ORANGE, m = pose.merge ?? 0, b = pose.beams;
+  const z0 = Z.bezelTop + dz, z1 = z0 + lerp(BEAM_H, MERGE_Z - Z.bezelTop, m);
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  WINDOWS.forEach((w, i) => {
+    const a = (vals[i] / 255) * b;
+    if (a <= 0.003) return;
+    const bot = [[w.x + 3, w.y + 3], [w.x + w.w - 3, w.y + 3], [w.x + w.w - 3, w.y + w.d - 3], [w.x + 3, w.y + w.d - 3]];
+    const top = bot.map(([x, y]) => [lerp(x, x * 0.08, m), lerp(y, y * 0.08, m)]);
+    const pts = [...bot.map(([x, y]) => at([x, y, z0])), ...top.map(([x, y]) => at([x, y, z1]))];
+    const [, yb] = at([CX[i], 0, z0]), [, yt] = at([CX[i], 0, z1]);
+    const g = ctx.createLinearGradient(0, yb, 0, yt);
+    const c = LIGHT[i];
+    g.addColorStop(0, rgb(c, 0.5 * a)); g.addColorStop(0.7, rgb(c, 0.22 * a * (1 - m * 0.3))); g.addColorStop(1, rgb(c, m > 0.5 ? 0.35 * a : 0));
+    ctx.fillStyle = g;
+    const h = hull(pts);
+    ctx.beginPath(); h.forEach(([x, y], j) => (j ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.closePath(); ctx.fill();
+    // the pane itself glows
+    ctx.fillStyle = rgb(c, 0.4 * a);
+    ctx.fill(iso.path(k.slabOf(w, z0 - 0.5, 0.01, P, 1).fill));
+  });
+  ctx.restore();
+  if (m > 0.02 && pose.mixed) {
+    // where the three meet, the eye sees one colour
+    const r = 30 * ease.outCubic(clamp((m - 0.4) / 0.6));
+    if (r > 0.5) {
+      const ring = k.slabOf({ x: -r, y: -r, w: 2 * r, d: 2 * r, r }, z1 + dz * 0 - 0.5, 0.01, P, 16).fill;
+      ctx.save();
+      ctx.filter = `blur(${(14 * Math.hypot(ctx.getTransform().a, ctx.getTransform().b)).toFixed(1)}px)`;
+      ctx.globalAlpha = 0.55; ctx.fillStyle = rgb(pose.mixed); ctx.fill(iso.path(ring)); ctx.restore();
+      ctx.fillStyle = rgb(pose.mixed); ctx.fill(iso.path(ring));
+      iso.line(ctx, k.ring(0, 0, r, z1, P, 48), { tone: 'hi', alpha: 0.6 });
+    }
+  }
+}
+
+// === MONITORS: a desk with two screens ======================================
+const DESK = { x: -330, y: -95, w: 660, d: 190, r: 10 }, DESK_H = 10;
+const MON = [-160, 160];
+const PANEL = (cx) => ({ x: cx - 122, y: -16, w: 244, d: 10, r: 3 });
+const SCREEN_Z = [60, 196];
+const MBOX = { w: 1640, h: 720 };
+const PM = k.fitProjection(
+  [...k.boxCorners({ x: -290, y: -60, w: 580, d: 120 }, -DESK_H, 0), [MON[0] - 122, -16, 206], [MON[1] + 122, -6, 206], [MON[0] - 122, -6, 52], [MON[1] + 122, -6, 52]],
+  MBOX.w, MBOX.h, { pad: 10, azimuth: 66 },
+);
+const atM = (p) => k.iso(p, PM);
+function monitorParts(cx) {
+  const out = [];
+  const foot = { x: cx - 52, y: -46, w: 104, d: 62, r: 10 };
+  out.push((ctx) => iso.halo(ctx, k.haloOf(foot, 0, 1, PM), { blur: 8, dy: 3 }));
+  out.push(S(k.slabOf(foot, 0, 5, PM, 8, 0.8), { tone: 'mid' }));
+  out.push(L(k.planOutline(k.insetPlan(foot, 6), 5, PM), { tone: 'faint' }));
+  const neck = { x: cx - 9, y: -34, w: 18, d: 12, r: 3 };
+  out.push(S(k.slabOf(neck, 5, 66, PM, 4, 0.4), { tone: 'mid' }));
+  out.push(L(k.ring(cx, -28, 3.2, 5, PM, 14), { tone: 'lo' }));
+  // the VESA box behind the panel
+  const back = { x: cx - 50, y: -26, w: 100, d: 10, r: 4 };
+  out.push(S(k.slabOf(back, 80, 70, PM, 4, 0.4), { tone: 'mid' }));
+  const panel = PANEL(cx);
+  out.push(S(k.slabOf(panel, 52, 154, PM, 4, 0.6), { tone: 'hi', crease: 'lo' }));
+  return out;
+}
+const MONITORS = MON.map(monitorParts);
+const DESK_PARTS = (() => {
+  const out = [(ctx) => iso.halo(ctx, k.haloOf(DESK, -DESK_H - 4, DESK_H, PM), { blur: 18, dy: 6 })];
+  out.push(S(k.slabOf(DESK, -DESK_H, DESK_H, PM, 8, 1.4), { tone: 'mid' }));
+  out.push(L(k.planOutline(k.insetPlan(DESK, 8), 0, PM), { tone: 'faint' }));
+  const screws = k.corners(DESK, 12);
+  out.push(L(screws.map(([x, y]) => k.ring(x, y, 2.4, 0, PM, 16)).join(''), { tone: 'lo' }));
+  out.push(D(screws.map(([x, y]) => atM([x, y, 0])), { size: 0.6 }));
+  return out;
+})();
+// screen corners on the panel's front face (+y)
+const screenQuad = (cx) => { const y = -6, x0 = cx - 114, x1 = cx + 114; return [[x0, y, SCREEN_Z[1]], [x1, y, SCREEN_Z[1]], [x1, y, SCREEN_Z[0]], [x0, y, SCREEN_Z[0]]].map(atM); };
+const SCREENS = MON.map(screenQuad);
+function screen(ctx, i, col, on = 1) {
+  const q = SCREENS[i];
+  ctx.save();
+  ctx.beginPath(); q.forEach(([x, y], j) => (j ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.closePath();
+  ctx.fillStyle = '#0B0B0B'; ctx.fill();
+  ctx.globalAlpha = on; ctx.fillStyle = rgb(col); ctx.fill();
+  ctx.restore();
+  iso.line(ctx, 'M' + q.map(([x, y]) => `${x} ${y}`).join('L') + 'Z', { tone: 'lo' });
+  // power light on the chin
+  iso.dots(ctx, [atM([MON[i] + 104, -6, 56])], { size: 1.1, tone: on > 0.5 ? 'hi' : 'lo' });
+}
+function spill(ctx, i, col, a) {
+  if (a <= 0) return;
+  const pl = { x: MON[i] - 120, y: -6, w: 240, d: 70, r: 30 };
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.16 * a;
+  ctx.filter = `blur(${(22 * Math.hypot(ctx.getTransform().a, ctx.getTransform().b)).toFixed(1)}px)`;
+  ctx.fillStyle = rgb(col); ctx.fill(iso.path(k.slabOf(pl, 0.2, 0.01, PM, 8).fill)); ctx.restore();
+}
+// cols: [left, right] colours; on: 0..1; content(ctx, i): drawn in the screen's plane, 1000×600
+function desk(ctx, { cols = [SEEN.std, SEEN.deep], on = 1, rise = [1, 1], content } = {}) {
+  paint(ctx, DESK_PARTS);
+  MON.forEach((_, i) => spill(ctx, i, cols[i], on));
+  MON.forEach((_, i) => {
+    const r = rise[i];
+    if (r <= 0) return;
+    const [x, y] = k.axisVector(PM, [0, 0, (1 - r) * -30]);
+    ctx.save(); ctx.globalAlpha *= clamp(r * 1.5); ctx.translate(x, y);
+    paint(ctx, MONITORS[i]); screen(ctx, i, cols[i], on);
+    if (content) {
+      const [tl, tr, , bl] = SCREENS[i];
+      ctx.save();
+      ctx.transform((tr[0] - tl[0]) / 1000, (tr[1] - tl[1]) / 1000, (bl[0] - tl[0]) / 600, (bl[1] - tl[1]) / 600, tl[0], tl[1]);
+      content(ctx, i);
+      ctx.restore();
+    }
+    ctx.restore();
+  });
+}
+const MOX = (W - MBOX.w) / 2, MOY = 215;
+const screenCenter = (i) => { const q = SCREENS[i]; return [MOX + (q[0][0] + q[2][0]) / 2, MOY + (q[0][1] + q[2][1]) / 2]; };
+const screenBottom = (i) => { const q = SCREENS[i]; return [MOX + (q[2][0] + q[3][0]) / 2, MOY + Math.max(q[2][1], q[3][1])]; };
+
+// === TYPE ====================================================================
+function numbers(ctx, vals, x, y, size, { align = 'center', alpha = 1, colors = true, alphas = [1, 1, 1] } = {}) {
+  ctx.save();
+  ctx.globalAlpha *= alpha;
+  ctx.font = `600 ${size}px ${T.mono}`;
+  ctx.textBaseline = 'alphabetic';
+  const parts = vals.map((v) => String(Math.round(v)).padStart(3, ' '));
+  const gap = size * 0.9;
+  const widths = parts.map((p) => ctx.measureText(p).width);
+  const total = widths.reduce((a, b) => a + b, 0) + gap * 2;
+  let cx = align === 'center' ? x - total / 2 : align === 'right' ? x - total : x;
+  const cols = [T.red, T.green, T.blue];
+  const base = ctx.globalAlpha;
+  parts.forEach((p, i) => {
+    ctx.globalAlpha = base * alphas[i];
+    ctx.fillStyle = T.ink; ctx.textAlign = 'left'; ctx.fillText(p, cx, y);
+    if (colors) { ctx.fillStyle = cols[i]; ctx.fillRect(cx, y + size * 0.22, widths[i], Math.max(3, size * 0.06)); }
+    cx += widths[i] + gap;
+  });
+  ctx.restore();
+}
+function label(ctx, str, x, y, size, { align = 'left', col = T.muted, alpha = 1, weight = 500 } = {}) {
+  ctx.save(); ctx.globalAlpha *= alpha; ctx.font = `${weight} ${size}px ${T.sans}`; ctx.fillStyle = col; ctx.textAlign = align; ctx.fillText(str, x, y); ctx.restore();
+}
+
+
+// numbers drawn in a screen's own plane (1000 × 600), ink on the orange
+function onScreenNumbers(ctx, vals, { alpha = 1, tag = null, tagAlpha = 0 } = {}) {
+  ctx.save();
+  ctx.globalAlpha *= alpha;
+  ctx.font = `600 132px ${T.mono}`;
+  ctx.fillStyle = 'rgba(20,12,6,0.82)';
+  const parts = vals.map((v) => String(Math.round(v)));
+  let x = 60;
+  parts.forEach((p, i) => {
+    ctx.fillText(p, x, 520);
+    const w = ctx.measureText(p).width;
+    ctx.fillStyle = ['#7A0E06', '#0E5A2A', '#13307E'][i]; ctx.fillRect(x, 546, w, 11);
+    ctx.fillStyle = 'rgba(20,12,6,0.82)';
+    x += w + 70;
+  });
+  if (tag && tagAlpha > 0) {
+    ctx.globalAlpha = alpha * tagAlpha;
+    ctx.font = `700 88px ${T.sans}`;
+    ctx.fillText(tag, 60, 130);
+  }
+  ctx.restore();
+}
+
+// === LAYOUT of the module on screen ==========================================
+const MX = (W - BOX.w) / 2 - 150, MY = 110;
+const mPt = (p, dz = 0) => { const [a, b] = at([p[0], p[1], p[2] + dz]); return [MX + a, MY + b]; };
+const camPt = ([x, y], c) => [(x - c.focusX) * c.zoom + W / 2, (y - c.focusY) * c.zoom + H / 2];
+const OPEN = 0, SHUT = Math.PI / 2;
+const DIAL_SPRING = { ratio: 0.63, hz: 3.3 };
+const LIFT_SPRING = { ratio: 0.85, hz: 1.4 };
+const SLIDE = { ratio: 0.9, hz: 0.9 };
+const DROP = { ratio: 1, hz: 1.8 };
+const EXPLODED = [0, 40, 84, 132, 188];
+const STD_DIALS = ORANGE.map(angleFor);
+// white light through one cell, before any filter
+function column(ctx, i, z0, h, a) {
+  if (a <= 0.01) return;
+  const c = CELLS[i];
+  const bot = [[c.x + 6, c.y + 8], [c.x + c.w - 6, c.y + 8], [c.x + c.w - 6, c.y + c.d - 8], [c.x + 6, c.y + c.d - 8]];
+  const pts = [...bot.map(([x, y]) => at([x, y, z0])), ...bot.map(([x, y]) => at([x, y, z0 + h]))];
+  const [, yb] = at([CX[i], 0, z0]), [, yt] = at([CX[i], 0, z0 + h]);
+  const g = ctx.createLinearGradient(0, yb, 0, yt);
+  g.addColorStop(0, `rgba(255,252,240,${0.34 * a})`); g.addColorStop(0.5, `rgba(255,252,240,${0.12 * a})`); g.addColorStop(1, 'rgba(255,252,240,0)');
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = g;
+  const hl = hull(pts); ctx.beginPath(); hl.forEach(([x, y], j) => (j ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+const mixedFor = (set) => SEEN[set];
+
+window.__dbg = { P, PM };
+
+CV.create({
+  width: W, height: H, fps: 30,
+  background: T.bg,
+  lang: 'en',
+  subtitles: { style: { font: `600 46px ${T.sans}`, color: '#F2F2F2', box: 'rgba(10,10,10,0.82)', radius: 10, y: 0.93, padX: 26, padY: 14 } },
+  music: { bpm: 96, key: 'D', mode: 'major', script: 'score.mjs', volume: 0.72 },
+  scenes: [
+    // 1 — two screens, the same three numbers, two oranges
+    {
+      id: 'hook', voiceDelay: 1.1, tail: 0.5, energy: 0.25,
+      draw(ctx, s) {
+        const on = ease.outCubic(s.at(0.15, 0.7));
+        const zoom = lerp(1, 1.06, ease.inOutSine(s.p));
+        const send = s.at(s.when('Send', 4.6), 0.9, ease.inOutCubic);
+        draw.camera(ctx, W, H, { zoom, focusX: W / 2, focusY: H / 2 + 40 }, () => {
+          ctx.save(); ctx.translate(MOX, MOY);
+          desk(ctx, { on, rise: [ease.outCubic(s.at(0, 0.8)), ease.outCubic(s.at(0.12, 0.8))], content: (c, i) => onScreenNumbers(c, ORANGE, { alpha: send }) });
+          ctx.restore();
+        });
+        // the numbers, as the file holds them, before they are sent
+        const nIn = s.at(s.when('three numbers', 1.2) - 0.1, 0.5);
+        const nOut = 1 - send;
+        if (nIn * nOut > 0.01) {
+          const y = lerp(150, 230, send);
+          numbers(ctx, ORANGE, W / 2, y, 96, { alpha: nIn * nOut });
+        }
+      },
+    },
+    // 2 — up close: the screen is three windows
+    {
+      id: 'pixel', voiceDelay: 0.3, tail: 0.4, energy: 0.35,
+      draw(ctx, s) {
+        const push = s.at(0, 2.2, ease.inCubic);
+        const reveal = s.at(2.1, 1.0, ease.outCubic);
+        if (reveal < 1) {
+          const [fx, fy] = screenCenter(0);
+          draw.camera(ctx, W, H, { zoom: 2 ** lerp(0, 4.2, push), focusX: fx, focusY: fy }, () => {
+            ctx.save(); ctx.translate(MOX, MOY); desk(ctx, { cols: [SEEN.std, SEEN.deep], content: (c) => onScreenNumbers(c, ORANGE) }); ctx.restore();
+          });
+        }
+        if (reveal > 0) {
+          const named = ['red', 'green', 'blue'].map((w, i) => ease.outCubic(s.at(s.when(w, 5.4 + i * 0.7) - 0.05, 0.5)));
+          const zoom = lerp(1.25, 0.96, ease.inOutSine(clamp((s.t - 2.1) / (s.dur - 2.1))));
+          draw.camera(ctx, W, H, { zoom, focusX: W / 2 - 110, focusY: H / 2 }, () => {
+            ctx.save(); ctx.translate(MX, MY);
+            module(ctx, { glow: 1, dials: named.map((n) => lerp(SHUT, OPEN, n)), beams: 1, values: named.map((n) => 255 * n) });
+            ctx.restore();
+          });
+          // the orange dissolves into the machine that makes it
+          ctx.save(); ctx.globalAlpha = 1 - reveal; ctx.fillStyle = rgb(SEEN.std); ctx.fillRect(0, 0, W, H); ctx.restore();
+        }
+      },
+    },
+    // 3 — behind the windows: backlight, liquid crystal, filters (the explode)
+    {
+      id: 'stack', voiceDelay: 0.3, tail: 0.6, energy: 0.4,
+      draw(ctx, s) {
+        const tB = s.when('backlight', 1), tC = s.when('liquid crystal', 2.6), tF = s.when('colored filters', 4.5);
+        const keys = [
+          [[0, 0]],
+          [[0, 0], [tB - 0.35, 44]],
+          [[0, 0], [tB - 0.35, 44], [tC - 0.3, EXPLODED[2]]],
+          [[0, 0], [tB - 0.35, 44], [tC - 0.3, 96], [tF - 0.3, EXPLODED[3]]],
+          [[0, 0], [tB - 0.35, 44], [tC - 0.3, 96], [tF - 0.3, EXPLODED[4]]],
+        ];
+        const lift = keys.map((kk) => CV.springTrack(s.t, kk, LIFT_SPRING));
+        const glow = ease.outCubic(s.at(s.when('white', 0.7), 0.6));
+        const grow = clamp(lift[4] / EXPLODED[4]);
+        const down = lerp(0, 150, grow);
+        const zs = lerp(1, 0.84, grow);
+        ctx.translate(W / 2, H / 2); ctx.scale(zs, zs); ctx.translate(-W / 2, -H / 2);
+        ctx.save(); ctx.translate(MX - 40, MY + down);
+        module(ctx, { glow, lift, dials: STD_DIALS, litDial: s.t > tC ? 'all' : null, cart: { set: 'std' } });
+        ctx.restore();
+        // the three names, beside their layers
+        const names = [['backlight', 0, tB, Z.lightTop], ['liquid crystal', 2, tC, Z.cellTop], ['color filters', 3, tF, Z.cartTop]];
+        for (const [nm, li, tt, z] of names) {
+          const a = s.at(tt + 0.1, 0.5);
+          if (a <= 0) continue;
+          const [x, y] = at([STACK.x, STACK.y + STACK.d, z + lift[li]]);
+          label(ctx, nm, MX - 40 + x - 34, MY + down + y + 14, 50, { align: 'right', col: T.ink, alpha: a, weight: 500 });
+        }
+      },
+    },
+    // 4 — the crystal is a twist; a number sets its angle
+    {
+      id: 'twist', voiceDelay: 0.5, tail: 0.5, energy: 0.5,
+      draw(ctx, s) {
+        const away = ease.inOutCubic(s.at(0, 1.1));
+        const lift = [0, 40, 84, EXPLODED[3] + 520 * away, EXPLODED[4] + 600 * away];
+        const t1 = s.when('Turned one way', 1.8), t2 = s.when('Turned the other', 4), t3 = s.when('Each number', 5.8);
+        const d0 = CV.springTrack(s.t, [[0, STD_DIALS[0]], [0.3, SHUT], [t1 + 0.1, OPEN], [t2 + 0.1, SHUT], [t3 + 0.2, STD_DIALS[0]]], DIAL_SPRING);
+        const d1 = CV.springTrack(s.t, [[0, STD_DIALS[1]], [0.35, SHUT], [t3 + 0.35, STD_DIALS[1]]], DIAL_SPRING);
+        const d2 = CV.springTrack(s.t, [[0, STD_DIALS[2]], [0.4, SHUT], [t3 + 0.5, STD_DIALS[2]]], DIAL_SPRING);
+        const dials = [d0, d1, d2];
+        const f = mPt([CX[1] - 10, 0, Z.cellTop], 84);
+        const cam = { zoom: lerp(1, 2.05, ease.inOutCubic(s.at(0.1, 1.4))) * lerp(1, 1.12, clamp((s.t - 1.5) / (s.dur - 1.5))), focusX: lerp(W / 2, f[0], ease.inOutCubic(s.at(0.1, 1.4))) + lerp(-30, 50, s.p), focusY: lerp(H / 2, f[1] - 40, ease.inOutCubic(s.at(0.1, 1.4))) + lerp(0, -24, s.p) };
+        draw.camera(ctx, W, H, cam, () => {
+          ctx.save(); ctx.translate(MX, MY);
+          module(ctx, { glow: 1, lift, dials, litDial: s.t < t3 ? 0 : 'all', cart: { set: 'std' } });
+          // light through each crystal, before any filter: cos² of the angle
+          const [ox, oy] = k.axisVector(P, [0, 0, 84]);
+          ctx.translate(ox, oy);
+          dials.forEach((th, i) => column(ctx, i, Z.cellTop + 2.4, 70, Math.cos(th) ** 2));
+          ctx.restore();
+        });
+        // each number above its dial
+        const nA = s.at(t3 + 0.2, 0.5);
+        if (nA > 0) {
+          ctx.save(); ctx.font = `600 64px ${T.mono}`; ctx.textAlign = 'center'; ctx.globalAlpha = nA;
+          ORANGE.forEach((v, i) => {
+            const [x, y] = camPt(mPt([CX[i], -DIAL_R - 30, Z.cellTop], 84), cam);
+            ctx.fillStyle = T.ink; ctx.fillText(String(v), x, y - 40);
+            ctx.fillStyle = [T.red, T.green, T.blue][i]; ctx.fillRect(x - 50, y - 28, 100, 5);
+          });
+          ctx.restore();
+        }
+      },
+    },
+    // 5 — three lights, too small to tell apart, blend into orange
+    {
+      id: 'blend', voiceDelay: 0.4, tail: 0.8, energy: 0.55,
+      draw(ctx, s) {
+        const on = ['Red', 'green', 'blue'].map((w, i) => ease.outCubic(s.at(s.when(w, 0.1 + i * 1.2) - 0.05, 0.7)));
+        const m = ease.inOutCubic(s.at(s.when('blend', 5.8) - 0.3, 1.3));
+        const zoom = lerp(1.04, 1.0, ease.outCubic(s.at(0, 3)));
+        draw.camera(ctx, W, H, { zoom, focusX: W / 2, focusY: H / 2 }, () => {
+          ctx.save(); ctx.translate(MX, MY + 40);
+          module(ctx, { glow: 1, dials: STD_DIALS, beams: 1, values: ORANGE.map((v, i) => v * on[i]), merge: m, mixed: SEEN.std });
+          ctx.restore();
+        });
+        numbers(ctx, ORANGE, 1580, 560, 84, { alphas: on });
+      },
+    },
+    // 6 — about 25 million windows, reset 60 times a second
+    {
+      id: 'scale', voiceDelay: 0.3, tail: 0.7, energy: 0.6,
+      draw(ctx, s) {
+        const F = { x: 150, y: 90, w: 1620, h: 640 };
+        const prog = ease.inOutCubic(s.at(0.2, s.when('million', 2.8) + 0.6));
+        const pitch = 2 ** lerp(Math.log2(560), Math.log2(1.6), prog);
+        ctx.save();
+        ctx.beginPath(); ctx.roundRect(F.x, F.y, F.w, F.h, 6); ctx.clip();
+        ctx.fillStyle = '#060606'; ctx.fillRect(F.x, F.y, F.w, F.h);
+        const cx = F.x + F.w / 2 - pitch / 2, cy = F.y + F.h / 2 - pitch / 2;
+        const blendA = clamp((10 - pitch) / 8);
+        if (blendA < 1) {
+          const sw = pitch / 3, gap = Math.max(0.6, pitch * 0.07);
+          const n0 = Math.floor((F.x - cx) / pitch) - 1, n1 = Math.ceil((F.x + F.w - cx) / pitch) + 1;
+          for (let i = 0; i < 3; i++) {
+            ctx.fillStyle = rgb(LIGHT[i], ORANGE[i] / 255);
+            for (let n = n0; n <= n1; n++) ctx.fillRect(cx + n * pitch + i * sw + gap / 2, F.y, sw - gap, F.h);
+          }
+          ctx.fillStyle = '#060606';
+          const r0 = Math.floor((F.y - cy) / pitch) - 1, r1 = Math.ceil((F.y + F.h - cy) / pitch) + 1;
+          for (let r = r0; r <= r1; r++) ctx.fillRect(F.x, cy + r * pitch - gap / 2, F.w, gap * 1.4);
+        }
+        if (blendA > 0) { ctx.globalAlpha = blendA; ctx.fillStyle = rgb(SEEN.std); ctx.fillRect(F.x, F.y, F.w, F.h); ctx.globalAlpha = 1; }
+        // the refresh: a scan line sweeps the field sixty times a second (shown slowed down)
+        const sweep = s.at(s.when('sixty', 5.2) - 0.1, 0.4);
+        if (sweep > 0) {
+          const y = F.y + ((s.t * 1.6) % 1) * F.h;
+          const g = ctx.createLinearGradient(0, y - 60, 0, y);
+          g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(1, `rgba(255,255,255,${0.22 * sweep})`);
+          ctx.fillStyle = g; ctx.fillRect(F.x, y - 60, F.w, 60);
+        }
+        ctx.restore();
+        iso.line(ctx, `M${F.x} ${F.y}h${F.w}v${F.h}h${-F.w}Z`, { tone: 'lo' });
+        // the count
+        const cnt = s.at(0.4, s.when('million', 2.8) + 0.2, ease.inOutCubic);
+        const n = Math.round(3 * (24883200 / 3) ** cnt);
+        ctx.save();
+        ctx.font = `600 92px ${T.mono}`; ctx.fillStyle = T.ink; ctx.textAlign = 'left';
+        ctx.fillText(n.toLocaleString('en-US'), F.x, F.y + F.h + 120);
+        const nw = ctx.measureText('24,883,200').width;
+        ctx.restore();
+        label(ctx, 'windows', F.x + nw + 26, F.y + F.h + 120, 44, { col: T.muted });
+        label(ctx, '3840 × 2160 pixels × 3', F.x + F.w, F.y + F.h + 76, 38, { align: 'right', col: T.muted, alpha: s.at(s.when('million', 2.8), 0.5) });
+        label(ctx, '× 60 every second', F.x + F.w, F.y + F.h + 124, 38, { align: 'right', col: T.ink, alpha: sweep });
+      },
+    },
+    // 7 — a breath, then the catch: the numbers never say which red
+    {
+      id: 'catch', voiceDelay: 2.0, tail: 0.6, energy: 0.2,
+      draw(ctx, s) {
+        const t0 = s.when('which red', 3.7), t1 = s.when('how far', 5.1);
+        const tw = (base, j) => CV.springTrack(s.t, [[0, base], [t1 + j * 0.12, base - 0.32], [t1 + 0.45 + j * 0.12, base + 0.18], [t1 + 0.9 + j * 0.12, base]], DIAL_SPRING);
+        const dials = STD_DIALS.map((b, j) => tw(b, j));
+        const c = mPt([0, 0, Z.cartTop]);
+        const zoom = lerp(1.22, 1.62, s.p);
+        draw.camera(ctx, W, H, { zoom, focusX: c[0] + 30, focusY: c[1] - 20 }, () => {
+          ctx.save(); ctx.translate(MX, MY);
+          module(ctx, { glow: 1, dials, beams: 0.72 + 0.16 * Math.sin(s.t * 1.6), values: ORANGE, cart: { set: 'std' } });
+          // which red? the red pane, outlined
+          const a = s.at(t0 - 0.1, 0.4);
+          if (a > 0) iso.line(ctx, k.planOutline(WINDOWS[0], Z.cartTop, P, 1), { tone: 'lit', width: 3, alpha: a });
+          ctx.restore();
+        });
+      },
+    },
+    // 8 — swap one part: deeper filters, the same numbers, a redder orange
+    {
+      id: 'swap', voiceDelay: 0.3, tail: 1.0, energy: 0.55,
+      sfx: [{ at: 'panel', type: 'card', gain: 0.18 }, { at: (s) => Math.max(s.when('filters', 1.4) - 0.1, s.when('panel', 0.3) + 0.85) + 0.6, type: 'metal', gain: 0.03 }],
+      draw(ctx, s) {
+        const tOut = s.when('panel', 0.3) - 0.25, tIn = Math.max(s.when('filters', 1.4) - 0.1, tOut + 1.1);
+        const out = CV.springTrack(s.t, [[0, 0], [tOut, 330]], { ratio: 1, hz: 1.6 });
+        const drop = Math.max(0, CV.springTrack(s.t, [[0, 220], [tIn, 0]], DROP)); // it seats, it doesn't bounce through
+        // no filters in place, no coloured light: the beams follow the cartridge out and back in
+        const landed = Math.max(clamp(1 - out / 90), clamp(1 - drop / 30));
+        const mixed = mixRGB(SEEN.std, SEEN.deep, ease.inOutCubic(s.at(tIn + 0.25, 0.9)));
+        draw.camera(ctx, W, H, { zoom: 0.94, focusX: W / 2 + 40, focusY: H / 2 - 30 }, () => {
+          ctx.save(); ctx.translate(MX - 60, MY + 60);
+          module(ctx, {
+            glow: 1, dials: STD_DIALS, beams: landed, values: ORANGE, merge: 1, mixed,
+            cart: { set: 'std', dx: out, alpha: clamp(1 - (out - 120) / 120) },
+            cart2: s.t > tIn - 0.4 ? { set: 'deep', dz: drop, alpha: clamp(1 - (drop - 150) / 60) } : null,
+          });
+          ctx.restore();
+        });
+        // the swatch: before / now, and the numbers that did not change
+        const sx = 1450, sy = 300, sw = 340, sh = 230;
+        const sa = s.at(0, 0.6);
+        ctx.save(); ctx.globalAlpha = sa;
+        ctx.fillStyle = rgb(SEEN.std); ctx.fillRect(sx, sy, sw / 2, sh);
+        ctx.fillStyle = rgb(mixed); ctx.fillRect(sx + sw / 2, sy, sw / 2, sh);
+        ctx.restore();
+        iso.line(ctx, `M${sx} ${sy}h${sw}v${sh}h${-sw}Z`, { tone: 'lo', alpha: sa });
+        label(ctx, 'before', sx, sy - 26, 50, { alpha: sa, weight: 600 });
+        label(ctx, 'now', sx + sw, sy - 26, 50, { align: 'right', alpha: sa, col: T.ink, weight: 600 });
+        numbers(ctx, ORANGE, sx + sw / 2, sy + sh + 110, 64, { alpha: sa });
+        label(ctx, 'same numbers', sx + sw / 2, sy + sh + 180, 44, { align: 'center', col: T.ink, alpha: s.at(s.when('Same numbers', 2.5), 0.5) });
+      },
+    },
+    // 9 — the hook again, read: the same numbers through different filters
+    {
+      id: 'name', voiceDelay: 0.4, tail: 0.6, energy: 0.5,
+      draw(ctx, s) {
+        const zoom = lerp(1.08, 1.0, ease.outCubic(s.at(0, 3)));
+        draw.camera(ctx, W, H, { zoom, focusX: W / 2, focusY: H / 2 + 40 }, () => {
+          ctx.save(); ctx.translate(MOX, MOY); desk(ctx, { content: (c) => onScreenNumbers(c, ORANGE) }); ctx.restore();
+        });
+        const tt = s.at(s.when('color difference', 0.3) - 0.05, 0.6);
+        ctx.save(); ctx.globalAlpha = tt; ctx.font = `700 92px ${T.sans}`; ctx.fillStyle = T.ink; ctx.textAlign = 'center';
+        ctx.fillText('Color difference', W / 2, 140 - (1 - tt) * 12); ctx.restore();
+        const la = s.at(s.when('different filters', 4.9) - 0.1, 0.5);
+        ['standard filters', 'deeper filters'].forEach((t, i) => {
+          const [x, y] = screenBottom(i);
+          label(ctx, t, x, y + 84, 44, { align: 'center', col: T.ink, alpha: la });
+        });
+      },
+    },
+    // 10 — colour management: the deeper screen gets its own numbers
+    {
+      id: 'fix', voiceDelay: 0.4, tail: 0.8, energy: 0.65,
+      draw(ctx, s) {
+        const tTag = s.when('image', 1.5), tR = s.when('rewrites', 4.1);
+        const roll = s.at(tR, 0.9, ease.inOutCubic);
+        const right = ORANGE.map((v, i) => lerp(v, FIXED[i], roll));
+        const col = mixRGB(SEEN.deep, SEEN.std, roll);
+        draw.camera(ctx, W, H, { zoom: lerp(1, 1.04, ease.inOutSine(s.p)), focusX: W / 2, focusY: H / 2 + 40 }, () => {
+          ctx.save(); ctx.translate(MOX, MOY);
+          desk(ctx, { cols: [SEEN.std, col], content: (c, i) => onScreenNumbers(c, i ? right : ORANGE, { tag: 'sRGB image', tagAlpha: s.at(tTag, 0.5) }) });
+          ctx.restore();
+        });
+        ['standard filters', 'deeper filters'].forEach((t, i) => {
+          const [x, y] = screenBottom(i);
+          label(ctx, t, x, y + 84, 44, { align: 'center', col: T.muted });
+        });
+        const [rx, ry] = screenBottom(1);
+        label(ctx, 'new numbers for its filters', rx, ry + 140, 40, { align: 'center', col: T.ink, alpha: s.at(tR + 0.4, 0.5) });
+      },
+    },
+    // 11 — same orange, different numbers
+    {
+      id: 'land', voiceDelay: 0.4, tail: 2.0, energy: 0.45,
+      draw(ctx, s) {
+        draw.camera(ctx, W, H, { zoom: lerp(1.0, 1.05, ease.inOutSine(s.p)), focusX: W / 2, focusY: H / 2 - 10 }, () => {
+          ctx.save(); ctx.translate(MOX, MOY);
+          desk(ctx, { cols: [SEEN.std, SEEN.std], content: (c, i) => onScreenNumbers(c, i ? FIXED : ORANGE) });
+          ctx.restore();
+        });
+        const a1 = s.at(s.when('Same orange', 0.1) - 0.05, 0.5), a2 = s.at(s.when('Different numbers', 1.7) - 0.05, 0.5);
+        ctx.save(); ctx.font = `700 92px ${T.sans}`; ctx.textAlign = 'left'; ctx.fillStyle = T.ink;
+        const w1 = ctx.measureText('Same orange.').width, w2 = ctx.measureText('Different numbers.').width, gap = 40;
+        const x0 = (W - w1 - gap - w2) / 2;
+        ctx.globalAlpha = a1; ctx.fillText('Same orange.', x0, 118);
+        ctx.globalAlpha = a2; ctx.fillText('Different numbers.', x0 + w1 + gap, 118);
+        ctx.restore();
+      },
+    },
+    // 12 — credit: the machine, at rest
+    {
+      id: 'credit', narration: false, beats: 8, energy: 0.3,
+      draw(ctx, s) {
+        const a = s.at(0.2, 0.8);
+        ctx.save(); ctx.translate(90, 250); ctx.scale(0.78, 0.78);
+        module(ctx, { glow: 1, dials: STD_DIALS, beams: 1, values: ORANGE, merge: 1, mixed: SEEN.std });
+        ctx.restore();
+        ctx.save(); ctx.globalAlpha = a;
+        label(ctx, 'Isometric machine drawn with', 1080, 430, 40, { col: T.muted });
+        label(ctx, 'the anatomy kit', 1080, 530, 96, { col: T.ink, weight: 700 });
+        label(ctx, 'by @wheresryan22', 1080, 610, 44, { col: T.ink, weight: 500 });
+        label(ctx, 'skills.wheresryan.sh/anatomy', 1080, 690, 40, { col: T.muted });
+        label(ctx, 'Narration: Qwen-TTS (AI voice)', 1080, 790, 32, { col: T.muted });
+        ctx.restore();
+      },
+    },
+  ],
+});
+</script>
+</body>
+</html>

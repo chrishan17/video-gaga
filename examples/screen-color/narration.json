@@ -1,0 +1,18 @@
+{
+  "engine": "qwen",
+  "voice": "Andre",
+  "lang": "en-US",
+  "segments": [
+    { "id": "hook", "text": "This orange is three numbers. Two hundred thirty, one hundred twenty, fifty. Send them to two screens, and you get two different oranges." },
+    { "id": "pixel", "text": "Up close, a screen can't make orange at all. Each pixel has three windows: red, green and blue." },
+    { "id": "stack", "text": "Behind them are a white backlight, a layer of liquid crystal, and a sheet of colored filters." },
+    { "id": "twist", "text": "The crystal is a twist. Turned one way, light gets through. Turned the other, it's blocked. Each number sets the angle." },
+    { "id": "blend", "text": "Red almost fully open, green partway, blue just a crack. Too small to tell apart, they blend into orange." },
+    { "id": "scale", "text": "A four K screen has almost twenty-five million of these windows, all reset sixty times a second." },
+    { "id": "catch", "text": "But the numbers never say which red. They only say how far to open each window." },
+    { "id": "swap", "text": "This panel has deeper filters. Same numbers, and the orange turns redder." },
+    { "id": "name", "text": "That's the color difference between your screens. Neither one is broken. They obey the same numbers, through different filters." },
+    { "id": "fix", "text": "Color management fixes it. The image is tagged with the red it was made for, and the screen rewrites the numbers for its own filters." },
+    { "id": "land", "text": "Same orange. Different numbers." }
+  ]
+}

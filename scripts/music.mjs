@@ -1253,7 +1253,7 @@ export async function renderScore(plan, opts = {}) {
   if (plan.parts) report.parts = chords.filter((c, b) => b < endBar && (b === 0 || c.part !== chords[b - 1].part)).map((c) => `${c.part ?? 'main'}@${chords.indexOf(c) + 1}`);
   // one loop for minutes on end is the most audible problem of a long score
   const loops = Math.min(nBars, endBar) / (prog.length * chordBars);
-  if (!plan.parts && !silent && duration > 75 && loops > 8) warnings.push(`${Math.round(duration)} s on one ${prog.length}-chord loop (it repeats ${Math.round(loops)} times): give the chapters their own harmony with music.parts and a \`part\` on each chapter's first scene (docs/music-spec.md §2.5)`);
+  if (!plan.parts && !plan.script && !silent && duration > 75 && loops > 8) warnings.push(`${Math.round(duration)} s on one ${prog.length}-chord loop (it repeats ${Math.round(loops)} times): give the chapters their own harmony with music.parts and a \`part\` on each chapter's first scene (docs/music-spec.md §2.5)`);
   const plays = (L, e) => e >= (L.from ?? 0) && e < (L.to ?? 1.01);
   const drumsAt = (e) => layers.some(({ L }) => INSTRUMENTS.drums.includes(L.inst) && plays(L, e));
   for (let b = 0; b < (silent ? 0 : Math.min(nBars, endBar)); b++) {

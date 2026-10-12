@@ -81,7 +81,8 @@ function ffprobe(file) {
 async function tts(dir) {
   if (!fs.existsSync(path.join(dir, 'narration.json'))) return false;
   const script = path.join(ROOT, 'scripts', 'tts.py');
-  log('▸ narration (Edge TTS)');
+  const spec = JSON.parse(fs.readFileSync(path.join(dir, 'narration.json'), 'utf8'));
+  log(`▸ narration (${spec.engine === 'qwen' ? 'Qwen-TTS' : 'Edge TTS'})`);
   if (has('uv')) await run('uv', ['run', '--quiet', '--no-project', '--with', 'edge-tts>=7.2', 'python', script, dir]);
   else if (has('python3')) await run('python3', [script, dir]);
   else die('need `uv` or `python3` with edge-tts installed (pip install edge-tts)');
@@ -1125,6 +1126,9 @@ async function doctor() {
   // generated surfaces for three.js shots (not required: any image model will do)
   const codex = spawnSync('codex', ['--version'], { encoding: 'utf8' });
   log(`  ${'·'} ${'codex (optional)'.padEnd(18)} ${codex.status === 0 ? `${codex.stdout.trim()}: gaga texture --prompt generates surfaces` : 'not found: generate textures with any image model, then gaga texture <image>'}`);
+  // Qwen-TTS is optional ("engine": "qwen" in narration.json): a Bailian key, and mlx-audio for the word timings
+  const arm = process.platform === 'darwin' && process.arch === 'arm64';
+  log(`  ${'·'} ${'qwen-tts'.padEnd(18)} ${process.env.DASHSCOPE_API_KEY ? 'DASHSCOPE_API_KEY set' : 'optional: set DASHSCOPE_API_KEY to use "engine": "qwen"'}${arm ? (uv ? ' · aligner via uv + mlx-audio' : ' · aligner needs uv') : ' · aligner needs Apple Silicon'}`);
   // the instrument samples for the score (downloaded once, 40 MB)
   const { loadSoundfont, SOUNDFONT } = await import('./soundfont.mjs');
   const sf = await loadSoundfont({ log });
@@ -1168,7 +1172,7 @@ moodboard <preview> <preview> …   the style directions side by side on one HTM
     --open                    open it in the browser
     --wait                    serve it on localhost, open it, and wait for the click (prints the pick,
                               writes pick.json)  [--timeout 600 --port 0 --no-open]
-tts <project>                 synthesize narration.json with Edge TTS (cached)
+tts <project>                 synthesize narration.json with Edge TTS or Qwen-TTS (cached)
 music <project>               render the generated score to build/music.wav (the preview player plays it)
 check <video.mp4> [--srt f]   ffprobe summary + A/V + subtitle sanity checks, and a scan of the picture
                               (still stretches, one-frame glitches, blank frames, flashing)
