@@ -77,6 +77,8 @@ Timeline resolution: `scene.duration = duration ?? beats/bars ?? max(minDuration
 - **the voice starts on an eighth note**: `voiceDelay` is nudged so the first syllable lands on the grid,
 - **the video ends on a beat**, so the score's final chord and the last frame agree.
 
+**One take** (`narration.track`, written by `gaga voicetrack`): a run of scenes whose lines were cut from one recording follows it instead. Each such scene starts its slice at the middle of its transition (`voiceDelay` = half the overlap) and lasts until the next slice's cut, so the slices play back to back; their cuts and voices are not snapped to the grid, and only the last slice of the run keeps its `tail` ([narration-and-subtitles.md](narration-and-subtitles.md) §7).
+
 **Pacing — leave room.** A video doesn't need wall-to-wall narration. Use a long `voiceDelay` for a music-only pre-roll, a `narration: false` scene with `beats: 4–8` to let a result sink in, and a longer `tail` on the end card. The score fills those moments (its melody only plays where nobody speaks).
 
 ### The scene info object `s`

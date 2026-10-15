@@ -79,13 +79,37 @@ function ffprobe(file) {
 // TTS
 // ---------------------------------------------------------------------------
 async function tts(dir) {
-  if (!fs.existsSync(path.join(dir, 'narration.json'))) return false;
+  const spec = path.join(dir, 'narration.json');
+  if (!fs.existsSync(spec)) return false;
+  // One take: the voice is a recorded or separately synthesized track, cut by `gaga voicetrack`
+  if (JSON.parse(fs.readFileSync(spec, 'utf8')).track) {
+    if (!fs.existsSync(path.join(dir, 'build', 'narration.js'))) die('narration.json has a "track": cut the take first with `gaga voicetrack <project> --audio <take>`');
+    log('▸ narration: one take (build/narration.js from `gaga voicetrack`), Edge TTS skipped');
+    return true;
+  }
   const script = path.join(ROOT, 'scripts', 'tts.py');
   log('▸ narration (Edge TTS)');
   if (has('uv')) await run('uv', ['run', '--quiet', '--no-project', '--with', 'edge-tts>=7.2', 'python', script, dir]);
   else if (has('python3')) await run('python3', [script, dir]);
   else die('need `uv` or `python3` with edge-tts installed (pip install edge-tts)');
   return true;
+}
+
+// One take: align a whole recorded or synthesized narration to narration.json,
+// lengthen its pauses and cut it into one slice per scene (scripts/voicetrack.py).
+async function voicetrack(o) {
+  const { dir } = resolveProject(o._[1]);
+  if (!fs.existsSync(path.join(dir, 'narration.json'))) die('voicetrack needs narration.json (one segment per scene)');
+  const script = path.join(ROOT, 'scripts', 'voicetrack.py');
+  const args = [script, dir];
+  if (o.audio) args.push('--audio', path.resolve(String(o.audio)));
+  for (const c of String(o.cut || '').split(',').filter(Boolean)) args.push('--cut', c);
+  if (o.clean) args.push('--clean');
+  if (o.model) args.push('--model', String(o.model));
+  log('▸ narration: one take');
+  const asr = process.platform === 'darwin' && process.arch === 'arm64' ? 'mlx-whisper' : 'faster-whisper';
+  if (!has('uv')) die('voicetrack needs `uv` (it runs Whisper in a throwaway environment)');
+  await run('uv', ['run', '--quiet', '--no-project', '--with', asr, '--with', 'numpy', '--with', 'soundfile', '--with', 'pypinyin', '--with', 'jieba', 'python', '-W', 'ignore::SyntaxWarning', ...args]);
 }
 
 // ---------------------------------------------------------------------------
@@ -1169,6 +1193,11 @@ moodboard <preview> <preview> …   the style directions side by side on one HTM
     --wait                    serve it on localhost, open it, and wait for the click (prints the pick,
                               writes pick.json)  [--timeout 600 --port 0 --no-open]
 tts <project>                 synthesize narration.json with Edge TTS (cached)
+voicetrack <project> --audio <take>   one take: the whole narration recorded or synthesized in one pass;
+                              aligns it to narration.json (Whisper), lengthens the pauses, cuts one
+                              slice per scene and writes build/narration.js with the track, so the
+                              scenes follow the take  [--cut id:0.4-0.8,… (drop a stray stretch of a
+                              slice)  --clean (high-pass, de-noise, de-ess)  --model <whisper model>]
 music <project>               render the generated score to build/music.wav (the preview player plays it)
 check <video.mp4> [--srt f]   ffprobe summary + A/V + subtitle sanity checks, and a scan of the picture
                               (still stretches, one-frame glitches, blank frames, flashing)
@@ -1216,7 +1245,7 @@ async function checkCmd(o) {
   process.exitCode = issues.length ? 2 : 0;
 }
 
-const main = { doctor, render, still, moodboard, music: musicCmd, tts: (o) => tts(resolveProject(o._[1]).dir), check: checkCmd, gif, init, voices,
+const main = { doctor, render, still, moodboard, music: musicCmd, tts: (o) => tts(resolveProject(o._[1]).dir), voicetrack, check: checkCmd, gif, init, voices,
   asset: (o) => assetCmd(o, { log, die, resolveProject }), texture: (o) => textureCmd(o, { log, die, resolveProject }) }[cmd];
 if (!main) { log(HELP); process.exit(cmd && cmd !== 'help' ? 1 : 0); }
 Promise.resolve(main(opts)).catch((e) => die(e.stack || e.message));
