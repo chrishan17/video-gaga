@@ -14,6 +14,8 @@ video-gaga narrates with Microsoft Edge's online neural voices through [rany2/ed
 4. The renderer mixes the clips at their exact start times (`adelay` + `amix`) with the generated score (already arranged around the voice, see [music-and-sound.md](music-and-sound.md)) or a side-chain-ducked licensed track, applies `loudnorm` to −16 LUFS, and muxes AAC.
 5. Captions are built from the same word timings: burned in on the canvas, and written as `.srt` and `.vtt`.
 
+To voice the whole script in **one take** instead (a narrator, a cloned voice, a recording) and let the scenes follow it, see §7.
+
 ```json
 {
   "voice": "zh-CN-YunxiNeural",
@@ -139,3 +141,27 @@ Why canvas burn-in instead of ffmpeg's `subtitles` filter: it needs a libass bui
 | Visual hit misses the word | Use `s.when('exact words as spoken')`, and check `build/voice/<id>.json` for how the voice tokenised them. |
 | Can't target part of a date or number | Edge returns a spoken date or long number as **one word** ("October 29th, 1969"), so `s.when('1969')` gives the start of the whole date. Time the parts with `s.at(s.when('October') + k, …)` or put the date in a music-only beat and use `s.onBeat(i)`. |
 | Too much air after each line | Scene timing ends at the last word (+0.25 s for its decay), not at the end of the clip. Tune the pause with `tail`, never with negative values. |
+
+## 7. One take: the voice first, the picture follows
+
+Edge TTS (and most engines driven line by line) voices every scene on its own: the delivery restarts with each line and the pauses between lines come from `voiceDelay` and `tail`. When the voice should carry one mood from start to finish (a narrator reading the whole script, a cloned voice, a person recording it), make the voice first as **one take**, then let the picture follow it. Side by side on the same 4-minute explainer, the one-take version was preferred: the lines connect, and the pauses feel spoken rather than inserted.
+
+1. **Write `narration.json` as usual**: one segment per scene, `text` is the caption. Then add:
+   ```json
+   {
+     "lang": "zh-CN",
+     "track": { "audio": "voice/take.wav", "lead": 0.45, "pauses": { "。": 1.0, "？": 0.9, "，": 0.35 } },
+     "segments": [
+       { "id": "hook", "text": "可上次是大杯还是中杯？少冰还是去冰？几分糖来着？", "pause": 2.0,
+         "pauses": { "大杯还是中杯？": 1.0 } },
+       { "id": "price", "text": "合计从 ¥26 变成 ¥22。", "spoken": "合计从二十六元，变成二十二元。" }
+     ]
+   }
+   ```
+   `spoken` is what the voice actually says when it differs from the caption. `pause` is the silence after the line (default: by its last mark, at least 0.8 s), `pauses` the silence after a phrase inside it, and `track.pauses` the defaults by punctuation (the values above for Chinese, the same for `. ? ,` in Latin text). Engines leave 0.2–0.8 s between sentences, which reads as rushed in a video; about 1 s after a full stop and 1.5–2 s after the hook, the title or a key line is a good start.
+2. **Make the take in one pass**: the whole script, one blank line after each sentence (most engines breathe a little longer there). Generate it as one piece. An engine that splits long text into chunks may skip whole passages where the chunks join (VoxCPM2 with a 300-character chunk dropped several lines; the same script in one chunk was complete). Recording a person works the same way.
+3. **Cut it**: `gaga voicetrack <project> --audio voice/take.wav [--clean]`. It transcribes the take with Whisper (mlx-whisper on Apple Silicon, faster-whisper elsewhere, through `uv`), aligns it to the script character by character (by pinyin in Chinese, so a homophone in the transcript still lines up), lengthens every pause to its target by adding silence only inside a silence it detected (never cutting into speech), cuts the take in the pause before each line (at most `lead` seconds before it), and writes `build/voice/<id>.mp3` + `.json`, `build/voice-track.wav` and `build/narration.js` with `track.segments[id] = [start, end]`. `--clean` adds a high-pass, de-noise and de-ess pass for a local model or a home recording.
+4. **Read the report**: one line per segment, with how much of the line was heard and the characters that were not. Homophones and digits in the transcript are not reading errors; anything else, listen to. A stray syllable or breath inside a slice: `--cut <id>:<from>-<to>` (seconds from the start of that slice; comma-separate several), and run it again.
+5. **Render as usual.** `gaga render` sees `track` and skips Edge TTS. The runtime places a run of scenes cut from the take so that the slices play back to back: each cut sits in the pause between two slices (the middle of its transition on the boundary), `voiceDelay` and `tail` of those scenes are ignored except the tail of the last slice, and neither the cuts nor the voices move onto the beat grid, so the pauses stay as recorded. A scene without narration in the middle simply pauses the take there.
+
+Sync is checked as usual (§5); the per-clip voice sync of a one-take render is 0 ms by construction, and the caption onsets come from the aligned transcript.

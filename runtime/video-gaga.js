@@ -1464,6 +1464,13 @@
     // ---- timeline resolution (voice drives duration) -------------------------
     if (!config.scenes?.length) fail('no scenes yet: add one scene per storyboard row to CV.create({ scenes: [ … ] })');
     const scenes = config.scenes.map((s, i) => ({ ...s, index: i }));
+    // One take (narration.track, written by `gaga voicetrack`): the whole voice
+    // was recorded or synthesized in one pass and cut into one slice per scene.
+    // track.segments[id] = [start, end] in the take. A run of scenes cut from it
+    // follows the take: each cut sits in the pause between two slices and no
+    // cut or voice is moved onto the beat, so the pauses stay as recorded.
+    const track = narr?.track?.segments ? narr.track : null;
+    const spanOf = (s) => { const id = s.narration === false ? null : s.narration ?? s.id; return id && track?.segments[id] && narr?.segments?.[id] ? track.segments[id] : null; };
     let cursor = 0, part = null;
     for (const s of scenes) {
       // music parts (chapters of a long score): a scene's `part` holds until the
@@ -1478,7 +1485,8 @@
       s.start = Math.max(0, cursor - overlap);
       // cut on the beat: the middle of the transition lands on the grid; the
       // previous scene holds a little longer to get there
-      if (s.index > 0 && snapUnit && s.snap !== false) {
+      const span = spanOf(s);
+      if (s.index > 0 && snapUnit && s.snap !== false && !span) {
         const prev = scenes[s.index - 1];
         const unit = s.snap ? unitOf(s.snap) || snapUnit : newPart && mus.parts ? barLen : snapUnit;
         s.start = snapUp(s.start + overlap / 2, unit) - overlap / 2;
@@ -1491,9 +1499,9 @@
       else if (s.say) seg = { text: s.say, ...estimateSpeech(s.say, lang) };
       else if (segId && config.script?.[segId]) seg = { text: config.script[segId], ...estimateSpeech(config.script[segId], lang) };
       s.voice = seg;
-      s.voiceDelay = s.voiceDelay ?? config.voiceDelay ?? overlap * 0.5 + 0.25;
+      s.voiceDelay = span ? overlap * 0.5 : s.voiceDelay ?? config.voiceDelay ?? overlap * 0.5 + 0.25;
       // the first spoken syllable starts on an eighth note of the music grid
-      if (seg && bpm && (s.voiceOnBeat ?? mus.voiceOnBeat ?? true)) {
+      if (seg && bpm && !span && (s.voiceOnBeat ?? mus.voiceOnBeat ?? true)) {
         const lead = seg.words?.[0]?.start ?? 0;
         s.voiceDelay = snapUp(s.start + s.voiceDelay + lead, beatLen / 2) - s.start - lead;
       }
@@ -1507,6 +1515,13 @@
         ? (bpm ? (s.bars ?? 0) * barLen + (s.beats ?? 0) * beatLen + overlap / 2 : fail(`scene "${s.id}" uses beats/bars but no music bpm is set`))
         : null);
       s.dur = fixed ?? Math.max(s.minDuration ?? (seg ? 0 : 3), need);
+      // one take: when the next scene is the next slice of the take, end where
+      // its cut sits (the middle of its transition lands on the slice boundary)
+      const next = config.scenes[s.index + 1];
+      if (span && next && !fixed && spanOf(next)) {
+        const ntr = normTransition(next.transition ?? config.transition);
+        s.dur = (span[1] - span[0]) + overlap * 0.5 + (ntr && ntr.type !== 'cut' ? ntr.duration : 0) * 0.5;
+      }
       if (s.maxDuration) s.dur = Math.min(s.dur, s.maxDuration);
       s.end = s.start + s.dur;
       cursor = s.end;
